@@ -35,7 +35,7 @@
 
 ---
 
-## 🏗️ 아키텍처
+## 아키텍처
 
 ### 마이크로서비스 구성
 ```
@@ -77,7 +77,7 @@
 
 ### 1. 저장소 클론
 ```bash
-git clone https://github.com/[YOUR_USERNAME]/DoranDoran.git
+git clone https://github.com/Hangulling/DoranDoran-BackEnd.git
 cd DoranDoran
 ```
 
@@ -236,9 +236,7 @@ Authorization: Bearer {accessToken}
 
 ### 1. 브랜치 전략
 - **main**: 프로덕션 배포용
-- **develop**: 개발 통합용
-- **feature/기능명**: 새로운 기능 개발
-- **hotfix/버그명**: 긴급 버그 수정
+- **dev**: 개발 통합용
 
 ### 2. 개발 프로세스
 1. **브랜치 생성**: `git checkout -b feature/새기능`
@@ -332,19 +330,6 @@ netstat -an | findstr :808
 
 ---
 
-## 📞 지원 및 문의
-
-### 개발팀 연락처
-- **프로젝트 매니저**: [이름] ([이메일])
-- **기술 리드**: [이름] ([이메일])
-- **DevOps**: [이름] ([이메일])
-
-### 유용한 링크
-- **프로젝트 저장소**: https://github.com/[YOUR_USERNAME]/DoranDoran
-- **이슈 트래커**: https://github.com/[YOUR_USERNAME]/DoranDoran/issues
-- **위키**: https://github.com/[YOUR_USERNAME]/DoranDoran/wiki
-
----
 
 ## 📝 체크리스트
 
@@ -362,5 +347,3 @@ netstat -an | findstr :808
 - [ ] 코드 리뷰 프로세스 이해
 
 ---
-
-**🎉 온보딩을 완료하셨습니다! 이제 DoranDoran 프로젝트의 개발에 참여하실 수 있습니다.**
