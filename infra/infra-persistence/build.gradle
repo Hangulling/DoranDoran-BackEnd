@@ -1,12 +1,12 @@
 plugins { 
-    id("java-library") 
+    id 'java-library' 
 }
 
 dependencies {
-    api(project(":shared"))
-    implementation(project(":common"))
+    api project(':shared')
+    implementation project(':common')
     
     // Spring Boot 스타터들은 common에서 제공
     // Lombok은 common에서 제공, annotationProcessor만 필요
-    annotationProcessor("org.projectlombok:lombok")
+    annotationProcessor 'org.projectlombok:lombok'
 }
