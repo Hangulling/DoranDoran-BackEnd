@@ -1,162 +1,189 @@
-# 🚀 DoranDoran MSA 개발자 온보딩 매뉴얼
+# 🚀 DoranDoran 개발자 온보딩 메뉴얼
 
 ## 📋 목차
-
-1. [프로젝트 개요](#1-프로젝트-개요)
-2. [아키텍처 구조](#2-아키텍처-구조)
-3. [개발 환경 설정](#3-개발-환경-설정)
-4. [서비스 간 통신 구조](#4-서비스-간-통신-구조)
-5. [API 사용법](#5-api-사용법)
-6. [개발 가이드라인](#6-개발-가이드라인)
-7. [모니터링 및 디버깅](#7-모니터링-및-디버깅)
-8. [문제 해결](#8-문제-해결)
-
----
-
-## 1. 프로젝트 개요
-
-### DoranDoran MSA 프로젝트
-- **목적**: 모듈러 모놀리스에서 진정한 마이크로서비스 아키텍처로 전환
-- **기술 스택**: Spring Boot 3.3.4, Java 21, PostgreSQL, Redis, Docker
-- **아키텍처**: MSA (Microservices Architecture)
-- **현재 상태**: Gateway, Auth, User 서비스 정상 운영 중
-
-### 현재 운영 중인 서비스
-
-| 서비스 | 포트 | 역할 | 상태 |
-|--------|------|------|------|
-| **API Gateway** | 8080 | 모든 외부 요청의 단일 진입점 | ✅ 운영 중 |
-| **Auth Service** | 8081 | JWT 인증/인가, 토큰 관리 | ✅ 운영 중 |
-| **User Service** | 8082 | 사용자 관리, 프로필 관리 | ✅ 운영 중 |
-| **Chat Service** | 8083 | 채팅 관리 | ⚠️ 개발 중 |
-| **Batch Service** | 8085 | 배치 작업 | ⚠️ 개발 중 |
+1. [프로젝트 개요](#프로젝트-개요)
+2. [아키텍처](#아키텍처)
+3. [개발 환경 설정](#개발-환경-설정)
+4. [서비스별 가이드](#서비스별-가이드)
+5. [API 문서](#api-문서)
+6. [개발 워크플로우](#개발-워크플로우)
+7. [트러블슈팅](#트러블슈팅)
+8. [기여 가이드](#기여-가이드)
 
 ---
 
-## 2. 아키텍처 구조
+## 🎯 프로젝트 개요
 
-### 🌐 전체 아키텍처 다이어그램
+### 프로젝트명
+**DoranDoran** - 마이크로서비스 아키텍처 기반의 웹 애플리케이션
 
+### 기술 스택
+- **Backend**: Spring Boot 3.3.4, Java 21
+- **Database**: PostgreSQL
+- **Cache**: Redis
+- **Build Tool**: Gradle
+- **API Gateway**: Spring Cloud Gateway
+- **Security**: Spring Security
+- **Testing**: JUnit 5, Mockito
+
+### 주요 기능
+- 사용자 관리 (User Service)
+- 인증/인가 (Auth Service)
+- 채팅 (Chat Service)
+- 배치 처리 (Batch Service)
+- API Gateway를 통한 통합 관리
+
+---
+
+## 🏗️ 아키텍처
+
+### 마이크로서비스 구성
 ```
 ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│   API Gateway   │    │  Auth Service   │    │  User Service   │
-│   (Port 8080)   │◄──►│   (Port 8081)   │◄──►│   (Port 8082)   │
-│                 │    │                 │    │                 │
-│ • 라우팅        │    │ • JWT 인증      │    │ • 사용자 관리   │
-│ • Rate Limiting │    │ • 토큰 검증     │    │ • 프로필 관리   │
-│ • CORS 설정     │    │ • 권한 관리     │    │ • 이벤트 발행   │
+│   API Gateway   │    │   Auth Service  │    │   User Service  │
+│   (Port: 8080)  │◄──►│   (Port: 8081)  │◄──►│   (Port: 8082)  │
 └─────────────────┘    └─────────────────┘    └─────────────────┘
-         │                       │                       │
          │                       │                       │
          ▼                       ▼                       ▼
 ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│  Chat Service   │    │ Store Service   │    │ Batch Service   │
-│   (Port 8083)   │    │   (Port 8084)   │    │   (Port 8085)   │
-│                 │    │                 │    │                 │
-│ • 채팅 관리     │    │ • 상품 관리     │    │ • 배치 작업     │
-│ • 메시지 처리   │    │ • 주문 처리     │    │ • 스케줄링     │
-│ • 실시간 통신   │    │ • 결제 처리     │    │ • 데이터 처리   │
+│  Chat Service   │    │  Batch Service  │    │   PostgreSQL    │
+│   (Port: 8083)  │    │   (Port: 8085)  │    │   (Port: 5432)  │
 └─────────────────┘    └─────────────────┘    └─────────────────┘
+         │                       │
+         ▼                       ▼
+┌─────────────────┐    ┌─────────────────┐
+│     Redis       │    │   Monitoring    │
+│   (Port: 6379)  │    │   (Grafana)     │
+└─────────────────┘    └─────────────────┘
 ```
 
-### 🗄️ 데이터베이스 구조
-
-- **PostgreSQL (포트 5432)**: 공유 데이터베이스
-  - `auth` 스키마: 인증 관련 데이터
-  - `user` 스키마: 사용자 관련 데이터
-  - `chat` 스키마: 채팅 관련 데이터
-  - `store` 스키마: 상점 관련 데이터
-  - `batch` 스키마: 배치 관련 데이터
-
-- **Redis (포트 6379)**: 캐싱 및 Rate Limiting
+### 서비스별 역할
+- **API Gateway**: 모든 외부 요청의 진입점, 라우팅 및 인증
+- **Auth Service**: JWT 토큰 기반 인증/인가 처리
+- **User Service**: 사용자 정보 관리 및 프로필 관리
+- **Chat Service**: 실시간 채팅 기능
+- **Batch Service**: 스케줄링된 작업 처리
 
 ---
 
-## 3. 개발 환경 설정
+## 🛠️ 개발 환경 설정
 
-### 🛠️ 필수 도구
+### 필수 요구사항
+- **Java**: 21 이상
+- **Gradle**: 8.0 이상
+- **PostgreSQL**: 13 이상
+- **Redis**: 6.0 이상
+- **Git**: 2.30 이상
 
-1. **Java 21** - JDK 설치
-2. **Docker Desktop** - 컨테이너 실행
-3. **PostgreSQL** - 데이터베이스 (선택사항, Docker 사용 시 불필요)
-4. **IDE** - IntelliJ IDEA, VS Code 등
-
-### 🚀 프로젝트 시작하기
-
+### 1. 저장소 클론
 ```bash
-# 1. 프로젝트 클론
-git clone [repository-url]
+git clone https://github.com/[YOUR_USERNAME]/DoranDoran.git
 cd DoranDoran
-
-# 2. Docker Desktop 실행 확인
-docker --version
-docker compose --version
-
-# 3. MSA 환경 시작
-.\start-dev.bat
-
-# 4. 서비스 상태 확인
-docker compose -f docker/docker-compose.yml ps
 ```
 
-### 📊 서비스 접속 URL
+### 2. 데이터베이스 설정
+```sql
+-- PostgreSQL 데이터베이스 생성
+CREATE DATABASE dorandoran_local;
+CREATE USER doran WITH PASSWORD 'doran';
+GRANT ALL PRIVILEGES ON DATABASE dorandoran_local TO doran;
+```
 
-- **API Gateway**: http://localhost:8080
-- **Auth Service**: http://localhost:8081
-- **User Service**: http://localhost:8082
-- **Prometheus**: http://localhost:9090
-- **Grafana**: http://localhost:3000 (admin/admin123)
+### 3. 환경 변수 설정
+```bash
+# .env 파일 생성
+cp env.sample .env
+
+# .env 파일 편집
+DATABASE_URL=jdbc:postgresql://localhost:5432/dorandoran_local
+DATABASE_USERNAME=doran
+DATABASE_PASSWORD=doran
+REDIS_HOST=localhost
+REDIS_PORT=6379
+```
+
+### 4. 의존성 설치
+```bash
+./gradlew build
+```
 
 ---
 
-## 4. 서비스 간 통신 구조
+## 🔧 서비스별 가이드
 
-### 🔄 통신 패턴
+### User Service (포트: 8082)
+**역할**: 사용자 정보 관리, 프로필 관리
 
-#### 1. **API Gateway를 통한 외부 요청**
-```
-클라이언트 → API Gateway → 각 서비스
-```
+**주요 엔드포인트**:
+- `GET /api/users/health` - 헬스체크
+- `POST /api/users/register` - 사용자 등록
+- `GET /api/users/{id}` - 사용자 정보 조회
+- `PUT /api/users/{id}` - 사용자 정보 수정
 
-#### 2. **서비스 간 직접 통신 (Feign Client)**
-```
-Auth Service → User Service (REST API)
-```
-
-#### 3. **이벤트 기반 통신**
-```
-User Service → 이벤트 발행 → Auth Service (이벤트 리스닝)
+**개발 실행**:
+```bash
+./gradlew :user:bootRun
 ```
 
-### 🌐 Gateway 라우팅 규칙
+**테스트 실행**:
+```bash
+./gradlew :user:test
+```
 
-| 경로 | 대상 서비스 | 설명 |
-|------|-------------|------|
-| `/api/auth/**` | Auth Service (8081) | 인증 관련 API |
-| `/api/users/**` | User Service (8082) | 사용자 관리 API |
-| `/api/chat/**` | Chat Service (8083) | 채팅 관련 API |
-| `/api/store/**` | Store Service (8084) | 상점 관련 API |
-| `/api/batch/**` | Batch Service (8085) | 배치 관련 API |
+### Auth Service (포트: 8081)
+**역할**: JWT 토큰 기반 인증/인가
 
-### 🔧 Rate Limiting 설정
+**주요 엔드포인트**:
+- `GET /api/auth/health` - 헬스체크 (Gateway용)
+- `GET /api/v1/auth/health` - 헬스체크 (직접 접근)
+- `POST /api/v1/auth/login` - 로그인
+- `POST /api/v1/auth/register` - 회원가입
+- `GET /api/v1/auth/validate` - 토큰 검증
 
-| 서비스 | 초당 요청 수 | 버스트 용량 |
-|--------|-------------|------------|
-| Auth | 10 | 20 |
-| User | 20 | 40 |
-| Chat | 30 | 60 |
-| Store | 15 | 30 |
-| Batch | 5 | 10 |
+**개발 실행**:
+```bash
+./gradlew :auth:bootRun
+```
+
+### Chat Service (포트: 8083)
+**역할**: 실시간 채팅 기능
+
+**개발 실행**:
+```bash
+./gradlew :chat:bootRun
+```
+
+### Batch Service (포트: 8085)
+**역할**: 스케줄링된 작업 처리
+
+**개발 실행**:
+```bash
+./gradlew :batch:bootRun
+```
+
+### API Gateway (포트: 8080)
+**역할**: 모든 외부 요청의 진입점
+
+**라우팅 규칙**:
+- `/api/users/**` → User Service
+- `/api/auth/**` → Auth Service
+- `/api/chat/**` → Chat Service
+- `/api/batch/**` → Batch Service
+
+**개발 실행**:
+```bash
+./gradlew :gateway:bootRun
+```
 
 ---
 
-## 5. API 사용법
+## 📖 API 문서
 
-### 🔐 Auth Service API
+### 인증 API
 
 #### 로그인
 ```http
-POST http://localhost:8080/api/auth/login
+POST /api/v1/auth/login
 Content-Type: application/json
 
 {
@@ -165,390 +192,175 @@ Content-Type: application/json
 }
 ```
 
-**응답:**
+**응답**:
 ```json
 {
   "success": true,
-  "message": "로그인에 성공했습니다.",
   "data": {
     "accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
     "refreshToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-    "tokenType": "Bearer",
-    "expiresIn": 3600,
-    "userId": "123e4567-e89b-12d3-a456-426614174000",
-    "email": "user@example.com",
-    "name": "홍길동"
+    "expiresIn": 3600
   }
 }
 ```
 
 #### 토큰 검증
 ```http
-GET http://localhost:8080/api/auth/validate
-Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+GET /api/v1/auth/validate
+Authorization: Bearer {accessToken}
 ```
 
-#### 토큰 갱신
+### 사용자 API
+
+#### 사용자 등록
 ```http
-POST http://localhost:8080/api/auth/refresh
+POST /api/users/register
 Content-Type: application/json
 
 {
-  "refreshToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
-}
-```
-
-### 👤 User Service API
-
-#### 사용자 생성
-```http
-POST http://localhost:8080/api/users
-Content-Type: application/json
-
-{
-  "email": "newuser@example.com",
+  "email": "user@example.com",
   "password": "password123",
-  "firstName": "홍",
-  "lastName": "길동",
-  "picture": "https://example.com/profile.jpg",
-  "info": "안녕하세요!"
+  "name": "홍길동"
 }
 ```
 
-#### 사용자 조회
+#### 사용자 정보 조회
 ```http
-GET http://localhost:8080/api/users/{userId}
-```
-
-#### 이메일로 사용자 조회
-```http
-GET http://localhost:8080/api/users/email/{email}
-```
-
-#### 사용자 업데이트
-```http
-PUT http://localhost:8080/api/users/{userId}
-Content-Type: application/json
-
-{
-  "firstName": "김",
-  "lastName": "철수",
-  "picture": "https://example.com/new-profile.jpg",
-  "info": "정보 업데이트!"
-}
-```
-
-#### 사용자 상태 변경
-```http
-PATCH http://localhost:8080/api/users/{userId}/status?status=INACTIVE
-```
-
-### 🏠 Gateway API
-
-#### 서비스 정보 조회
-```http
-GET http://localhost:8080/
-```
-
-**응답:**
-```json
-{
-  "message": "DoranDoran MSA API Gateway",
-  "status": "running",
-  "version": "1.0.0",
-  "endpoints": {
-    "actuator": "/actuator",
-    "auth": "/api/auth/**",
-    "user": "/api/users/**",
-    "chat": "/api/chat/**",
-    "store": "/api/store/**"
-  }
-}
+GET /api/users/{id}
+Authorization: Bearer {accessToken}
 ```
 
 ---
 
-## 6. 개발 가이드라인
+## 🔄 개발 워크플로우
 
-### 📁 프로젝트 구조
+### 1. 브랜치 전략
+- **main**: 프로덕션 배포용
+- **develop**: 개발 통합용
+- **feature/기능명**: 새로운 기능 개발
+- **hotfix/버그명**: 긴급 버그 수정
 
+### 2. 개발 프로세스
+1. **브랜치 생성**: `git checkout -b feature/새기능`
+2. **개발 및 테스트**: 로컬에서 개발 및 테스트
+3. **커밋**: `git commit -m "feat: 새 기능 추가"`
+4. **푸시**: `git push origin feature/새기능`
+5. **Pull Request**: GitHub에서 PR 생성
+6. **코드 리뷰**: 팀원들의 코드 리뷰
+7. **머지**: 승인 후 develop 브랜치로 머지
+
+### 3. 커밋 메시지 규칙
 ```
-DoranDoran/
-├── auth/                   # 인증 서비스
-│   ├── src/main/java/
-│   │   └── com/dorandoran/auth/
-│   │       ├── controller/     # REST API 컨트롤러
-│   │       ├── service/        # 비즈니스 로직
-│   │       ├── client/         # Feign 클라이언트
-│   │       └── dto/           # 데이터 전송 객체
-│   └── src/main/resources/
-│       └── application.yml    # 설정 파일
-├── user/                   # 사용자 서비스
-├── gateway/                # API Gateway
-├── shared/                 # 공통 DTO 및 이벤트
-├── common/                 # 공통 유틸리티
-└── infra/                  # 인프라 모듈
-```
+type(scope): description
 
-### 🔧 개발 규칙
-
-#### 1. **API 설계 원칙**
-- RESTful API 설계 준수
-- HTTP 상태 코드 적절히 사용
-- 일관된 응답 형식 (`ApiResponse` 사용)
-
-#### 2. **에러 처리**
-```java
-// 공통 예외 사용
-throw new DoranDoranException(ErrorCode.USER_NOT_FOUND);
-
-// 컨트롤러에서 예외 처리
-try {
-    // 비즈니스 로직
-} catch (DoranDoranException e) {
-    return ResponseEntity.badRequest()
-        .body(ApiResponse.error(e.getMessage(), e.getErrorCode().getCode()));
-}
-```
-
-#### 3. **로깅**
-```java
-@Slf4j
-public class UserService {
-    
-    public UserDto createUser(CreateUserRequest request) {
-        log.info("사용자 생성 요청: email={}", request.email());
-        
-        try {
-            // 비즈니스 로직
-            log.info("사용자 생성 완료: id={}, email={}", user.getId(), user.getEmail());
-        } catch (Exception e) {
-            log.error("사용자 생성 실패: email={}, error={}", request.email(), e.getMessage());
-            throw e;
-        }
-    }
-}
-```
-
-#### 4. **서비스 간 통신**
-```java
-// Feign 클라이언트 사용
-@FeignClient(name = "user-service", url = "${user.service.url}")
-public interface UserServiceClient {
-    
-    @GetMapping("/api/users/email/{email}")
-    UserDto getUserByEmail(@PathVariable String email);
-}
-
-// Circuit Breaker 적용
-@CircuitBreaker(name = "user-service", fallbackMethod = "getUserByEmailFallback")
-public UserDto getUserByEmail(String email) {
-    return userServiceClient.getUserByEmail(email);
-}
-```
-
-### 🧪 테스트 작성
-
-#### 단위 테스트
-```java
-@ExtendWith(MockitoExtension.class)
-class UserServiceTest {
-    
-    @Mock
-    private UserRepository userRepository;
-    
-    @InjectMocks
-    private UserService userService;
-    
-    @Test
-    void 사용자_생성_성공() {
-        // Given
-        CreateUserRequest request = new CreateUserRequest(
-            "test@example.com", "password123", "홍", "길동", null, null
-        );
-        
-        // When & Then
-        assertThatCode(() -> userService.createUser(request))
-            .doesNotThrowAnyException();
-    }
-}
-```
-
-#### 통합 테스트
-```java
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-@TestPropertySource(properties = {
-    "spring.datasource.url=jdbc:h2:mem:testdb"
-})
-class UserControllerIntegrationTest {
-    
-    @Autowired
-    private TestRestTemplate restTemplate;
-    
-    @Test
-    void 사용자_생성_API_테스트() {
-        // Given
-        CreateUserRequest request = new CreateUserRequest(
-            "test@example.com", "password123", "홍", "길동", null, null
-        );
-        
-        // When
-        ResponseEntity<UserDto> response = restTemplate.postForEntity(
-            "/api/users", request, UserDto.class
-        );
-        
-        // Then
-        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
-    }
-}
+feat: 새로운 기능 추가
+fix: 버그 수정
+docs: 문서 수정
+style: 코드 포맷팅
+refactor: 코드 리팩토링
+test: 테스트 추가/수정
+chore: 빌드 설정 변경
 ```
 
 ---
 
-## 7. 모니터링 및 디버깅
+## 🚨 트러블슈팅
 
-### 📊 Grafana 모니터링
+### 자주 발생하는 문제들
 
-#### 접속 정보
-- **URL**: http://localhost:3000
-- **사용자명**: admin
-- **비밀번호**: admin123
+#### 1. 포트 충돌 오류
+**문제**: `Port 8080 is already in use`
+**해결**:
+```bash
+# Windows
+netstat -ano | findstr :8080
+taskkill /PID {PID} /F
 
-#### 주요 메트릭
-- **서비스 상태**: Health Check
-- **응답 시간**: HTTP 요청 응답 시간
-- **메모리 사용량**: JVM 메모리 사용률
-- **데이터베이스 연결**: DB 연결 수
+# Linux/Mac
+lsof -ti:8080 | xargs kill -9
+```
 
-### 🔍 로그 확인
+#### 2. 데이터베이스 연결 오류
+**문제**: `Connection refused`
+**해결**:
+1. PostgreSQL 서비스 확인
+2. 데이터베이스 생성 확인
+3. 연결 정보 확인
 
-#### Docker 로그
+#### 3. Redis 연결 오류
+**문제**: `Redis connection failed`
+**해결**:
+1. Redis 서비스 확인
+2. 포트 6379 확인
+3. 방화벽 설정 확인
+
+#### 4. 403 Forbidden 오류
+**문제**: API 접근 시 403 오류
+**해결**:
+1. SecurityConfig 설정 확인
+2. 엔드포인트 경로 확인
+3. 인증 토큰 확인
+
+### 로그 확인 방법
 ```bash
 # 특정 서비스 로그 확인
-docker compose -f docker/docker-compose.yml logs -f auth-service
+./gradlew :user:bootRun --info
 
-# 모든 서비스 로그 확인
-docker compose -f docker/docker-compose.yml logs -f
-```
-
-#### 서비스별 로그 레벨
-- **Auth Service**: DEBUG
-- **User Service**: DEBUG
-- **Gateway**: DEBUG
-
-### 🐛 디버깅 팁
-
-#### 1. **서비스 상태 확인**
-```bash
-# 헬스체크
-curl http://localhost:8080/actuator/health
-curl http://localhost:8081/actuator/health
-curl http://localhost:8082/actuator/health
-```
-
-#### 2. **API 테스트**
-```bash
-# Gateway를 통한 API 호출
-curl -X POST http://localhost:8080/api/auth/login \
-  -H "Content-Type: application/json" \
-  -d '{"email":"test@example.com","password":"password123"}'
-```
-
-#### 3. **데이터베이스 확인**
-```sql
--- PostgreSQL 접속
-psql -h localhost -p 5432 -U doran -d dorandoran
-
--- 스키마별 테이블 확인
-\dt auth.*
-\dt user.*
+# 모든 서비스 상태 확인
+netstat -an | findstr :808
 ```
 
 ---
 
-## 8. 문제 해결
+## 🤝 기여 가이드
 
-### 🚨 자주 발생하는 문제
+### 코드 스타일
+- **Java**: Google Java Style Guide 준수
+- **들여쓰기**: 4칸 스페이스
+- **네이밍**: camelCase (변수), PascalCase (클래스)
+- **주석**: Javadoc 형식 사용
 
-#### 1. **서비스 시작 실패**
-```bash
-# 해결 방법
-docker compose -f docker/docker-compose.yml down
-docker compose -f docker/docker-compose.yml build --no-cache
-docker compose -f docker/docker-compose.yml up -d
-```
+### 테스트 작성
+- **단위 테스트**: 모든 서비스 로직에 대해 작성
+- **통합 테스트**: API 엔드포인트에 대해 작성
+- **테스트 커버리지**: 80% 이상 유지
 
-#### 2. **데이터베이스 연결 실패**
-- PostgreSQL 컨테이너 상태 확인
-- 포트 충돌 확인 (5432)
-- 환경 변수 확인
-
-#### 3. **서비스 간 통신 실패**
-- 네트워크 연결 확인
-- Feign 클라이언트 설정 확인
-- Circuit Breaker 상태 확인
-
-#### 4. **Rate Limiting 오류**
-- Redis 연결 확인
-- Rate Limiting 설정 확인
-- 요청 빈도 조정
-
-#### 5. **403 Forbidden 오류 (API 접근 거부)**
-```bash
-# User Service 보안 설정 확인
-# SecurityConfig.java에서 API 경로 허용 설정 확인
-.requestMatchers("/api/**").permitAll()
-
-# 서비스 재시작
-docker compose -f docker/docker-compose.yml restart user-service
-```
-
-#### 6. **CORS 오류**
-```yaml
-# Gateway 설정에서 CORS 설정 확인
-globalcors:
-  cors-configurations:
-    '[/**]':
-      allowedOriginPatterns: "*"  # allowedOrigins 대신 사용
-      allowedMethods: "*"
-      allowedHeaders: "*"
-      allowCredentials: true
-```
-
-### 📞 지원 및 문의
-
-- **프로젝트 문서**: `MSA_ARCHITECTURE.md`, `PROJECT_STATUS_REPORT.md`
-- **Grafana 매뉴얼**: `grafana_manual.md`
-- **개발 로드맵**: `DEVELOPMENT_ROADMAP.md`
+### 문서화
+- **API 문서**: Swagger/OpenAPI 사용
+- **코드 주석**: 복잡한 로직에 대한 설명
+- **README**: 프로젝트 설정 및 실행 방법
 
 ---
 
-## 🎯 다음 단계
+## 📞 지원 및 문의
 
-### 📋 개발 우선순위
+### 개발팀 연락처
+- **프로젝트 매니저**: [이름] ([이메일])
+- **기술 리드**: [이름] ([이메일])
+- **DevOps**: [이름] ([이메일])
 
-1. **Chat Service 완성** - 채팅 기능 구현
-2. **Store Service 완성** - 상품/주문 기능 구현
-3. **Batch Service 완성** - 배치 작업 구현
-4. **테스트 코드 작성** - 단위/통합 테스트
-5. **모니터링 강화** - 알림 시스템 구축
-
-### 🚀 새로운 기능 개발
-
-1. **서비스 추가 시**:
-   - `settings.gradle.kts`에 모듈 추가
-   - `docker-compose.yml`에 서비스 추가
-   - Gateway 라우팅 규칙 추가
-
-2. **API 추가 시**:
-   - 컨트롤러에 엔드포인트 추가
-   - DTO 클래스 생성
-   - 서비스 로직 구현
-   - 테스트 코드 작성
+### 유용한 링크
+- **프로젝트 저장소**: https://github.com/[YOUR_USERNAME]/DoranDoran
+- **이슈 트래커**: https://github.com/[YOUR_USERNAME]/DoranDoran/issues
+- **위키**: https://github.com/[YOUR_USERNAME]/DoranDoran/wiki
 
 ---
 
-**🎉 온보딩을 완료하셨습니다! 이제 DoranDoran MSA 프로젝트에서 개발을 시작할 수 있습니다.**
+## 📝 체크리스트
 
-*문서 업데이트: 2024년 12월 19일*
-*버전: 1.0*
+### 개발 환경 설정 완료 확인
+- [ ] Java 21 설치 및 설정
+- [ ] PostgreSQL 설치 및 데이터베이스 생성
+- [ ] Redis 설치 및 실행
+- [ ] 프로젝트 클론 및 빌드
+- [ ] 모든 서비스 정상 실행 확인
+
+### 개발 시작 전 확인사항
+- [ ] 브랜치 전략 이해
+- [ ] 커밋 메시지 규칙 숙지
+- [ ] 테스트 작성 방법 학습
+- [ ] 코드 리뷰 프로세스 이해
+
+---
+
+**🎉 온보딩을 완료하셨습니다! 이제 DoranDoran 프로젝트의 개발에 참여하실 수 있습니다.**
