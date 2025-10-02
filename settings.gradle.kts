@@ -7,7 +7,6 @@ include(
   "auth",
   "user",
   "chat",
-  "store",
   "batch",
   "gateway"
 )

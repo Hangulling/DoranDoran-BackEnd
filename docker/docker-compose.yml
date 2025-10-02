@@ -92,27 +92,6 @@ services:
       redis:
         condition: service_started
 
-  # Store Service
-  store-service:
-    build:
-      context: ..
-      dockerfile: docker/Dockerfile.store
-    container_name: dd-store-service
-    ports: ["8084:8084"]
-    environment:
-      - SPRING_PROFILES_ACTIVE=docker
-      - SPRING_DATASOURCE_URL=jdbc:postgresql://shared-db:5432/dorandoran
-      - SPRING_DATASOURCE_USERNAME=doran
-      - SPRING_DATASOURCE_PASSWORD=doran
-      - SPRING_JPA_HIBERNATE_DEFAULT_SCHEMA=store
-      - SPRING_REDIS_HOST=redis
-      - SPRING_REDIS_PORT=6379
-    depends_on:
-      shared-db:
-        condition: service_healthy
-      redis:
-        condition: service_started
-
   # API Gateway
   api-gateway:
     build:
@@ -128,7 +107,6 @@ services:
       - user-service
       - auth-service
       - chat-service
-      - store-service
       - redis
 
   # Prometheus 모니터링
@@ -151,7 +129,6 @@ services:
       - auth-service
       - user-service
       - chat-service
-      - store-service
 
   # Grafana 대시보드
   grafana:
