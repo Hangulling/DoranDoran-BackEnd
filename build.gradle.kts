@@ -1,0 +1,29 @@
+plugins {
+    id("org.springframework.boot") version "3.3.4" apply false
+    id("io.spring.dependency-management") version "1.1.5"
+    id("java")
+}
+
+java { toolchain { languageVersion.set(JavaLanguageVersion.of(21)) } }
+
+allprojects {
+    group = "com.dorandoran"
+    version = "0.1.0-SNAPSHOT"
+
+    repositories { mavenCentral() }
+
+    tasks.withType<Test> {
+        useJUnitPlatform()
+    }
+}
+
+subprojects {
+    apply(plugin = "io.spring.dependency-management")
+    
+    dependencyManagement {
+        imports {
+            mavenBom("org.springframework.boot:spring-boot-dependencies:3.3.4")
+            mavenBom("org.springframework.cloud:spring-cloud-dependencies:2023.0.3")
+        }
+    }
+}

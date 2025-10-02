@@ -1,0 +1,39 @@
+plugins { 
+    id("org.springframework.boot")
+    id("io.spring.dependency-management")
+    id("java")
+}
+
+dependencies {
+    implementation(project(":shared"))
+    implementation(project(":common"))
+    
+    // Spring Boot 스타터들은 common에서 제공
+    implementation("io.jsonwebtoken:jjwt-api:0.12.3")
+    implementation("io.jsonwebtoken:jjwt-impl:0.12.3")
+    implementation("io.jsonwebtoken:jjwt-jackson:0.12.3")
+    
+    // Feign 클라이언트 (서비스 간 통신)
+    implementation("org.springframework.cloud:spring-cloud-starter-openfeign")
+    implementation("org.springframework.cloud:spring-cloud-starter-loadbalancer")
+    
+    // Circuit Breaker
+    implementation("org.springframework.cloud:spring-cloud-starter-circuitbreaker-resilience4j")
+    
+    // JPA (Auth 서비스 자체 DB 사용)
+    implementation("org.springframework.boot:spring-boot-starter-data-jpa")
+    
+    // Prometheus 메트릭
+    implementation("io.micrometer:micrometer-registry-prometheus")
+    
+    // 데이터베이스
+    runtimeOnly("org.postgresql:postgresql:42.7.3")
+    
+    // 테스트
+    testImplementation("org.springframework.boot:spring-boot-starter-test")
+    testImplementation("org.springframework.security:spring-security-test")
+    testImplementation("com.h2database:h2")
+    
+    // Lombok은 common에서 제공, annotationProcessor만 필요
+    annotationProcessor("org.projectlombok:lombok")
+}

@@ -1,0 +1,52 @@
+spring:
+  application:
+    name: chat-service
+  
+  # Chat 서비스 공유 데이터베이스 설정
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/dorandoran}
+    username: ${SPRING_DATASOURCE_USERNAME:doran}
+    password: ${SPRING_DATASOURCE_PASSWORD:doran}
+    driver-class-name: org.postgresql.Driver
+  
+  # JPA 설정
+  jpa:
+    hibernate:
+      ddl-auto: create
+      default_schema: chat
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
+
+  # Redis 설정
+  redis:
+    host: ${SPRING_REDIS_HOST:localhost}
+    port: ${SPRING_REDIS_PORT:6379}
+    timeout: 2000ms
+    lettuce:
+      pool:
+        max-active: 8
+        max-idle: 8
+        min-idle: 0
+
+# 로깅 설정
+logging:
+  level:
+    com.dorandoran.chat: DEBUG
+
+# Actuator 설정
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    prometheus:
+      enabled: true
+  endpoints:
+    web:
+      base-path: /actuator
+  security:
+    enabled: false

@@ -1,0 +1,41 @@
+server:
+  port: 8082
+
+spring:
+  application:
+    name: user-service
+  
+  # User 서비스 공유 데이터베이스 설정
+  datasource:
+    url: jdbc:postgresql://localhost:5432/dorandoran_local
+    username: doran
+    password: doran
+    driver-class-name: org.postgresql.Driver
+  
+  # JPA 설정
+  jpa:
+    hibernate:
+      ddl-auto: validate
+      default_schema: user_schema
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
+
+# 로깅 설정
+logging:
+  level:
+    com.dorandoran.user: DEBUG
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} - %msg%n"
+
+# Actuator 설정
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: always

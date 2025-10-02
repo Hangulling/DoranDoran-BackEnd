@@ -1,0 +1,180 @@
+services:
+  # 공유 데이터베이스 (PostgreSQL)
+  shared-db:
+    image: postgres:17-alpine
+    container_name: dd-shared-db
+    environment:
+      POSTGRES_DB: dorandoran
+      POSTGRES_USER: doran
+      POSTGRES_PASSWORD: doran
+      POSTGRES_HOST_AUTH_METHOD: trust
+      LC_ALL: ko_KR.UTF-8
+      LANG: ko_KR.UTF-8
+    ports: ["5432:5432"]
+    volumes:
+      - shared_db_data:/var/lib/postgresql/data
+      - ./scripts/init-shared-db.sql:/docker-entrypoint-initdb.d/init-shared-db.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U doran -d dorandoran"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  # Redis
+  redis:
+    image: redis:7-alpine
+    container_name: dd-redis
+    ports: ["6379:6379"]
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+
+  # Auth Service
+  auth-service:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.auth
+    container_name: dd-auth-service
+    ports: ["8081:8081"]
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://shared-db:5432/dorandoran
+      - SPRING_DATASOURCE_USERNAME=doran
+      - SPRING_DATASOURCE_PASSWORD=doran
+      - SPRING_JPA_HIBERNATE_DEFAULT_SCHEMA=auth
+      - SPRING_REDIS_HOST=redis
+      - SPRING_REDIS_PORT=6379
+    depends_on:
+      shared-db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+
+  # User Service
+  user-service:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.user
+    container_name: dd-user-service
+    ports: ["8082:8082"]
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://shared-db:5432/dorandoran
+      - SPRING_DATASOURCE_USERNAME=doran
+      - SPRING_DATASOURCE_PASSWORD=doran
+      - SPRING_JPA_HIBERNATE_DEFAULT_SCHEMA=user
+      - SPRING_REDIS_HOST=redis
+      - SPRING_REDIS_PORT=6379
+    depends_on:
+      shared-db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+
+  # Chat Service
+  chat-service:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.chat
+    container_name: dd-chat-service
+    ports: ["8083:8083"]
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://shared-db:5432/dorandoran
+      - SPRING_DATASOURCE_USERNAME=doran
+      - SPRING_DATASOURCE_PASSWORD=doran
+      - SPRING_JPA_HIBERNATE_DEFAULT_SCHEMA=chat
+      - SPRING_REDIS_HOST=redis
+      - SPRING_REDIS_PORT=6379
+    depends_on:
+      shared-db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+
+  # Store Service
+  store-service:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.store
+    container_name: dd-store-service
+    ports: ["8084:8084"]
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://shared-db:5432/dorandoran
+      - SPRING_DATASOURCE_USERNAME=doran
+      - SPRING_DATASOURCE_PASSWORD=doran
+      - SPRING_JPA_HIBERNATE_DEFAULT_SCHEMA=store
+      - SPRING_REDIS_HOST=redis
+      - SPRING_REDIS_PORT=6379
+    depends_on:
+      shared-db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+
+  # API Gateway
+  api-gateway:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.gateway
+    container_name: dd-api-gateway
+    ports: ["8080:8080"]
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+      - SPRING_REDIS_HOST=redis
+      - SPRING_REDIS_PORT=6379
+    depends_on:
+      - user-service
+      - auth-service
+      - chat-service
+      - store-service
+      - redis
+
+  # Prometheus 모니터링
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: dd-prometheus
+    ports: ["9090:9090"]
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=200h'
+      - '--web.enable-lifecycle'
+    depends_on:
+      - api-gateway
+      - auth-service
+      - user-service
+      - chat-service
+      - store-service
+
+  # Grafana 대시보드
+  grafana:
+    image: grafana/grafana:latest
+    container_name: dd-grafana
+    ports: ["3000:3000"]
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin123
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning
+      - ./grafana/dashboards:/var/lib/grafana/dashboards
+    depends_on:
+      - prometheus
+
+volumes:
+  shared_db_data:
+  redis_data:
+  prometheus_data:
+  grafana_data:
+
+networks:
+  default:
+    name: dorandoran-msa-network

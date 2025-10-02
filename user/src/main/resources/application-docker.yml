@@ -1,0 +1,43 @@
+server:
+  port: 8082
+
+spring:
+  application:
+    name: user-service
+  
+  # User 서비스 독립 데이터베이스 설정
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/dorandoran}
+    username: ${SPRING_DATASOURCE_USERNAME:doran}
+    password: ${SPRING_DATASOURCE_PASSWORD:doran}
+    driver-class-name: org.postgresql.Driver
+  
+  # JPA 설정
+  jpa:
+    hibernate:
+      ddl-auto: create
+      default_schema: user
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
+
+# 로깅 설정
+logging:
+  level:
+    com.dorandoran.user: DEBUG
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} - %msg%n"
+
+# Actuator 설정
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: always
+    prometheus:
+      enabled: true

@@ -1,0 +1,10 @@
+plugins { 
+    id("java-library") 
+}
+
+dependencies {
+    // 공통 라이브러리는 common 모듈에서 제공
+    // DTO/공유 객체만 담당
+    implementation(project(":common"))
+    annotationProcessor("org.projectlombok:lombok")
+}
