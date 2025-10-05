@@ -1,6 +1,7 @@
 package com.dorandoran.auth.client;
 
 import com.dorandoran.shared.dto.UserDto;
+import com.dorandoran.shared.dto.ResetPasswordRequest;
 import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -32,4 +33,16 @@ public interface UserServiceClient {
      */
     @GetMapping("/api/users/health")
     String healthCheck();
+
+    /**
+     * 비밀번호 재설정
+     */
+    @org.springframework.web.bind.annotation.PostMapping("/api/users/password/reset")
+    void resetPassword(@org.springframework.web.bind.annotation.RequestBody ResetPasswordRequest request);
+    
+    /**
+     * 사용자 비밀번호 업데이트
+     */
+    @org.springframework.web.bind.annotation.PutMapping("/api/users/{userId}/password")
+    void updatePassword(@PathVariable("userId") String userId, @org.springframework.web.bind.annotation.RequestBody String newPassword);
 }

@@ -21,7 +21,7 @@ public class HomeController {
             "auth", "/api/auth/**",
             "user", "/api/users/**",
             "chat", "/api/chat/**",
-            "store", "/api/store/**"
+            "batch", "/api/batch/**"
         ));
         return Mono.just(response);
     }

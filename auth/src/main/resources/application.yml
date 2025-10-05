@@ -7,26 +7,40 @@ spring:
   
   # Auth 서비스 공유 데이터베이스 설정
   datasource:
-    url: jdbc:postgresql://localhost:5432/dorandoran_local
+    url: jdbc:postgresql://localhost:5432/dorandoran
     username: doran
     password: doran
     driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 5
+      connection-timeout: 30000
+      idle-timeout: 600000
+      max-lifetime: 1800000
+      leak-detection-threshold: 60000
   
   # JPA 설정
   jpa:
     hibernate:
       ddl-auto: validate
+      default_schema: auth_schema
     show-sql: false
     properties:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
         format_sql: true
+        connection:
+          characterEncoding: UTF-8
+          useUnicode: true
+        jdbc:
+          time_zone: UTC
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
 
 # JWT 설정
 application:
   security:
     jwt:
-      secret-key: 404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970
+      secret-key: MTIzNDU2Nzg5MDEyMzQ1Njc4OTAxMjM0NTY3ODkwMTI=
       access-token-expiration: 3600000  # 1시간
       refresh-token-expiration: 604800000  # 7일
 
@@ -64,12 +78,36 @@ logging:
   pattern:
     console: "%d{yyyy-MM-dd HH:mm:ss} - %msg%n"
 
+gateway:
+  jwt:
+    hmac-secret: change-me-hmac-secret
+    skew-ms: 60000
+
 # Actuator 설정
 management:
   endpoints:
     web:
       exposure:
-        include: health,info,metrics
+        include: health,info,metrics,prometheus
   endpoint:
     health:
       show-details: always
+    prometheus:
+      enabled: true
+  metrics:
+    export:
+      prometheus:
+        enabled: true
+
+  # Redis 설정 (토큰 블랙리스트용)
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      password: 
+      timeout: 2000ms
+      lettuce:
+        pool:
+          max-active: 8
+          max-idle: 8
+          min-idle: 0

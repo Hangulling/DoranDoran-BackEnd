@@ -275,6 +275,20 @@ public class UserService {
         user.updateLastConnectionTime();
         userRepository.save(user);
     }
+
+    /**
+     * 이메일로 비밀번호 재설정
+     */
+    @Transactional
+    public void resetPasswordByEmail(String email, String newPassword) {
+        User user = userRepository.findByEmail(email)
+            .orElseThrow(() -> new DoranDoranException(ErrorCode.USER_NOT_FOUND));
+
+        validateBasicPasswordPolicy(newPassword);
+        String encoded = passwordEncoder.encode(newPassword);
+        user.setPasswordHash(encoded);
+        userRepository.save(user);
+    }
     
     /**
      * Entity를 DTO로 변환
@@ -321,6 +335,29 @@ public class UserService {
             case INACTIVE -> User.UserStatus.INACTIVE;
             case SUSPENDED -> User.UserStatus.SUSPENDED;
         };
+    }
+    
+    /**
+     * 사용자 비밀번호 업데이트
+     */
+    @Transactional
+    public void updatePassword(UUID userId, String newPassword) {
+        log.info("사용자 비밀번호 업데이트: userId={}", userId);
+        
+        User user = userRepository.findById(userId)
+            .orElseThrow(() -> new DoranDoranException(ErrorCode.USER_NOT_FOUND));
+        
+        // 비밀번호 정책 검증
+        validateBasicPasswordPolicy(newPassword);
+        
+        // 새 비밀번호 암호화
+        String encodedPassword = passwordEncoder.encode(newPassword);
+        
+        // 비밀번호 업데이트
+        user.updatePassword(encodedPassword);
+        userRepository.save(user);
+        
+        log.info("사용자 비밀번호 업데이트 완료: userId={}", userId);
     }
     
     /**

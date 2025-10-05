@@ -41,7 +41,7 @@ services:
       - SPRING_DATASOURCE_URL=jdbc:postgresql://shared-db:5432/dorandoran
       - SPRING_DATASOURCE_USERNAME=doran
       - SPRING_DATASOURCE_PASSWORD=doran
-      - SPRING_JPA_HIBERNATE_DEFAULT_SCHEMA=auth
+      - SPRING_JPA_HIBERNATE_DEFAULT_SCHEMA=auth_schema
       - SPRING_REDIS_HOST=redis
       - SPRING_REDIS_PORT=6379
     depends_on:
@@ -59,10 +59,10 @@ services:
     ports: ["8082:8082"]
     environment:
       - SPRING_PROFILES_ACTIVE=docker
-      - SPRING_DATASOURCE_URL=jdbc:postgresql://shared-db:5432/dorandoran
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://shared-db:5432/dorandoran       
       - SPRING_DATASOURCE_USERNAME=doran
       - SPRING_DATASOURCE_PASSWORD=doran
-      - SPRING_JPA_HIBERNATE_DEFAULT_SCHEMA=user
+      - SPRING_JPA_HIBERNATE_DEFAULT_SCHEMA=user_schema
       - SPRING_REDIS_HOST=redis
       - SPRING_REDIS_PORT=6379
     depends_on:
@@ -83,7 +83,7 @@ services:
       - SPRING_DATASOURCE_URL=jdbc:postgresql://shared-db:5432/dorandoran
       - SPRING_DATASOURCE_USERNAME=doran
       - SPRING_DATASOURCE_PASSWORD=doran
-      - SPRING_JPA_HIBERNATE_DEFAULT_SCHEMA=chat
+      - SPRING_JPA_HIBERNATE_DEFAULT_SCHEMA=chat_schema
       - SPRING_REDIS_HOST=redis
       - SPRING_REDIS_PORT=6379
     depends_on:
@@ -91,6 +91,23 @@ services:
         condition: service_healthy
       redis:
         condition: service_started
+
+  # Batch Service
+  batch-service:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.batch
+    container_name: dd-batch-service
+    ports: ["8085:8085"]
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://shared-db:5432/dorandoran
+      - SPRING_DATASOURCE_USERNAME=doran
+      - SPRING_DATASOURCE_PASSWORD=doran
+      - SPRING_JPA_HIBERNATE_DEFAULT_SCHEMA=batch_schema
+    depends_on:
+      shared-db:
+        condition: service_healthy
 
   # API Gateway
   api-gateway:
@@ -107,6 +124,7 @@ services:
       - user-service
       - auth-service
       - chat-service
+      - batch-service
       - redis
 
   # Prometheus 모니터링

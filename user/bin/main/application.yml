@@ -11,6 +11,13 @@ spring:
     username: doran
     password: doran
     driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 5
+      connection-timeout: 30000
+      idle-timeout: 600000
+      max-lifetime: 1800000
+      leak-detection-threshold: 60000
   
   # JPA 설정
   jpa:
@@ -22,20 +29,46 @@ spring:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
         format_sql: true
+        connection:
+          characterEncoding: UTF-8
+          useUnicode: true
+        jdbc:
+          time_zone: UTC
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
 
 # 로깅 설정
 logging:
   level:
     com.dorandoran.user: DEBUG
+    org.springframework.jdbc: DEBUG
+    org.hibernate.SQL: DEBUG
+    org.hibernate.type.descriptor.sql.BasicBinder: TRACE
   pattern:
     console: "%d{yyyy-MM-dd HH:mm:ss} - %msg%n"
+
+gateway:
+  jwt:
+    hmac-secret: change-me-hmac-secret
+    skew-ms: 60000
 
 # Actuator 설정
 management:
   endpoints:
     web:
       exposure:
-        include: health,info,metrics
+        include: health,info,metrics,prometheus
   endpoint:
     health:
       show-details: always
+      show-components: always
+    prometheus:
+      enabled: true
+  health:
+    db:
+      enabled: true
+    diskspace:
+      enabled: true
+  metrics:
+    export:
+      prometheus:
+        enabled: true

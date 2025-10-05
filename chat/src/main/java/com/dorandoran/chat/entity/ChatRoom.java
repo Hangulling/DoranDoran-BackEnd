@@ -15,7 +15,7 @@ import java.util.UUID;
  * Chat 서비스 채팅방 엔티티
  */
 @Entity
-@Table(name = "chatroom", schema = "chat")
+@Table(name = "chatroom", schema = "chat_schema")
 @Data
 @Builder
 @NoArgsConstructor

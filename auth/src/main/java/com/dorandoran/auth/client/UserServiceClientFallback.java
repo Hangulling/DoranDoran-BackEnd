@@ -1,6 +1,7 @@
 package com.dorandoran.auth.client;
 
 import com.dorandoran.shared.dto.UserDto;
+import com.dorandoran.shared.dto.ResetPasswordRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
@@ -29,5 +30,12 @@ public class UserServiceClientFallback implements UserServiceClient {
     public String healthCheck() {
         log.warn("User Service 헬스체크 실패");
         return "User Service is unavailable";
+    }
+    
+    @Override
+    public void resetPassword(ResetPasswordRequest request) {
+        log.warn("User Service 호출 실패 - resetPassword: email={}", request.getEmail());
+        // Fallback 로직: 비밀번호 재설정 실패 처리
+        // void 메서드이므로 로그만 남기고 종료
     }
 }

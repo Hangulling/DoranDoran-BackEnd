@@ -7,21 +7,34 @@ spring:
   
   # Chat 서비스 공유 데이터베이스 설정
   datasource:
-    url: jdbc:postgresql://shared-db:5432/dorandoran
+    url: jdbc:postgresql://localhost:5432/dorandoran
     username: doran
     password: doran
     driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 5
+      connection-timeout: 30000
+      idle-timeout: 600000
+      max-lifetime: 1800000
+      leak-detection-threshold: 60000
   
   # JPA 설정
   jpa:
     hibernate:
-      ddl-auto: validate
-      default_schema: chat
+      ddl-auto: update
+      default_schema: chat_schema
     show-sql: false
     properties:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
         format_sql: true
+        connection:
+          characterEncoding: UTF-8
+          useUnicode: true
+        jdbc:
+          time_zone: UTC
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
 
 # 로깅 설정
 logging:

@@ -4,11 +4,15 @@ plugins {
     id 'java'
 }
 
+apply plugin: 'java'
+
 java { 
     toolchain { 
         languageVersion = JavaLanguageVersion.of(21) 
     } 
 }
+
+// Root project doesn't need test dependencies
 
 allprojects {
     group = 'com.dorandoran'

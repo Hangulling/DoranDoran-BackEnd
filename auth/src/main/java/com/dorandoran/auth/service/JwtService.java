@@ -5,6 +5,7 @@ import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -20,7 +21,10 @@ import java.util.function.Function;
  */
 @Service
 @Slf4j
+@RequiredArgsConstructor
 public class JwtService {
+    
+    private final TokenBlacklistService tokenBlacklistService;
     
     @Value("${application.security.jwt.secret-key:404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970}")
     private String secretKey;
@@ -92,11 +96,30 @@ public class JwtService {
     }
     
     /**
+     * 토큰에서 만료 시간 추출
+     */
+    public Date extractExpiration(String token) {
+        return extractClaim(token, Claims::getExpiration);
+    }
+    
+    /**
      * 토큰 유효성 검사
      */
     public boolean isTokenValid(String token) {
         try {
-            return !isTokenExpired(token);
+            // 1. 토큰 만료 여부 확인
+            if (isTokenExpired(token)) {
+                log.debug("토큰이 만료되었습니다");
+                return false;
+            }
+            
+            // 2. 블랙리스트 확인 (Redis + DB 해시)
+            if (tokenBlacklistService.isBlacklisted(token)) {
+                log.debug("토큰이 블랙리스트에 있습니다");
+                return false;
+            }
+            
+            return true;
         } catch (Exception e) {
             log.error("토큰 검증 실패: {}", e.getMessage());
             return false;
@@ -110,12 +133,6 @@ public class JwtService {
         return extractExpiration(token).before(new Date());
     }
     
-    /**
-     * 토큰 만료 시간 추출
-     */
-    private Date extractExpiration(String token) {
-        return extractClaim(token, Claims::getExpiration);
-    }
     
     /**
      * 모든 클레임 추출

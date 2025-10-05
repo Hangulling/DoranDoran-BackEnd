@@ -2,6 +2,7 @@ package com.dorandoran.auth.service;
 
 import com.dorandoran.auth.client.UserServiceClient;
 import com.dorandoran.shared.dto.UserDto;
+import com.dorandoran.shared.dto.ResetPasswordRequest;
 import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
 import io.github.resilience4j.retry.annotation.Retry;
 import io.github.resilience4j.timelimiter.annotation.TimeLimiter;
@@ -62,20 +63,50 @@ public class UserIntegrationService {
         return userServiceClient.healthCheck();
     }
     
+    /**
+     * 사용자 비밀번호 업데이트
+     */
+    @CircuitBreaker(name = "user-service", fallbackMethod = "updatePasswordFallback")
+    @Retry(name = "user-service")
+    public void updatePassword(UUID userId, String newPassword) {
+        log.info("User Service 호출 - updatePassword: userId={}", userId);
+        userServiceClient.updatePassword(userId.toString(), newPassword);
+    }
+
+    /**
+     * 비밀번호 재설정
+     */
+    @CircuitBreaker(name = "user-service", fallbackMethod = "resetPasswordFallback")
+    @Retry(name = "user-service")
+    public void resetPassword(String email, String newPassword) {
+        log.info("User Service 호출 - resetPassword: email={}", email);
+        userServiceClient.resetPassword(new ResetPasswordRequest(email, newPassword));
+    }
+
+    public void resetPasswordFallback(String email, String newPassword, Exception ex) {
+        log.error("User Service 호출 실패 - resetPassword: email={}, error={}", email, ex.getMessage());
+        throw new RuntimeException("User Service unavailable");
+    }
+    
     // ===== Fallback 메서드들 =====
     
     public UserDto getUserByIdFallback(String userId, Exception ex) {
         log.error("User Service 호출 실패 - getUserById: userId={}, error={}", userId, ex.getMessage());
-        return null;
+        throw new RuntimeException("User Service를 사용할 수 없습니다. 잠시 후 다시 시도해주세요.");
     }
     
     public UserDto getUserByEmailFallback(String email, Exception ex) {
         log.error("User Service 호출 실패 - getUserByEmail: email={}, error={}", email, ex.getMessage());
-        return null;
+        throw new RuntimeException("User Service를 사용할 수 없습니다. 잠시 후 다시 시도해주세요.");
     }
     
     public String healthCheckFallback(Exception ex) {
         log.error("User Service 헬스체크 실패: error={}", ex.getMessage());
         return "User Service is unavailable";
+    }
+    
+    public void updatePasswordFallback(UUID userId, String newPassword, Exception ex) {
+        log.error("User Service 호출 실패 - updatePassword: userId={}, error={}", userId, ex.getMessage());
+        throw new RuntimeException("User Service를 사용할 수 없습니다. 잠시 후 다시 시도해주세요.");
     }
 }

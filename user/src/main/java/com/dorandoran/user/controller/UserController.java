@@ -3,6 +3,7 @@ package com.dorandoran.user.controller;
 import com.dorandoran.shared.dto.CreateUserRequest;
 import com.dorandoran.shared.dto.UpdateUserRequest;
 import com.dorandoran.shared.dto.UserDto;
+import com.dorandoran.shared.dto.ResetPasswordRequest;
 import com.dorandoran.user.service.UserService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -119,5 +120,62 @@ public class UserController {
     @GetMapping("/health")
     public ResponseEntity<String> health() {
         return ResponseEntity.ok("User service is running");
+    }
+
+    /**
+     * 비밀번호 재설정 (이메일 기준)
+     */
+    @PostMapping("/password/reset")
+    public ResponseEntity<Void> resetPassword(@RequestBody ResetPasswordRequest request) {
+        log.info("비밀번호 재설정 요청: email={}", request.getEmail());
+        try {
+            userService.resetPasswordByEmail(request.getEmail(), request.getNewPassword());
+            return ResponseEntity.ok().build();
+        } catch (Exception e) {
+            log.error("비밀번호 재설정 실패: email={}, error={}", request.getEmail(), e.getMessage());
+            return ResponseEntity.badRequest().build();
+        }
+    }
+    
+    /**
+     * 사용자 비밀번호 업데이트
+     */
+    @PutMapping("/{userId}/password")
+    public ResponseEntity<Void> updatePassword(
+            @PathVariable String userId,
+            @RequestBody String newPassword) {
+        log.info("사용자 비밀번호 업데이트 요청: userId={}", userId);
+        
+        try {
+            userService.updatePassword(UUID.fromString(userId), newPassword);
+            return ResponseEntity.ok().build();
+        } catch (IllegalArgumentException e) {
+            log.error("잘못된 사용자 ID: userId={}, error={}", userId, e.getMessage());
+            return ResponseEntity.badRequest().build();
+        } catch (Exception e) {
+            log.error("비밀번호 업데이트 실패: userId={}, error={}", userId, e.getMessage());
+            return ResponseEntity.badRequest().build();
+        }
+    }
+    
+    /**
+     * 회원탈퇴 (소프트 삭제 - 상태를 INACTIVE로 변경)
+     * 실제 삭제는 배치 작업에서 처리 예정
+     */
+    @DeleteMapping("/{userId}")
+    public ResponseEntity<Void> deleteUser(@PathVariable String userId) {
+        log.info("회원탈퇴 요청: userId={}", userId);
+        
+        try {
+            userService.deleteUser(UUID.fromString(userId));
+            log.info("회원탈퇴 완료: userId={}", userId);
+            return ResponseEntity.ok().build();
+        } catch (IllegalArgumentException e) {
+            log.error("잘못된 사용자 ID: userId={}, error={}", userId, e.getMessage());
+            return ResponseEntity.badRequest().build();
+        } catch (Exception e) {
+            log.error("회원탈퇴 실패: userId={}, error={}", userId, e.getMessage());
+            return ResponseEntity.badRequest().build();
+        }
     }
 }

@@ -15,7 +15,7 @@ import java.util.UUID;
  * User 서비스 프로필 엔티티
  */
 @Entity
-@Table(name = "profiles", schema = "user")
+@Table(name = "profiles", schema = "user_schema")
 @Data
 @Builder
 @NoArgsConstructor

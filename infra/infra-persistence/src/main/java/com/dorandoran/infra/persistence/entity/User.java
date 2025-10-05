@@ -15,7 +15,7 @@ import java.util.UUID;
  * 사용자 엔티티
  */
 @Entity
-@Table(name = "app_user")
+@Table(name = "app_user", schema = "user_schema")
 @Data
 @Builder
 @NoArgsConstructor
@@ -128,5 +128,12 @@ public class User {
      */
     public void updateLastConnectionTime() {
         this.lastConnTime = LocalDateTime.now();
+    }
+    
+    /**
+     * 비밀번호 업데이트
+     */
+    public void updatePassword(String passwordHash) {
+        this.passwordHash = passwordHash;
     }
 }

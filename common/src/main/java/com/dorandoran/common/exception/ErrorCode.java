@@ -8,8 +8,9 @@ public enum ErrorCode {
     USER_NOT_FOUND("U001", "사용자를 찾을 수 없습니다"),
     EMAIL_ALREADY_EXISTS("U002", "이미 존재하는 이메일입니다"),
     INVALID_PASSWORD("U003", "비밀번호가 올바르지 않습니다"),
-    USER_ALREADY_INACTIVE("U004", "이미 비활성화된 사용자입니다"),
-    USER_ALREADY_SUSPENDED("U005", "이미 정지된 사용자입니다"),
+    INVALID_PASSWORD_FORMAT("U004", "비밀번호는 8자 이상이며 영문과 숫자를 포함해야 합니다"),
+    USER_ALREADY_INACTIVE("U005", "이미 비활성화된 사용자입니다"),
+    USER_ALREADY_SUSPENDED("U006", "이미 정지된 사용자입니다"),
     
     // 인증 관련 (확장 가능)
     AUTH_TOKEN_EXPIRED("A001", "인증 토큰이 만료되었습니다"),

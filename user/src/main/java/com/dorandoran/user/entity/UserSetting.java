@@ -15,7 +15,7 @@ import java.util.UUID;
  * User 서비스 설정 엔티티
  */
 @Entity
-@Table(name = "settings", schema = "user")
+@Table(name = "settings", schema = "user_schema")
 @Data
 @Builder
 @NoArgsConstructor

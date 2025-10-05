@@ -26,6 +26,9 @@ dependencies {
     // Prometheus 메트릭
     implementation 'io.micrometer:micrometer-registry-prometheus'
     
+    // Redis (토큰 블랙리스트용)
+    implementation 'org.springframework.boot:spring-boot-starter-data-redis'
+    
     // 데이터베이스
     runtimeOnly 'org.postgresql:postgresql:42.7.3'
     

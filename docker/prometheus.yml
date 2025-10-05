@@ -31,17 +31,21 @@ scrape_configs:
     metrics_path: '/actuator/prometheus'
     static_configs:
       - targets: ['user-service:8082']
+    scrape_interval: 5s
       
+  # Chat Service 모니터링
   - job_name: 'chat-service'
     metrics_path: '/actuator/prometheus'
     static_configs:
       - targets: ['chat-service:8083']
+    scrape_interval: 5s
       
-  - job_name: 'store-service'
+  # Batch Service 모니터링
+  - job_name: 'batch-service'
     metrics_path: '/actuator/prometheus'
     static_configs:
-      - targets: ['store-service:8084']
-    scrape_interval: 5s
+      - targets: ['batch-service:8085']
+    scrape_interval: 10s
 
   # PostgreSQL 모니터링 (postgres_exporter 사용 시)
   # - job_name: 'postgres'
