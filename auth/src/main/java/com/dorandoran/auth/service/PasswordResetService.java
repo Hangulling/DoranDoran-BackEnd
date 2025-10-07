@@ -16,10 +16,10 @@ public class PasswordResetService {
     private final PasswordResetTokenRepository passwordResetTokenRepository;
     private final TokenBlacklistService tokenBlacklistService;
 
-    public PasswordResetToken issue(UUID userId, String rawToken, LocalDateTime expiresAt) {
+    public PasswordResetToken issue(com.dorandoran.auth.entity.User user, String rawToken, LocalDateTime expiresAt) {
         String hash = tokenBlacklistService.hashToken(rawToken);
         PasswordResetToken entity = PasswordResetToken.builder()
-                .userId(userId)
+                .user(user)
                 .tokenHash(hash)
                 .expiresAt(expiresAt)
                 .used(false)
@@ -40,8 +40,8 @@ public class PasswordResetService {
     /**
      * 사용자의 모든 비밀번호 재설정 토큰 무효화
      */
-    public void invalidateUserTokens(UUID userId) {
-        passwordResetTokenRepository.deleteByUserId(userId);
+    public void invalidateUserTokens(com.dorandoran.auth.entity.User user) {
+        passwordResetTokenRepository.deleteByUser(user);
     }
 }
 

@@ -13,17 +13,10 @@ import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 @SpringBootApplication(scanBasePackages = {
     "com.dorandoran.auth",
     "com.dorandoran.shared",
-    "com.dorandoran.common",
-    "com.dorandoran.infra.persistence"
+    "com.dorandoran.common"
 })
-@EnableJpaRepositories(basePackages = {
-    "com.dorandoran.infra.persistence.repository",
-    "com.dorandoran.auth.repository"
-})
-@EntityScan(basePackages = {
-    "com.dorandoran.infra.persistence.entity",
-    "com.dorandoran.auth.entity"
-})
+@EnableJpaRepositories(basePackages = "com.dorandoran.auth.repository")
+@EntityScan(basePackages = "com.dorandoran.auth.entity")
 @EnableFeignClients
 public class AuthApplication {
     public static void main(String[] args) {

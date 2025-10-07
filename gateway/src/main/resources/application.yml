@@ -80,6 +80,20 @@ spring:
             allowedHeaders: "*"
             allowCredentials: true
 
+# SpringDoc OpenAPI 설정 (Reactive)
+springdoc:
+  api-docs:
+    path: /api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    enabled: true
+    operationsSorter: method
+    tagsSorter: alpha
+    tryItOutEnabled: true
+    displayRequestDuration: true
+    showExtensions: true
+    showCommonExtensions: true
+
 # 로깅 설정
 logging:
   level:
@@ -102,9 +116,9 @@ management:
       enabled: true
   security:
     enabled: false
-  metrics:
-    export:
-      prometheus:
+  prometheus:
+    metrics:
+      export:
         enabled: true
 
 gateway:

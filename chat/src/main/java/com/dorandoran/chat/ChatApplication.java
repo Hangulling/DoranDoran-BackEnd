@@ -10,8 +10,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 @SpringBootApplication(scanBasePackages = {
     "com.dorandoran.chat",
     "com.dorandoran.shared",
-    "com.dorandoran.common",
-    "com.dorandoran.infra.persistence"
+    "com.dorandoran.common"
 })
 public class ChatApplication {
     public static void main(String[] args) {

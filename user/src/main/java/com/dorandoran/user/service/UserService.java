@@ -2,8 +2,8 @@ package com.dorandoran.user.service;
 
 import com.dorandoran.common.exception.DoranDoranException;
 import com.dorandoran.common.exception.ErrorCode;
-import com.dorandoran.infra.persistence.entity.User;
-import com.dorandoran.infra.persistence.repository.UserRepository;
+import com.dorandoran.user.entity.User;
+import com.dorandoran.user.repository.UserRepository;
 import com.dorandoran.shared.dto.CreateUserRequest;
 import com.dorandoran.shared.dto.UpdateUserRequest;
 import com.dorandoran.shared.dto.UserDto;

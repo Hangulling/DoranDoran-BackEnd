@@ -17,7 +17,7 @@ public class HmacAuthInterceptor implements HandlerInterceptor {
     @Override
     public boolean preHandle(jakarta.servlet.http.HttpServletRequest request, jakarta.servlet.http.HttpServletResponse response, Object handler) throws Exception {
         String path = request.getRequestURI();
-        if (path.startsWith("/actuator") || path.equals("/") || path.startsWith("/api/v1/auth/login") || path.startsWith("/api/v1/auth/refresh") || path.startsWith("/api/v1/auth/password/reset") || path.startsWith("/api/v1/auth/health")) {
+        if (path.startsWith("/actuator") || path.equals("/") || path.startsWith("/swagger-ui") || path.startsWith("/v3/api-docs") || path.startsWith("/api-docs") || path.startsWith("/api/auth/login") || path.startsWith("/api/auth/refresh") || path.startsWith("/api/auth/password/reset") || path.startsWith("/api/auth/health")) {
             return true;
         }
 

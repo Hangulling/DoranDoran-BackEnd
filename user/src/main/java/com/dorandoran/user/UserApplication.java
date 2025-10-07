@@ -12,11 +12,10 @@ import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 @SpringBootApplication(scanBasePackages = {
     "com.dorandoran.user",
     "com.dorandoran.shared",
-    "com.dorandoran.common",
-    "com.dorandoran.infra.persistence"
+    "com.dorandoran.common"
 })
-@EnableJpaRepositories(basePackages = "com.dorandoran.infra.persistence.repository")
-@EntityScan(basePackages = "com.dorandoran.infra.persistence.entity")
+@EnableJpaRepositories(basePackages = "com.dorandoran.user.repository")
+@EntityScan(basePackages = "com.dorandoran.user.entity")
 public class UserApplication {
     public static void main(String[] args) {
         SpringApplication.run(UserApplication.class, args);

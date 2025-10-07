@@ -22,7 +22,7 @@ spring:
   # JPA 설정
   jpa:
     hibernate:
-      ddl-auto: validate
+      ddl-auto: update
       default_schema: user_schema
     show-sql: false
     properties:

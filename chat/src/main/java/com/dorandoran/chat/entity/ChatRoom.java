@@ -1,5 +1,6 @@
 package com.dorandoran.chat.entity;
 
+import com.dorandoran.chat.entity.User;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -9,13 +10,15 @@ import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 
 /**
- * Chat 서비스 채팅방 엔티티
+ * Chat 서비스 채팅방 엔티티 (단순화/현대화된 스키마 매핑)
  */
 @Entity
-@Table(name = "chatroom", schema = "chat_schema")
+@Table(name = "chatrooms", schema = "chat_schema")
 @Data
 @Builder
 @NoArgsConstructor
@@ -23,30 +26,50 @@ import java.util.UUID;
 public class ChatRoom {
     
     @Id
-    @Column(name = "room_id")
-    private UUID roomId;
+    @Column(name = "id")
+    private UUID id;
     
-    @Column(name = "user_id", nullable = false)
-    private UUID userId;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id", nullable = false)
+    private User user;
     
-    @Column(name = "bot_id", nullable = false)
-    private UUID botId;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "chatbot_id", nullable = false)
+    private Chatbot chatbot;
     
-    @Column(name = "room_name", nullable = false, length = 50)
-    private String roomName;
+    @Column(name = "name", nullable = false, length = 100)
+    private String name;
     
-    @Column(name = "settings", columnDefinition = "json", nullable = false)
+    @Column(name = "description")
+    private String description;
+
+    @Column(name = "settings", columnDefinition = "jsonb")
     private String settings;
     
-    @Column(name = "is_deleted", nullable = false)
-    @Builder.Default
-    private Boolean isDeleted = true;
+    @Column(name = "context_data", columnDefinition = "jsonb")
+    private String contextData;
+
+    @Column(name = "last_message_at")
+    private LocalDateTime lastMessageAt;
+
+    @OneToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "last_message_id")
+    private Message lastMessage;
+    
+    @OneToMany(mappedBy = "chatRoom", fetch = FetchType.LAZY, cascade = CascadeType.ALL)
+    private List<Message> messages = new ArrayList<>();
+
+    @Column(name = "is_archived")
+    private Boolean isArchived;
+
+    @Column(name = "is_deleted")
+    private Boolean isDeleted;
     
     @CreationTimestamp
-    @Column(name = "create_at", nullable = false, updatable = false)
-    private LocalDateTime createAt;
+    @Column(name = "created_at", updatable = false)
+    private LocalDateTime createdAt;
     
     @UpdateTimestamp
-    @Column(name = "update_at")
-    private LocalDateTime updateAt;
+    @Column(name = "updated_at")
+    private LocalDateTime updatedAt;
 }

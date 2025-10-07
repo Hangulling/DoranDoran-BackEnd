@@ -1,10 +1,10 @@
 package com.dorandoran.auth.entity;
 
+import com.dorandoran.auth.entity.User;
 import jakarta.persistence.*;
 import lombok.*;
 
 import java.time.LocalDateTime;
-import java.util.UUID;
 
 @Entity
 @Table(name = "login_attempts", schema = "auth_schema")
@@ -20,8 +20,9 @@ public class LoginAttempt {
     @Column(name = "id")
     private Long id;
 
-    @Column(name = "user_id")
-    private UUID userId;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id")
+    private User user;
 
     @Column(name = "email", length = 320)
     private String email;

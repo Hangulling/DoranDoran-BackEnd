@@ -38,4 +38,11 @@ public class UserServiceClientFallback implements UserServiceClient {
         // Fallback 로직: 비밀번호 재설정 실패 처리
         // void 메서드이므로 로그만 남기고 종료
     }
+    
+    @Override
+    public void updatePassword(String userId, String newPassword) {
+        log.warn("User Service 호출 실패 - updatePassword: userId={}", userId);
+        // Fallback 로직: 비밀번호 업데이트 실패 처리
+        // void 메서드이므로 로그만 남기고 종료
+    }
 }

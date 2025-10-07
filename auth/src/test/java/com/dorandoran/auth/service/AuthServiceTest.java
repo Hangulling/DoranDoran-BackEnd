@@ -16,6 +16,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
+import java.time.Duration;
 import java.util.Date;
 import java.util.UUID;
 
@@ -344,7 +345,7 @@ class AuthServiceTest {
         Date expirationTime = new Date(System.currentTimeMillis() + 3600000); // 1시간 후
         when(jwtService.extractUserId(token)).thenReturn(userDto.id().toString());
         when(jwtService.extractExpiration(token)).thenReturn(expirationTime);
-        doNothing().when(tokenBlacklistService).addToBlacklist(token, expirationTime);
+        doNothing().when(tokenBlacklistService).addToBlacklist(anyString(), anyString(), any(Duration.class));
 
         // When
         authService.logout(token);
@@ -352,7 +353,7 @@ class AuthServiceTest {
         // Then
         verify(jwtService, times(1)).extractUserId(token);
         verify(jwtService, times(1)).extractExpiration(token);
-        verify(tokenBlacklistService, times(1)).addToBlacklist(token, expirationTime);
+        verify(tokenBlacklistService, times(1)).addToBlacklist(anyString(), anyString(), any(Duration.class));
     }
 
     @Test
@@ -370,7 +371,7 @@ class AuthServiceTest {
         // Then
         verify(jwtService, times(1)).extractUserId(token);
         verify(jwtService, times(1)).extractExpiration(token);
-        verify(tokenBlacklistService, never()).addToBlacklist(anyString(), any(Date.class));
+        verify(tokenBlacklistService, never()).addToBlacklist(anyString(), anyString(), any(Duration.class));
     }
 
     @Test
@@ -386,7 +387,7 @@ class AuthServiceTest {
         // Then - 예외가 발생해도 메서드가 정상 종료되어야 함
         verify(jwtService, times(1)).extractUserId(token);
         verify(jwtService, never()).extractExpiration(anyString());
-        verify(tokenBlacklistService, never()).addToBlacklist(anyString(), any(Date.class));
+        verify(tokenBlacklistService, never()).addToBlacklist(anyString(), anyString(), any(Duration.class));
     }
 
     @Test
@@ -403,6 +404,6 @@ class AuthServiceTest {
         // Then
         verify(jwtService, times(1)).extractUserId(token);
         verify(jwtService, times(1)).extractExpiration(token);
-        verify(tokenBlacklistService, never()).addToBlacklist(anyString(), any(Date.class));
+        verify(tokenBlacklistService, never()).addToBlacklist(anyString(), anyString(), any(Duration.class));
     }
 }

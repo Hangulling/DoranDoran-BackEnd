@@ -8,6 +8,11 @@ import com.dorandoran.common.response.ApiResponse;
 import com.dorandoran.common.exception.DoranDoranException;
 import com.dorandoran.common.exception.ErrorCode;
 import com.dorandoran.shared.dto.UserDto;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -22,6 +27,7 @@ import org.springframework.web.bind.annotation.*;
 @RequestMapping("/api/auth")
 @RequiredArgsConstructor
 @Slf4j
+@Tag(name = "Authentication", description = "인증 및 인가 API")
 public class AuthController {
     
     private final AuthService authService;
@@ -29,6 +35,11 @@ public class AuthController {
     /**
      * 로그인
      */
+    @Operation(summary = "로그인", description = "이메일과 비밀번호로 로그인하여 JWT 토큰을 발급받습니다.")
+    @ApiResponses(value = {
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "로그인 성공"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "잘못된 인증 정보")
+    })
     @PostMapping("/login")
     public ResponseEntity<ApiResponse<LoginResponse>> login(@RequestBody LoginRequest request) {
         log.info("로그인 API 호출: email={}", request.getEmail());
@@ -68,8 +79,16 @@ public class AuthController {
     /**
      * 토큰 검증 (완전 구현)
      */
+    @Operation(summary = "토큰 검증", description = "JWT 토큰의 유효성을 검증하고 사용자 정보를 반환합니다.")
+    @ApiResponses(value = {
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "토큰 검증 성공"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "토큰이 유효하지 않음")
+    })
+    @SecurityRequirement(name = "bearerAuth")
     @GetMapping("/validate")
-    public ResponseEntity<ApiResponse<UserDto>> validateToken(@RequestHeader("Authorization") String token) {
+    public ResponseEntity<ApiResponse<UserDto>> validateToken(
+            @Parameter(description = "Bearer JWT 토큰", required = true)
+            @RequestHeader("Authorization") String token) {
         log.info("토큰 검증 API 호출");
         
         try {

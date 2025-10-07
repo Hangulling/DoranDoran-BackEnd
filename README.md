@@ -233,13 +233,6 @@ docker build -f docker/Dockerfile.auth -t dorandoran-auth .
 
 - **URL**: http://localhost:9090
 
-## 🤝 기여하기
-
-1. Fork the Project
-2. Create your Feature Branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your Changes (`git commit -m 'Add some AmazingFeature'`)
-4. Push to the Branch (`git push origin feature/AmazingFeature`)
-5. Open a Pull Request
 
 ### 커밋 메시지 규칙
 
@@ -257,24 +250,5 @@ chore: 빌드 설정 변경
 
 ## 📝 라이선스
 
-이 프로젝트는 MIT 라이선스 하에 배포됩니다. 자세한 내용은 [LICENSE](LICENSE) 파일을 참조하세요.
-
-## 📞 문의
-
-- **프로젝트 이슈**: [GitHub Issues](https://github.com/[YOUR_USERNAME]/DoranDoran/issues)
-- **개발팀**: [이메일]
-- **문서**: [위키](https://github.com/[YOUR_USERNAME]/DoranDoran/wiki)
-
-## 🙏 감사의 말
-
-이 프로젝트는 다음 오픈소스 프로젝트들의 도움을 받았습니다:
-
-- [Spring Boot](https://spring.io/projects/spring-boot)
-- [Spring Cloud Gateway](https://spring.io/projects/spring-cloud-gateway)
-- [PostgreSQL](https://www.postgresql.org/)
-- [Redis](https://redis.io/)
-- [Gradle](https://gradle.org/)
-
+이 프로젝트는 MIT 라이선스 하에 배포됩니다. 
 ---
-
-**⭐ 이 프로젝트가 도움이 되었다면 Star를 눌러주세요!**

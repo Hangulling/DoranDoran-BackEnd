@@ -34,6 +34,8 @@ spring:
           useUnicode: true
         jdbc:
           time_zone: UTC
+        # billing 스키마 접근을 위한 추가 설정
+        default_schema: chat_schema
     database-platform: org.hibernate.dialect.PostgreSQLDialect
 
 # 로깅 설정
@@ -43,12 +45,29 @@ logging:
   pattern:
     console: "%d{yyyy-MM-dd HH:mm:ss} - %msg%n"
 
-# Actuator 설정
-management:
-  endpoints:
-    web:
-      exposure:
-        include: health,info,metrics
-  endpoint:
-    health:
-      show-details: always
+# AI 설정 (환경변수에서 주입)
+ai:
+  openai:
+    api-key: ${OPENAI_API_KEY}
+    base-url: ${OPENAI_BASE_URL:https://api.openai.com}
+    model: ${OPENAI_MODEL:gpt-4o-mini}
+    max-prompt-chars: ${OPENAI_MAX_PROMPT_CHARS:8000}
+    max-output-tokens: ${OPENAI_MAX_OUTPUT_TOKENS:800}
+    price-per1k-input: ${OPENAI_PRICE_IN_PER1K:0}
+    price-per1k-output: ${OPENAI_PRICE_OUT_PER1K:0}
+
+# SpringDoc OpenAPI 설정
+springdoc:
+  api-docs:
+    path: /api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    enabled: true
+    operationsSorter: method
+    tagsSorter: alpha
+    tryItOutEnabled: true
+    displayRequestDuration: true
+    showExtensions: true
+    showCommonExtensions: true
+
+# Actuator 설정은 application-docker.yml에서 관리

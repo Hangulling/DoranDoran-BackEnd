@@ -7,7 +7,6 @@ plugins {
 dependencies {
     implementation project(':shared')
     implementation project(':common')
-    implementation project(':infra:infra-persistence')
     
     // 데이터베이스
     runtimeOnly 'org.postgresql:postgresql:42.7.3'

@@ -16,10 +16,10 @@ public class EmailVerificationService {
     private final EmailVerificationRepository emailVerificationRepository;
     private final TokenBlacklistService tokenBlacklistService;
 
-    public EmailVerification issue(UUID userId, String rawToken, LocalDateTime expiresAt) {
+    public EmailVerification issue(com.dorandoran.auth.entity.User user, String rawToken, LocalDateTime expiresAt) {
         String hash = tokenBlacklistService.hashToken(rawToken);
         EmailVerification entity = EmailVerification.builder()
-                .userId(userId)
+                .user(user)
                 .tokenHash(hash)
                 .expiresAt(expiresAt)
                 .verified(false)

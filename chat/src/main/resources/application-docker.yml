@@ -31,6 +31,8 @@ spring:
           useUnicode: true
         jdbc:
           time_zone: UTC
+        # billing 스키마 접근을 위한 추가 설정
+        default_schema: chat_schema
     database-platform: org.hibernate.dialect.PostgreSQLDialect
 
   # Redis 설정 (Docker 프로필)

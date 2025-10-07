@@ -8,31 +8,37 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 
+/**
+ * Spring Security 설정
+ */
 @Configuration
 @EnableWebSecurity
 public class SecurityConfig {
 
     @Bean
-    public PasswordEncoder passwordEncoder() {
-        return new BCryptPasswordEncoder();
+    public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
+        http
+            .authorizeHttpRequests(authz -> authz
+                // Swagger UI 접근 허용
+                .requestMatchers("/swagger-ui/**", "/swagger-ui.html", "/v3/api-docs/**", "/api-docs/**").permitAll()
+                // Actuator 엔드포인트 허용
+                .requestMatchers("/actuator/**").permitAll()
+                // 로그인 관련 엔드포인트는 허용
+                .requestMatchers("/api/auth/login", "/api/auth/refresh", "/api/auth/password/reset/**", "/api/auth/health").permitAll()
+                // 기타 API 엔드포인트는 인증 필요
+                .requestMatchers("/api/**").authenticated()
+                // 기타 모든 요청은 허용
+                .anyRequest().permitAll()
+            )
+            .csrf(csrf -> csrf.disable())
+            .httpBasic(httpBasic -> httpBasic.disable())
+            .formLogin(formLogin -> formLogin.disable());
+        
+        return http.build();
     }
 
     @Bean
-    public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
-        return http
-                .csrf(csrf -> csrf.disable())
-                .authorizeHttpRequests(authz -> authz
-                        // Actuator 엔드포인트는 모든 접근 허용
-                        .requestMatchers("/actuator/**").permitAll()
-                        // API 엔드포인트는 모든 접근 허용 (MSA 내부 통신용)
-                        .requestMatchers("/api/**").permitAll()
-                        // 루트 경로는 모든 접근 허용
-                        .requestMatchers("/").permitAll()
-                        // 기타 모든 요청은 인증 필요
-                        .anyRequest().authenticated()
-                )
-                .httpBasic(basic -> basic.disable())
-                .formLogin(form -> form.disable())
-                .build();
+    public PasswordEncoder passwordEncoder() {
+        return new BCryptPasswordEncoder();
     }
 }

@@ -1,5 +1,6 @@
 package com.dorandoran.user.entity;
 
+import com.dorandoran.user.entity.User;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -9,7 +10,6 @@ import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
 import java.time.LocalDateTime;
-import java.util.UUID;
 
 /**
  * User 서비스 설정 엔티티
@@ -27,8 +27,9 @@ public class UserSetting {
     @Column(name = "id")
     private Long id;
     
-    @Column(name = "user_id", nullable = false)
-    private UUID userId;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id", nullable = false)
+    private User user;
     
     @Column(name = "setting_key", nullable = false, length = 100)
     private String settingKey;

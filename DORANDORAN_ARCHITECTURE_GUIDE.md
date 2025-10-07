@@ -1052,7 +1052,3 @@ public class ChatHealthIndicator implements HealthIndicator {
 - [JWT with Spring Security](https://spring.io/guides/tutorials/spring-security-and-angular-js/)
 
 ---
-
-**문서 버전**: v1.0  
-**최종 업데이트**: 2025-01-27  
-**작성자**: DoranDoran 개발팀

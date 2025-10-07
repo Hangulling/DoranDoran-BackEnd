@@ -11,4 +11,7 @@ import java.util.UUID;
 public interface ChatbotRepository extends JpaRepository<Chatbot, UUID> {
     // 봇 타입으로 챗봇 찾기
     List<Chatbot> findByBotType(String botType);
+
+    // 활성 챗봇 조회
+    List<Chatbot> findByIsActiveTrue();
 }

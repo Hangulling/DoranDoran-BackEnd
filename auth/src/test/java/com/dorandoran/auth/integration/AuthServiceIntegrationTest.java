@@ -15,13 +15,12 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDateTime;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * Auth Service 통합 테스트
+ * AuthService 통합 테스트
  */
 @SpringBootTest
 @ActiveProfiles("test")
@@ -45,29 +44,149 @@ class AuthServiceIntegrationTest {
         testUser = new UserDto(
             UUID.randomUUID(),
             "integration@example.com",
-            "홍",
-            "길동",
-            "홍길동",
-            "$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBOsl7iKTVEFDi", // password123
-            "profile.jpg",
-            "통합 테스트 사용자",
-            LocalDateTime.now(),
+            "Integration",
+            "Test",
+            "Integration Test",
+            "$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBOsl7iKTVEFDi", // bcrypt hash for "password123"
+            "https://example.com/profile.jpg",
+            "Integration Test User",
+            null,
             UserDto.UserStatus.ACTIVE,
             UserDto.RoleName.ROLE_USER,
             false,
-            LocalDateTime.now(),
-            LocalDateTime.now()
+            null,
+            null
         );
 
-        loginRequest = new LoginRequest("integration@example.com", "password123");
+        loginRequest = LoginRequest.builder()
+            .email("integration@example.com")
+            .password("password123")
+            .build();
     }
 
     @Test
-    void JWT_토큰_생성_및_검증_성공() {
+    void 로그인_통합_테스트_성공() {
+        // Given - UserIntegrationService를 모킹하여 실제 사용자 데이터 반환
+        // (실제 환경에서는 User 서비스와 통신)
+        
+        // When
+        LoginResponse response = authService.login(loginRequest);
+
+        // Then
+        assertNotNull(response);
+        assertNotNull(response.getAccessToken());
+        assertNotNull(response.getRefreshToken());
+        assertEquals("Bearer", response.getTokenType());
+        assertEquals(3600L, response.getExpiresIn());
+        assertEquals("integration@example.com", response.getEmail());
+        assertEquals("Integration Test", response.getName());
+    }
+
+    @Test
+    void 로그인_통합_테스트_실패_잘못된_비밀번호() {
         // Given
-        String userId = testUser.id().toString();
-        String email = testUser.email();
-        String name = testUser.name();
+        LoginRequest wrongPasswordRequest = LoginRequest.builder()
+            .email("integration@example.com")
+            .password("wrongpassword")
+            .build();
+
+        // When & Then
+        DoranDoranException exception = assertThrows(DoranDoranException.class, () -> {
+            authService.login(wrongPasswordRequest);
+        });
+
+        assertEquals(ErrorCode.INVALID_PASSWORD, exception.getErrorCode());
+    }
+
+    @Test
+    void 토큰_검증_통합_테스트_성공() {
+        // Given
+        LoginResponse loginResponse = authService.login(loginRequest);
+        String accessToken = loginResponse.getAccessToken();
+
+        // When
+        UserDto validatedUser = authService.validateToken(accessToken);
+
+        // Then
+        assertNotNull(validatedUser);
+        assertEquals("integration@example.com", validatedUser.email());
+        assertEquals("Integration Test", validatedUser.name());
+    }
+
+    @Test
+    void 토큰_검증_통합_테스트_실패_유효하지_않은_토큰() {
+        // Given
+        String invalidToken = "invalid.token.here";
+
+        // When & Then
+        DoranDoranException exception = assertThrows(DoranDoranException.class, () -> {
+            authService.validateToken(invalidToken);
+        });
+
+        assertEquals(ErrorCode.AUTH_TOKEN_INVALID, exception.getErrorCode());
+    }
+
+    @Test
+    void 토큰_갱신_통합_테스트_성공() {
+        // Given
+        LoginResponse loginResponse = authService.login(loginRequest);
+        String refreshToken = loginResponse.getRefreshToken();
+
+        // When
+        LoginResponse newTokens = authService.refreshToken(refreshToken);
+
+        // Then
+        assertNotNull(newTokens);
+        assertNotNull(newTokens.getAccessToken());
+        assertNotNull(newTokens.getRefreshToken());
+        assertEquals("Bearer", newTokens.getTokenType());
+        assertEquals(3600L, newTokens.getExpiresIn());
+        assertEquals("integration@example.com", newTokens.getEmail());
+        assertEquals("Integration Test", newTokens.getName());
+        
+        // 새 토큰이 이전 토큰과 다른지 확인
+        assertNotEquals(loginResponse.getAccessToken(), newTokens.getAccessToken());
+        assertNotEquals(loginResponse.getRefreshToken(), newTokens.getRefreshToken());
+    }
+
+    @Test
+    void 토큰_갱신_통합_테스트_실패_유효하지_않은_리프레시_토큰() {
+        // Given
+        String invalidRefreshToken = "invalid.refresh.token";
+
+        // When & Then
+        DoranDoranException exception = assertThrows(DoranDoranException.class, () -> {
+            authService.refreshToken(invalidRefreshToken);
+        });
+
+        assertEquals(ErrorCode.AUTH_TOKEN_EXPIRED, exception.getErrorCode());
+    }
+
+    @Test
+    void 로그아웃_통합_테스트_성공() {
+        // Given
+        LoginResponse loginResponse = authService.login(loginRequest);
+        String accessToken = loginResponse.getAccessToken();
+
+        // When - 로그아웃은 예외가 발생하지 않아야 함
+        assertDoesNotThrow(() -> {
+            authService.logout(accessToken);
+        });
+
+        // Then - 로그아웃 후 토큰이 무효화되었는지 확인
+        DoranDoranException exception = assertThrows(DoranDoranException.class, () -> {
+            authService.validateToken(accessToken);
+        });
+
+        assertEquals(ErrorCode.AUTH_TOKEN_INVALID, exception.getErrorCode());
+    }
+
+    @Test
+    void JWT_토큰_생성_및_검증_통합_테스트() {
+        // Given
+        String userId = "test-user-id";
+        String email = "jwt@example.com";
+        String name = "JWT Test User";
 
         // When
         String accessToken = jwtService.generateAccessToken(userId, email, name);
@@ -76,100 +195,58 @@ class AuthServiceIntegrationTest {
         // Then
         assertNotNull(accessToken);
         assertNotNull(refreshToken);
-        assertTrue(jwtService.isTokenValid(accessToken));
-        assertTrue(jwtService.isTokenValid(refreshToken));
+        
+        // 토큰에서 정보 추출 검증
         assertEquals(userId, jwtService.extractUserId(accessToken));
         assertEquals(email, jwtService.extractEmail(accessToken));
         assertEquals(name, jwtService.extractName(accessToken));
-    }
-
-    @Test
-    void JWT_토큰_만료_시간_확인() {
-        // Given
-        String userId = testUser.id().toString();
-        String email = testUser.email();
-        String name = testUser.name();
-
-        // When
-        String accessToken = jwtService.generateAccessToken(userId, email, name);
-
-        // Then
+        
+        assertEquals(userId, jwtService.extractUserId(refreshToken));
+        assertEquals(email, jwtService.extractEmail(refreshToken));
+        assertEquals(name, jwtService.extractName(refreshToken));
+        
+        // 토큰 유효성 검증
         assertTrue(jwtService.isTokenValid(accessToken));
-        assertNotNull(jwtService.extractUserId(accessToken));
+        assertTrue(jwtService.isTokenValid(refreshToken));
     }
 
     @Test
-    void JWT_토큰_유효하지_않은_토큰_검증_실패() {
+    void 사용자_조회_통합_테스트() {
         // Given
-        String invalidToken = "invalid.token.here";
+        String email = "integration@example.com";
 
-        // When & Then
-        assertFalse(jwtService.isTokenValid(invalidToken));
-    }
-
-    @Test
-    void JWT_토큰_추출_실패() {
-        // Given
-        String invalidToken = "invalid.token.here";
-
-        // When & Then
-        assertThrows(Exception.class, () -> {
-            jwtService.extractUserId(invalidToken);
-        });
-    }
-
-    @Test
-    void 사용자_통합_서비스_헬스체크() {
         // When
-        String healthStatus = userIntegrationService.healthCheck();
+        UserDto foundUser = authService.findUserByEmail(email);
 
         // Then
-        assertNotNull(healthStatus);
-        assertTrue(healthStatus.contains("User service") || healthStatus.contains("unavailable"));
+        assertNotNull(foundUser);
+        assertEquals(email, foundUser.email());
     }
 
     @Test
-    void Auth_Service_전체_플로우_테스트() {
-        // Given - Mock UserIntegrationService가 실제 User Service를 호출하도록 설정
-        // 실제 환경에서는 User Service가 실행 중이어야 함
+    void 사용자_조회_통합_테스트_실패_사용자없음() {
+        // Given
+        String nonExistentEmail = "nonexistent@example.com";
 
         // When & Then
-        // 이 테스트는 실제 User Service와의 통신이 필요하므로
-        // User Service가 실행 중일 때만 성공할 수 있음
+        DoranDoranException exception = assertThrows(DoranDoranException.class, () -> {
+            authService.findUserByEmail(nonExistentEmail);
+        });
+
+        assertEquals(ErrorCode.USER_NOT_FOUND, exception.getErrorCode());
+    }
+
+    @Test
+    void 토큰_무효화_통합_테스트() {
+        // Given
+        String userId = "test-user-id";
+
+        // When - 토큰 무효화는 예외가 발생하지 않아야 함
         assertDoesNotThrow(() -> {
-            // Auth Service의 기본 기능들이 정상적으로 동작하는지 확인
-            assertNotNull(authService);
-            assertNotNull(jwtService);
-            assertNotNull(userIntegrationService);
+            authService.invalidateAllTokensForUser(userId);
         });
-    }
 
-    @Test
-    void JWT_토큰_다양한_사용자_정보_처리() {
-        // Given
-        String userId1 = UUID.randomUUID().toString();
-        String email1 = "user1@example.com";
-        String name1 = "사용자1";
-
-        String userId2 = UUID.randomUUID().toString();
-        String email2 = "user2@example.com";
-        String name2 = "사용자2";
-
-        // When
-        String token1 = jwtService.generateAccessToken(userId1, email1, name1);
-        String token2 = jwtService.generateAccessToken(userId2, email2, name2);
-
-        // Then
-        assertNotNull(token1);
-        assertNotNull(token2);
-        assertNotEquals(token1, token2);
-        
-        assertEquals(userId1, jwtService.extractUserId(token1));
-        assertEquals(email1, jwtService.extractEmail(token1));
-        assertEquals(name1, jwtService.extractName(token1));
-        
-        assertEquals(userId2, jwtService.extractUserId(token2));
-        assertEquals(email2, jwtService.extractEmail(token2));
-        assertEquals(name2, jwtService.extractName(token2));
+        // Then - 메서드가 정상적으로 실행되었음을 확인
+        // (실제 구현에서는 토큰이 무효화되었는지 검증할 수 있음)
     }
 }

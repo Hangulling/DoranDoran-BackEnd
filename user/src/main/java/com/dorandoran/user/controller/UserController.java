@@ -5,6 +5,11 @@ import com.dorandoran.shared.dto.UpdateUserRequest;
 import com.dorandoran.shared.dto.UserDto;
 import com.dorandoran.shared.dto.ResetPasswordRequest;
 import com.dorandoran.user.service.UserService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
@@ -19,6 +24,7 @@ import java.util.UUID;
 @RequestMapping("/api/users")
 @RequiredArgsConstructor
 @Slf4j
+@Tag(name = "User Management", description = "사용자 관리 API")
 public class UserController {
     
     private final UserService userService;
@@ -26,6 +32,11 @@ public class UserController {
     /**
      * 사용자 생성
      */
+    @Operation(summary = "사용자 생성", description = "새로운 사용자를 등록합니다.")
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "사용자 생성 성공"),
+        @ApiResponse(responseCode = "400", description = "잘못된 요청 데이터")
+    })
     @PostMapping
     public ResponseEntity<UserDto> createUser(@RequestBody CreateUserRequest request) {
         log.info("사용자 생성 요청: email={}", request.email());
@@ -42,8 +53,15 @@ public class UserController {
     /**
      * 사용자 ID로 조회
      */
+    @Operation(summary = "사용자 조회 (ID)", description = "사용자 ID로 사용자 정보를 조회합니다.")
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "사용자 조회 성공"),
+        @ApiResponse(responseCode = "404", description = "사용자를 찾을 수 없음")
+    })
     @GetMapping("/{userId}")
-    public ResponseEntity<UserDto> getUserById(@PathVariable String userId) {
+    public ResponseEntity<UserDto> getUserById(
+            @Parameter(description = "사용자 UUID", required = true)
+            @PathVariable String userId) {
         log.info("사용자 조회 요청: userId={}", userId);
         
         try {

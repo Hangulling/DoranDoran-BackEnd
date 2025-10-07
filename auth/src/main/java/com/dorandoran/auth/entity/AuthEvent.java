@@ -1,11 +1,11 @@
 package com.dorandoran.auth.entity;
 
+import com.dorandoran.auth.entity.User;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
 
 import java.time.LocalDateTime;
-import java.util.UUID;
 
 @Entity
 @Table(name = "auth_events", schema = "auth_schema")
@@ -21,8 +21,9 @@ public class AuthEvent {
     @Column(name = "id")
     private Long id;
 
-    @Column(name = "user_id")
-    private UUID userId;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id")
+    private User user;
 
     @Column(name = "event_type", length = 50, nullable = false)
     private String eventType; // LOGIN, LOGOUT, TOKEN_ROTATE, PASSWORD_CHANGE 등

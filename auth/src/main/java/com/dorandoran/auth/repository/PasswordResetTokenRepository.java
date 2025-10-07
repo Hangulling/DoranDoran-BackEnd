@@ -10,7 +10,7 @@ public interface PasswordResetTokenRepository extends JpaRepository<PasswordRese
 
     Optional<PasswordResetToken> findByTokenHash(String tokenHash);
     
-    void deleteByUserId(UUID userId);
+    void deleteByUser(com.dorandoran.auth.entity.User user);
 }
 
 

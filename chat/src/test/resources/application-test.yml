@@ -1,0 +1,47 @@
+spring:
+  datasource:
+    url: jdbc:h2:mem:testdb;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DEFAULT_NULL_ORDERING=HIGH;INIT=CREATE SCHEMA IF NOT EXISTS chat_schema;CREATE SCHEMA IF NOT EXISTS billing
+    username: sa
+    password: 
+    driver-class-name: org.h2.Driver
+    hikari:
+      maximum-pool-size: 5
+      minimum-idle: 1
+      connection-timeout: 30000
+      idle-timeout: 600000
+      max-lifetime: 1800000
+  
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.H2Dialect
+        format_sql: true
+        connection:
+          characterEncoding: UTF-8
+          useUnicode: true
+        jdbc:
+          time_zone: UTC
+        default_schema: chat_schema
+    database-platform: org.hibernate.dialect.H2Dialect
+
+# AI 설정 (테스트용)
+ai:
+  openai:
+    api-key: test-key
+    base-url: https://api.openai.com
+    model: gpt-4o-mini
+    max-prompt-chars: 8000
+    max-output-tokens: 800
+    price-per1k-input: 0
+    price-per1k-output: 0
+
+# 로깅 설정
+logging:
+  level:
+    com.dorandoran.chat: DEBUG
+    org.springframework.web.socket: DEBUG
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} - %msg%n"

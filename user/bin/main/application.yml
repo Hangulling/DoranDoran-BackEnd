@@ -22,7 +22,7 @@ spring:
   # JPA 설정
   jpa:
     hibernate:
-      ddl-auto: validate
+      ddl-auto: create-drop
       default_schema: user_schema
     show-sql: false
     properties:
@@ -50,6 +50,20 @@ gateway:
   jwt:
     hmac-secret: change-me-hmac-secret
     skew-ms: 60000
+
+# SpringDoc OpenAPI 설정
+springdoc:
+  api-docs:
+    path: /api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    enabled: true
+    operationsSorter: method
+    tagsSorter: alpha
+    tryItOutEnabled: true
+    displayRequestDuration: true
+    showExtensions: true
+    showCommonExtensions: true
 
 # Actuator 설정
 management:

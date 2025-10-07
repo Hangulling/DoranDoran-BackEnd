@@ -1,10 +1,10 @@
 package com.dorandoran.auth.entity;
 
+import com.dorandoran.auth.entity.User;
 import jakarta.persistence.*;
 import lombok.*;
 
 import java.time.LocalDateTime;
-import java.util.UUID;
 
 @Entity
 @Table(name = "password_reset_tokens", schema = "auth_schema")
@@ -20,8 +20,9 @@ public class PasswordResetToken {
     @Column(name = "id")
     private Long id;
 
-    @Column(name = "user_id", nullable = false)
-    private UUID userId;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id", nullable = false)
+    private User user;
 
     @Column(name = "token_hash", nullable = false, length = 128)
     private String tokenHash;

@@ -96,10 +96,22 @@ public class TokenBlacklistService {
     }
     
     /**
-     * 토큰 해시 생성
+     * 토큰 해시 생성 (public으로 변경)
      */
-    private String hashToken(String token) {
+    public String hashToken(String token) {
         // 실제 구현에서는 SHA-256 등 안전한 해시 함수 사용
         return String.valueOf(token.hashCode());
+    }
+
+    /**
+     * 사용자의 모든 토큰을 블랙리스트에 추가 (String userId 버전)
+     */
+    public void blacklistAllUserTokens(String userId) {
+        try {
+            UUID uuid = UUID.fromString(userId);
+            blacklistUserTokens(uuid, "User logout");
+        } catch (IllegalArgumentException e) {
+            log.error("Invalid userId format: {}", userId);
+        }
     }
 }

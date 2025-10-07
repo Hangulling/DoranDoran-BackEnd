@@ -18,6 +18,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Duration;
 import java.util.Date;
 
 /**
@@ -167,14 +168,32 @@ public class AuthService {
                 refreshTokenService.rotate(existing.get(), newHash,
                         java.time.LocalDateTime.ofInstant(newRefreshExp.toInstant(), java.time.ZoneId.systemDefault()));
             } else {
+                // UserDto를 User 엔티티로 변환
+                com.dorandoran.auth.entity.User userEntity = com.dorandoran.auth.entity.User.builder()
+                        .id(user.id())
+                        .email(user.email())
+                        .firstName(user.firstName())
+                        .lastName(user.lastName())
+                        .name(user.name())
+                        .passwordHash(user.passwordHash())
+                        .picture(user.picture())
+                        .info(user.info())
+                        .lastConnTime(user.lastConnTime())
+                        .status(com.dorandoran.auth.entity.User.UserStatus.valueOf(user.status().name()))
+                        .role(com.dorandoran.auth.entity.User.RoleName.valueOf(user.role().name()))
+                        .coachCheck(user.coachCheck())
+                        .createdAt(user.createdAt())
+                        .updatedAt(user.updatedAt())
+                        .build();
+                
                 // 과거 미추적 토큰인 경우, 현재 토큰을 기록하고 새 토큰 발급 기록 추가
                 java.util.Date currentExp = jwtService.extractExpiration(refreshToken);
                 if (currentExp != null) {
-                    refreshTokenService.issue(java.util.UUID.fromString(user.id().toString()), oldHash,
+                    refreshTokenService.issue(userEntity, oldHash,
                             java.time.LocalDateTime.ofInstant(currentExp.toInstant(), java.time.ZoneId.systemDefault()),
                             null, null, null);
                 }
-                refreshTokenService.issue(java.util.UUID.fromString(user.id().toString()), newHash,
+                refreshTokenService.issue(userEntity, newHash,
                         java.time.LocalDateTime.ofInstant(newRefreshExp.toInstant(), java.time.ZoneId.systemDefault()),
                         null, null, null);
             }
@@ -218,7 +237,9 @@ public class AuthService {
             
             // 3. 토큰을 블랙리스트에 추가
             if (expirationTime != null && expirationTime.after(new Date())) {
-                tokenBlacklistService.addToBlacklist(token, expirationTime);
+                long remainingTime = expirationTime.getTime() - System.currentTimeMillis();
+                Duration duration = Duration.ofMillis(remainingTime);
+                tokenBlacklistService.addToBlacklist(token, "User logout", duration);
                 log.info("토큰이 블랙리스트에 추가되었습니다: userId={}", userId);
             } else {
                 log.warn("토큰이 이미 만료되어 블랙리스트에 추가하지 않습니다: userId={}", userId);
@@ -242,8 +263,35 @@ public class AuthService {
      */
     private void recordLoginAttempt(java.util.UUID userId, String email, boolean succeeded) {
         try {
+            // User 객체를 조회하여 연관관계 설정
+            com.dorandoran.auth.entity.User user = null;
+            if (userId != null) {
+                try {
+                    // UserIntegrationService에서 UserDto를 받아서 User 엔티티로 변환
+                    com.dorandoran.shared.dto.UserDto userDto = userIntegrationService.getUserById(userId.toString());
+                    user = com.dorandoran.auth.entity.User.builder()
+                            .id(userDto.id())
+                            .email(userDto.email())
+                            .firstName(userDto.firstName())
+                            .lastName(userDto.lastName())
+                            .name(userDto.name())
+                            .passwordHash(userDto.passwordHash())
+                            .picture(userDto.picture())
+                            .info(userDto.info())
+                            .lastConnTime(userDto.lastConnTime())
+                            .status(com.dorandoran.auth.entity.User.UserStatus.valueOf(userDto.status().name()))
+                            .role(com.dorandoran.auth.entity.User.RoleName.valueOf(userDto.role().name()))
+                            .coachCheck(userDto.coachCheck())
+                            .createdAt(userDto.createdAt())
+                            .updatedAt(userDto.updatedAt())
+                            .build();
+                } catch (Exception e) {
+                    log.warn("사용자 조회 실패: {}", e.getMessage());
+                }
+            }
+            
             loginAttemptRepository.save(LoginAttempt.builder()
-                    .userId(userId)
+                    .user(user)
                     .email(email)
                     .succeeded(succeeded)
                     .createdAt(java.time.LocalDateTime.now())
@@ -258,10 +306,29 @@ public class AuthService {
      */
     private void saveRefreshToken(java.util.UUID userId, String refreshToken) {
         try {
+            // UserIntegrationService에서 UserDto를 받아서 User 엔티티로 변환
+            com.dorandoran.shared.dto.UserDto userDto = userIntegrationService.getUserById(userId.toString());
+            com.dorandoran.auth.entity.User user = com.dorandoran.auth.entity.User.builder()
+                    .id(userDto.id())
+                    .email(userDto.email())
+                    .firstName(userDto.firstName())
+                    .lastName(userDto.lastName())
+                    .name(userDto.name())
+                    .passwordHash(userDto.passwordHash())
+                    .picture(userDto.picture())
+                    .info(userDto.info())
+                    .lastConnTime(userDto.lastConnTime())
+                    .status(com.dorandoran.auth.entity.User.UserStatus.valueOf(userDto.status().name()))
+                    .role(com.dorandoran.auth.entity.User.RoleName.valueOf(userDto.role().name()))
+                    .coachCheck(userDto.coachCheck())
+                    .createdAt(userDto.createdAt())
+                    .updatedAt(userDto.updatedAt())
+                    .build();
+            
             String refreshHash = tokenBlacklistService.hashToken(refreshToken);
             java.util.Date refreshExp = jwtService.extractExpiration(refreshToken);
             if (refreshExp != null) {
-                refreshTokenService.issue(userId, refreshHash,
+                refreshTokenService.issue(user, refreshHash,
                         java.time.LocalDateTime.ofInstant(refreshExp.toInstant(), java.time.ZoneId.systemDefault()),
                         null, null, null);
             }
@@ -275,8 +342,35 @@ public class AuthService {
      */
     private void recordAuthEvent(java.util.UUID userId, String eventType) {
         try {
+            // User 객체를 조회하여 연관관계 설정
+            com.dorandoran.auth.entity.User user = null;
+            if (userId != null) {
+                try {
+                    // UserIntegrationService에서 UserDto를 받아서 User 엔티티로 변환
+                    com.dorandoran.shared.dto.UserDto userDto = userIntegrationService.getUserById(userId.toString());
+                    user = com.dorandoran.auth.entity.User.builder()
+                            .id(userDto.id())
+                            .email(userDto.email())
+                            .firstName(userDto.firstName())
+                            .lastName(userDto.lastName())
+                            .name(userDto.name())
+                            .passwordHash(userDto.passwordHash())
+                            .picture(userDto.picture())
+                            .info(userDto.info())
+                            .lastConnTime(userDto.lastConnTime())
+                            .status(com.dorandoran.auth.entity.User.UserStatus.valueOf(userDto.status().name()))
+                            .role(com.dorandoran.auth.entity.User.RoleName.valueOf(userDto.role().name()))
+                            .coachCheck(userDto.coachCheck())
+                            .createdAt(userDto.createdAt())
+                            .updatedAt(userDto.updatedAt())
+                            .build();
+                } catch (Exception e) {
+                    log.warn("사용자 조회 실패: {}", e.getMessage());
+                }
+            }
+            
             authEventRepository.save(AuthEvent.builder()
-                    .userId(userId)
+                    .user(user)
                     .eventType(eventType)
                     .metadata(null)
                     .createdAt(java.time.LocalDateTime.now())
@@ -297,14 +391,32 @@ public class AuthService {
             // User 서비스에서 사용자 조회
             UserDto user = userIntegrationService.getUserByEmail(email);
             
+            // UserDto를 User 엔티티로 변환
+            com.dorandoran.auth.entity.User userEntity = com.dorandoran.auth.entity.User.builder()
+                    .id(user.id())
+                    .email(user.email())
+                    .firstName(user.firstName())
+                    .lastName(user.lastName())
+                    .name(user.name())
+                    .passwordHash(user.passwordHash())
+                    .picture(user.picture())
+                    .info(user.info())
+                    .lastConnTime(user.lastConnTime())
+                    .status(com.dorandoran.auth.entity.User.UserStatus.valueOf(user.status().name()))
+                    .role(com.dorandoran.auth.entity.User.RoleName.valueOf(user.role().name()))
+                    .coachCheck(user.coachCheck())
+                    .createdAt(user.createdAt())
+                    .updatedAt(user.updatedAt())
+                    .build();
+            
             // 기존 비밀번호 재설정 토큰이 있다면 무효화
-            passwordResetService.invalidateUserTokens(user.id());
+            passwordResetService.invalidateUserTokens(userEntity);
             
             // 새로운 비밀번호 재설정 토큰 생성
             String resetToken = generatePasswordResetToken();
             java.time.LocalDateTime expiresAt = java.time.LocalDateTime.now().plusHours(24); // 24시간 후 만료
             
-            passwordResetService.issue(user.id(), resetToken, expiresAt);
+            passwordResetService.issue(userEntity, resetToken, expiresAt);
             
             // 이벤트 로깅
             recordAuthEvent(user.id(), "PASSWORD_RESET_REQUESTED");
@@ -346,15 +458,15 @@ public class AuthService {
             validatePasswordPolicy(newPassword);
             
             // User 서비스에서 비밀번호 업데이트
-            userIntegrationService.updatePassword(resetToken.getUserId(), newPassword);
+            userIntegrationService.updatePassword(resetToken.getUser().getId(), newPassword);
             
             // 토큰 사용 처리
             passwordResetService.markUsed(resetToken);
             
             // 이벤트 로깅
-            recordAuthEvent(resetToken.getUserId(), "PASSWORD_RESET_COMPLETED");
+            recordAuthEvent(resetToken.getUser().getId(), "PASSWORD_RESET_COMPLETED");
             
-            log.info("비밀번호 재설정 완료: userId={}", resetToken.getUserId());
+            log.info("비밀번호 재설정 완료: userId={}", resetToken.getUser().getId());
             
         } catch (DoranDoranException e) {
             log.error("비밀번호 재설정 실행 실패: token={}, error={}", token, e.getMessage());

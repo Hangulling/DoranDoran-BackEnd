@@ -21,7 +21,7 @@ public class HmacAuthInterceptor implements HandlerInterceptor {
     public boolean preHandle(jakarta.servlet.http.HttpServletRequest request, jakarta.servlet.http.HttpServletResponse response, Object handler) throws Exception {
         // 공개 엔드포인트는 통과
         String path = request.getRequestURI();
-        if (path.startsWith("/actuator") || path.equals("/") || path.startsWith("/api/users/health") || path.startsWith("/api/users/email")) {
+        if (path.startsWith("/actuator") || path.equals("/") || path.startsWith("/swagger-ui") || path.startsWith("/v3/api-docs") || path.startsWith("/api-docs") || path.startsWith("/api/users/health") || path.startsWith("/api/users/email")) {
             return true;
         }
 
