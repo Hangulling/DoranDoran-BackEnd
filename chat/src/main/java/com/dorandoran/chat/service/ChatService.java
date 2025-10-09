@@ -135,4 +135,13 @@ public class ChatService {
     public List<Message> listMessages(UUID chatroomId) {
         return messageRepository.findByChatRoomIdOrderBySequenceNumberAsc(chatroomId);
     }
+
+    /**
+     * 채팅방 조회 (ID로)
+     */
+    @Transactional
+    public ChatRoom getChatRoomById(UUID chatroomId) {
+        return chatRoomRepository.findById(chatroomId)
+            .orElseThrow(() -> new RuntimeException("ChatRoom not found: " + chatroomId));
+    }
 }

@@ -143,9 +143,9 @@ public class PromptService {
     }
 
     private void appendRoomContext(ChatRoom room, StringBuilder prompt) {
-        if (room.getContextData() == null || room.getContextData().isBlank()) return;
+        if (room.getContextData() == null || room.getContextData().isNull() || room.getContextData().isEmpty()) return;
         try {
-            JsonNode ctx = objectMapper.readTree(room.getContextData());
+            JsonNode ctx = room.getContextData();
             if (ctx.has("conversationSummary")) {
                 prompt.append("\n[대화 요약]\n").append(ctx.get("conversationSummary").asText()).append("\n");
             }

@@ -1,0 +1,901 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DoranDoran Multi-Agent AI 테스트</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+        
+        .header p {
+            font-size: 1.1em;
+            opacity: 0.9;
+        }
+        
+        .content {
+            padding: 30px;
+        }
+        
+        .test-section {
+            margin-bottom: 30px;
+            padding: 25px;
+            border: 2px solid #e1e8ed;
+            border-radius: 10px;
+            background: #f8f9fa;
+        }
+        
+        .test-section h3 {
+            color: #2c3e50;
+            margin-bottom: 20px;
+            font-size: 1.4em;
+            border-bottom: 2px solid #3498db;
+            padding-bottom: 10px;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #34495e;
+        }
+        
+        input, select, textarea {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+        }
+        
+        input:focus, select:focus, textarea:focus {
+            outline: none;
+            border-color: #3498db;
+        }
+        
+        textarea {
+            resize: vertical;
+            min-height: 100px;
+        }
+        
+        .btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 25px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 600;
+            transition: transform 0.2s, box-shadow 0.2s;
+            margin-right: 10px;
+            margin-bottom: 10px;
+        }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+        
+        .btn:active {
+            transform: translateY(0);
+        }
+        
+        .btn-secondary {
+            background: linear-gradient(135deg, #95a5a6 0%, #7f8c8d 100%);
+        }
+        
+        .btn-success {
+            background: linear-gradient(135deg, #2ecc71 0%, #27ae60 100%);
+        }
+        
+        .response-area {
+            margin-top: 20px;
+            padding: 20px;
+            background: #2c3e50;
+            color: #ecf0f1;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            white-space: pre-wrap;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        
+        .sse-area {
+            margin-top: 20px;
+            padding: 20px;
+            background: #34495e;
+            color: #ecf0f1;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            white-space: pre-wrap;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        
+        .status {
+            padding: 10px;
+            border-radius: 5px;
+            margin-bottom: 15px;
+            font-weight: 600;
+        }
+        
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        
+        .status.info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+        
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        
+        @media (max-width: 768px) {
+            .grid {
+                grid-template-columns: 1fr;
+            }
+        }
+        
+        .agent-info {
+            background: #e8f4f8;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+        }
+        
+        .agent-info h4 {
+            color: #2c3e50;
+            margin-bottom: 10px;
+        }
+        
+        .agent-info ul {
+            list-style: none;
+            padding-left: 0;
+        }
+        
+        .agent-info li {
+            padding: 5px 0;
+            border-bottom: 1px solid #bdc3c7;
+        }
+        
+        .agent-info li:last-child {
+            border-bottom: none;
+        }
+        
+        /* Agent 탭 스타일 */
+        .agent-tabs {
+            display: flex;
+            border-bottom: 2px solid #e1e8ed;
+            margin-bottom: 20px;
+            background: #f8f9fa;
+            border-radius: 8px 8px 0 0;
+        }
+        
+        .agent-tab {
+            flex: 1;
+            padding: 15px 20px;
+            border: none;
+            background: transparent;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            color: #6c757d;
+            border-bottom: 3px solid transparent;
+            transition: all 0.3s ease;
+        }
+        
+        .agent-tab:hover {
+            background: #e9ecef;
+            color: #495057;
+        }
+        
+        .agent-tab.active {
+            color: #007bff;
+            border-bottom-color: #007bff;
+            background: white;
+        }
+        
+        .agent-tab-content {
+            display: none;
+            padding: 20px;
+            background: white;
+            border-radius: 0 0 8px 8px;
+            border: 1px solid #e1e8ed;
+            border-top: none;
+        }
+        
+        .agent-tab-content.active {
+            display: block;
+        }
+        
+        .agent-tab-content h4 {
+            color: #2c3e50;
+            margin-bottom: 20px;
+            font-size: 1.2em;
+            border-bottom: 2px solid #3498db;
+            padding-bottom: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🤖 DoranDoran Multi-Agent AI 테스트</h1>
+            <p>외국인 한국어 학습을 위한 Multi-Agent AI 시스템 테스트 페이지</p>
+        </div>
+        
+        <div class="content">
+            <!-- Agent 정보 -->
+            <div class="agent-info">
+                <h4>🎯 Multi-Agent 구성</h4>
+                <ul>
+                    <li><strong>IntimacyAgent</strong>: 한국어 친밀도 분석 및 교정 (1=격식체, 2=부드러운 존댓말, 3=반말)</li>
+                    <li><strong>VocabularyAgent</strong>: 어려운 단어 추출 (최대 1개)</li>
+                    <li><strong>TranslationAgent</strong>: 영어 번역 및 발음기호 제공</li>
+                    <li><strong>ConversationAgent</strong>: 자연스러운 대화 응답 생성</li>
+                </ul>
+            </div>
+            
+            <div class="grid">
+                <!-- 채팅방 생성 테스트 -->
+                <div class="test-section">
+                    <h3>🏠 채팅방 생성 (AI 인사말 자동 발송)</h3>
+                    <div class="form-group">
+                        <label for="userId">사용자 ID:</label>
+                        <input type="text" id="userId" placeholder="UUID 또는 사용자 ID" value="test-user-123">
+                    </div>
+                    <div class="form-group">
+                        <label for="chatbotId">챗봇 ID:</label>
+                        <input type="text" id="chatbotId" placeholder="챗봇 UUID" value="test-bot-456">
+                    </div>
+                    <div class="form-group">
+                        <label for="roomName">채팅방 이름:</label>
+                        <input type="text" id="roomName" placeholder="채팅방 이름" value="한국어 학습방">
+                    </div>
+                    <div class="form-group">
+                        <label for="intimacyLevel">친밀도 레벨:</label>
+                        <select id="intimacyLevel">
+                            <option value="1">1 - 격식체/존댓말</option>
+                            <option value="2" selected>2 - 부드러운 존댓말</option>
+                            <option value="3">3 - 친근한 반말</option>
+                        </select>
+                    </div>
+                    <button class="btn" onclick="createChatroom()">채팅방 생성</button>
+                    <button class="btn btn-secondary" onclick="clearResponse('createResponse')">응답 지우기</button>
+                    <div id="createStatus"></div>
+                    <div id="createResponse" class="response-area" style="display: none;"></div>
+                </div>
+                
+                <!-- 메시지 전송 테스트 -->
+                <div class="test-section">
+                    <h3>💬 메시지 전송 (Multi-Agent 처리)</h3>
+                    <div class="form-group">
+                        <label for="chatroomId">채팅방 ID:</label>
+                        <input type="text" id="chatroomId" placeholder="생성된 채팅방 ID">
+                    </div>
+                    <div class="form-group">
+                        <label for="messageContent">메시지 내용:</label>
+                        <textarea id="messageContent" placeholder="한국어로 메시지를 입력하세요...">안녕하세요! 한국어를 배우고 있어요.</textarea>
+                    </div>
+                    <div class="form-group">
+                        <label for="contentType">메시지 타입:</label>
+                        <select id="contentType">
+                            <option value="text" selected>text</option>
+                            <option value="code">code</option>
+                            <option value="system">system</option>
+                        </select>
+                    </div>
+                    <button class="btn btn-success" onclick="sendMessage()">메시지 전송</button>
+                    <button class="btn btn-secondary" onclick="clearResponse('messageResponse')">응답 지우기</button>
+                    <div id="messageStatus"></div>
+                    <div id="messageResponse" class="response-area" style="display: none;"></div>
+                </div>
+            </div>
+            
+            <!-- SSE 스트림 테스트 -->
+            <div class="test-section">
+                <h3>📡 SSE 스트림 연결 (실시간 Agent 응답)</h3>
+                <div class="form-group">
+                    <label for="streamChatroomId">채팅방 ID:</label>
+                    <input type="text" id="streamChatroomId" placeholder="SSE 연결할 채팅방 ID">
+                </div>
+                <button class="btn" onclick="connectSSE()">SSE 연결</button>
+                <button class="btn btn-secondary" onclick="disconnectSSE()">연결 해제</button>
+                <button class="btn btn-secondary" onclick="clearResponse('sseResponse')">로그 지우기</button>
+                <div id="sseStatus"></div>
+                <div id="sseResponse" class="sse-area" style="display: none;"></div>
+            </div>
+            
+            <!-- 프롬프트 편집 섹션 -->
+            <div class="test-section">
+                <h3>⚙️ Agent 프롬프트 편집</h3>
+                
+                <!-- Agent 탭 네비게이션 -->
+                <div class="agent-tabs">
+                    <button class="agent-tab active" onclick="switchAgentTab('conversation')">💬 ConversationAgent</button>
+                    <button class="agent-tab" onclick="switchAgentTab('intimacy')">🎯 IntimacyAgent</button>
+                    <button class="agent-tab" onclick="switchAgentTab('vocabulary')">📚 VocabularyAgent</button>
+                    <button class="agent-tab" onclick="switchAgentTab('translation')">🌐 TranslationAgent</button>
+                </div>
+
+                <!-- ConversationAgent 탭 -->
+                <div id="conversation-tab" class="agent-tab-content active">
+                    <h4>💬 ConversationAgent (대화)</h4>
+                    <div class="form-group">
+                        <label for="conversationSystemPrompt">System Prompt:</label>
+                        <textarea id="conversationSystemPrompt" rows="8" placeholder="System 프롬프트를 입력하세요..."></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label for="conversationUserPrompt">User Prompt (선택사항):</label>
+                        <textarea id="conversationUserPrompt" rows="4" placeholder="User 프롬프트를 입력하세요..."></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label for="conversationMetadata">메타데이터 (JSON):</label>
+                        <textarea id="conversationMetadata" rows="6" placeholder="추가 메타데이터를 JSON 형태로 입력하세요..."></textarea>
+                    </div>
+                    <button class="btn" onclick="saveAgentPrompt('conversation')">저장</button>
+                    <button class="btn btn-secondary" onclick="resetAgentPrompt('conversation')">기본값 리셋</button>
+                    <button class="btn btn-secondary" onclick="testAgentPrompt('conversation')">테스트</button>
+                </div>
+
+                <!-- IntimacyAgent 탭 -->
+                <div id="intimacy-tab" class="agent-tab-content">
+                    <h4>🎯 IntimacyAgent (친밀도 분석)</h4>
+                    <div class="form-group">
+                        <label for="intimacySystemPrompt">System Prompt:</label>
+                        <textarea id="intimacySystemPrompt" rows="8" placeholder="System 프롬프트를 입력하세요..."></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label for="intimacyUserPrompt">User Prompt (선택사항):</label>
+                        <textarea id="intimacyUserPrompt" rows="4" placeholder="User 프롬프트를 입력하세요..."></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label for="intimacyMetadata">메타데이터 (JSON):</label>
+                        <textarea id="intimacyMetadata" rows="6" placeholder="추가 메타데이터를 JSON 형태로 입력하세요..."></textarea>
+                    </div>
+                    <button class="btn" onclick="saveAgentPrompt('intimacy')">저장</button>
+                    <button class="btn btn-secondary" onclick="resetAgentPrompt('intimacy')">기본값 리셋</button>
+                    <button class="btn btn-secondary" onclick="testAgentPrompt('intimacy')">테스트</button>
+                </div>
+
+                <!-- VocabularyAgent 탭 -->
+                <div id="vocabulary-tab" class="agent-tab-content">
+                    <h4>📚 VocabularyAgent (어휘 추출)</h4>
+                    <div class="form-group">
+                        <label for="vocabularySystemPrompt">System Prompt:</label>
+                        <textarea id="vocabularySystemPrompt" rows="8" placeholder="System 프롬프트를 입력하세요..."></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label for="vocabularyUserPrompt">User Prompt (선택사항):</label>
+                        <textarea id="vocabularyUserPrompt" rows="4" placeholder="User 프롬프트를 입력하세요..."></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label for="vocabularyMetadata">메타데이터 (JSON):</label>
+                        <textarea id="vocabularyMetadata" rows="6" placeholder="추가 메타데이터를 JSON 형태로 입력하세요..."></textarea>
+                    </div>
+                    <button class="btn" onclick="saveAgentPrompt('vocabulary')">저장</button>
+                    <button class="btn btn-secondary" onclick="resetAgentPrompt('vocabulary')">기본값 리셋</button>
+                    <button class="btn btn-secondary" onclick="testAgentPrompt('vocabulary')">테스트</button>
+                </div>
+
+                <!-- TranslationAgent 탭 -->
+                <div id="translation-tab" class="agent-tab-content">
+                    <h4>🌐 TranslationAgent (번역)</h4>
+                    <div class="form-group">
+                        <label for="translationSystemPrompt">System Prompt:</label>
+                        <textarea id="translationSystemPrompt" rows="8" placeholder="System 프롬프트를 입력하세요..."></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label for="translationUserPrompt">User Prompt (선택사항):</label>
+                        <textarea id="translationUserPrompt" rows="4" placeholder="User 프롬프트를 입력하세요..."></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label for="translationMetadata">메타데이터 (JSON):</label>
+                        <textarea id="translationMetadata" rows="6" placeholder="추가 메타데이터를 JSON 형태로 입력하세요..."></textarea>
+                    </div>
+                    <button class="btn" onclick="saveAgentPrompt('translation')">저장</button>
+                    <button class="btn btn-secondary" onclick="resetAgentPrompt('translation')">기본값 리셋</button>
+                    <button class="btn btn-secondary" onclick="testAgentPrompt('translation')">테스트</button>
+                </div>
+
+                <div id="promptStatus"></div>
+            </div>
+
+            <!-- API 엔드포인트 정보 -->
+            <div class="test-section">
+                <h3>🔗 API 엔드포인트 정보</h3>
+                <div style="font-family: 'Courier New', monospace; background: #f8f9fa; padding: 15px; border-radius: 5px;">
+                    <strong>Base URL:</strong> http://localhost:8083<br>
+                    <strong>POST /api/chat/chatrooms</strong> - 채팅방 생성<br>
+                    <strong>POST /api/chat/chatrooms/{id}/messages</strong> - 메시지 전송<br>
+                    <strong>GET /api/chat/stream/{id}</strong> - SSE 스트림 연결<br>
+                    <strong>GET /api/chat/chatrooms</strong> - 채팅방 목록<br>
+                    <strong>GET /api/chat/chatrooms/{id}/messages</strong> - 메시지 목록
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const BASE_URL = 'http://localhost:8083';
+        let eventSource = null;
+        
+        // 채팅방 생성
+        async function createChatroom() {
+            const userId = document.getElementById('userId').value;
+            const chatbotId = document.getElementById('chatbotId').value;
+            const roomName = document.getElementById('roomName').value;
+            const intimacyLevel = document.getElementById('intimacyLevel').value;
+            
+            if (!userId || !chatbotId || !roomName) {
+                showStatus('createStatus', 'error', '모든 필드를 입력해주세요.');
+                return;
+            }
+            
+            showStatus('createStatus', 'info', '채팅방 생성 중...');
+            
+            try {
+                const response = await fetch(`${BASE_URL}/api/chat/chatrooms`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-User-Id': userId
+                    },
+                    body: JSON.stringify({
+                        userId: userId,
+                        chatbotId: chatbotId,
+                        name: roomName,
+                        intimacyLevel: parseInt(intimacyLevel)
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    showStatus('createStatus', 'success', '채팅방 생성 성공!');
+                    showResponse('createResponse', JSON.stringify(data, null, 2));
+                    
+                    // 생성된 채팅방 ID를 다른 필드에 자동 입력
+                    document.getElementById('chatroomId').value = data.id;
+                    document.getElementById('streamChatroomId').value = data.id;
+                } else {
+                    showStatus('createStatus', 'error', `오류: ${data.message || '알 수 없는 오류'}`);
+                    showResponse('createResponse', JSON.stringify(data, null, 2));
+                }
+            } catch (error) {
+                showStatus('createStatus', 'error', `네트워크 오류: ${error.message}`);
+                showResponse('createResponse', `Error: ${error.message}`);
+            }
+        }
+        
+        // 메시지 전송
+        async function sendMessage() {
+            const chatroomId = document.getElementById('chatroomId').value;
+            const content = document.getElementById('messageContent').value;
+            const contentType = document.getElementById('contentType').value;
+            const userId = document.getElementById('userId').value;
+            
+            if (!chatroomId || !content) {
+                showStatus('messageStatus', 'error', '채팅방 ID와 메시지 내용을 입력해주세요.');
+                return;
+            }
+            
+            showStatus('messageStatus', 'info', '메시지 전송 중... (Multi-Agent 처리)');
+            
+            try {
+                const response = await fetch(`${BASE_URL}/api/chat/chatrooms/${chatroomId}/messages`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-User-Id': userId
+                    },
+                    body: JSON.stringify({
+                        content: content,
+                        contentType: contentType,
+                        senderType: 'user'
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    showStatus('messageStatus', 'success', '메시지 전송 성공! Multi-Agent가 처리 중...');
+                    showResponse('messageResponse', JSON.stringify(data, null, 2));
+                    
+                    // SSE 연결이 되어있다면 실시간 응답을 볼 수 있음
+                    if (eventSource) {
+                        addSSELog('📤 사용자 메시지 전송됨: ' + content);
+                    }
+                } else {
+                    showStatus('messageStatus', 'error', `오류: ${data.message || '알 수 없는 오류'}`);
+                    showResponse('messageResponse', JSON.stringify(data, null, 2));
+                }
+            } catch (error) {
+                showStatus('messageStatus', 'error', `네트워크 오류: ${error.message}`);
+                showResponse('messageResponse', `Error: ${error.message}`);
+            }
+        }
+        
+        // SSE 연결
+        function connectSSE() {
+            const chatroomId = document.getElementById('streamChatroomId').value;
+            
+            if (!chatroomId) {
+                showStatus('sseStatus', 'error', '채팅방 ID를 입력해주세요.');
+                return;
+            }
+            
+            if (eventSource) {
+                eventSource.close();
+            }
+            
+            showStatus('sseStatus', 'info', 'SSE 연결 중...');
+            showResponse('sseResponse', '');
+            
+            eventSource = new EventSource(`${BASE_URL}/api/chat/stream/${chatroomId}?userId=${document.getElementById('userId').value}`);
+            
+            eventSource.onopen = function() {
+                showStatus('sseStatus', 'success', 'SSE 연결됨! 실시간 응답을 기다리는 중...');
+                addSSELog('🔗 SSE 연결 성공');
+            };
+            
+            eventSource.onmessage = function(event) {
+                addSSELog('📨 일반 메시지: ' + event.data);
+            };
+            
+            // Multi-Agent 이벤트 타입들
+            eventSource.addEventListener('intimacy_analysis', function(event) {
+                const data = JSON.parse(event.data);
+                addSSELog('🎯 IntimacyAgent: ' + JSON.stringify(data, null, 2));
+            });
+            
+            eventSource.addEventListener('vocabulary_extracted', function(event) {
+                const data = JSON.parse(event.data);
+                addSSELog('📚 VocabularyAgent: ' + JSON.stringify(data, null, 2));
+            });
+            
+            eventSource.addEventListener('vocabulary_translated', function(event) {
+                const data = JSON.parse(event.data);
+                addSSELog('🌐 TranslationAgent: ' + JSON.stringify(data, null, 2));
+            });
+            
+            eventSource.addEventListener('conversation_chunk', function(event) {
+                addSSELog('💬 ConversationAgent (스트림): ' + event.data);
+            });
+            
+            eventSource.addEventListener('conversation_complete', function(event) {
+                const data = JSON.parse(event.data);
+                addSSELog('✅ ConversationAgent 완료: ' + JSON.stringify(data, null, 2));
+            });
+            
+            eventSource.addEventListener('aggregated_complete', function(event) {
+                const data = JSON.parse(event.data);
+                addSSELog('🎉 전체 결과 집계: ' + JSON.stringify(data, null, 2));
+            });
+            
+            eventSource.addEventListener('ai_info', function(event) {
+                addSSELog('ℹ️ AI 정보: ' + event.data);
+            });
+            
+            eventSource.addEventListener('ai_error', function(event) {
+                addSSELog('❌ AI 오류: ' + event.data);
+            });
+            
+            eventSource.onerror = function(event) {
+                showStatus('sseStatus', 'error', 'SSE 연결 오류');
+                addSSELog('❌ SSE 연결 오류');
+            };
+        }
+        
+        // SSE 연결 해제
+        function disconnectSSE() {
+            if (eventSource) {
+                eventSource.close();
+                eventSource = null;
+                showStatus('sseStatus', 'info', 'SSE 연결 해제됨');
+                addSSELog('🔌 SSE 연결 해제');
+            }
+        }
+        
+        // 상태 표시
+        function showStatus(elementId, type, message) {
+            const element = document.getElementById(elementId);
+            element.innerHTML = `<div class="status ${type}">${message}</div>`;
+        }
+        
+        // 응답 표시
+        function showResponse(elementId, content) {
+            const element = document.getElementById(elementId);
+            element.textContent = content;
+            element.style.display = 'block';
+        }
+        
+        // SSE 로그 추가
+        function addSSELog(message) {
+            const element = document.getElementById('sseResponse');
+            const timestamp = new Date().toLocaleTimeString();
+            element.textContent += `[${timestamp}] ${message}\n`;
+            element.style.display = 'block';
+            element.scrollTop = element.scrollHeight;
+        }
+        
+        // 응답 지우기
+        function clearResponse(elementId) {
+            const element = document.getElementById(elementId);
+            element.textContent = '';
+            element.style.display = 'none';
+        }
+        
+        // 프롬프트 템플릿 데이터
+        const promptTemplates = {
+            conversation: {
+                systemPrompt: `당신은 도란도란의 AI 어시스턴트입니다. 외국인 한국어 학습자를 도와주는 친근한 튜터입니다.
+
+주요 역할:
+- 한국어 학습에 대한 질문에 정확하고 도움이 되는 답변 제공
+- 학습자의 레벨에 맞는 적절한 언어 사용
+- 격려와 동기부여를 통한 학습 지원
+- 한국 문화와 언어의 맥락 설명
+
+응답 스타일:
+- 친근하고 격려적인 톤
+- 명확하고 이해하기 쉬운 설명
+- 구체적인 예시 제공
+- 학습자의 진전을 인정하고 격려
+
+- 응답은 한국어로, 핵심 위주로 간결하게 작성하세요.`,
+                userPrompt: "",
+                metadata: {
+                    "agentType": "conversation",
+                    "maxTokens": 800,
+                    "temperature": 0.7,
+                    "responseFormat": "stream"
+                }
+            },
+            intimacy: {
+                systemPrompt: `당신은 외국인의 한국어 친밀도를 분석하는 전문가입니다.
+
+분석 기준:
+- 1단계 (격식체/존댓말): "~습니다", "~입니다", "~하겠습니다"
+- 2단계 (부드러운 존댓말): "~해요", "~이에요", "~있어요"  
+- 3단계 (친근한 반말): "~야", "~어", "~지"
+
+현재 학습자의 목표 레벨: {level} (1=격식체/존댓말, 2=부드러운 존댓말, 3=친근한 반말)
+
+다음 문장을 분석하여 JSON 형식으로 답변하세요:
+{
+  "detectedLevel": 1-3,
+  "correctedSentence": "교정된 문장",
+  "feedback": "피드백 메시지",
+  "corrections": ["변경사항1", "변경사항2"]
+}`,
+                userPrompt: "{userMessage}",
+                metadata: {
+                    "agentType": "intimacy",
+                    "level": 1,
+                    "responseFormat": "json"
+                }
+            },
+            vocabulary: {
+                systemPrompt: `외국인이 이해하기 어려운 한국어 단어/표현을 최대 1개 추출하세요.
+
+추출 기준:
+- 문법적으로 복잡한 구조
+- 한국어 특유의 표현
+- 문화적 맥락이 필요한 단어
+- 학습자 레벨에 맞는 적절한 난이도
+
+사용자 레벨: {userLevel} (1=초급, 2=중급, 3=고급)
+
+JSON 형식:
+{
+  "words": [
+    {"word": "단어", "difficulty": 1-3, "context": "문맥"}
+  ]
+}`,
+                userPrompt: "{userMessage}",
+                metadata: {
+                    "agentType": "vocabulary",
+                    "userLevel": 1,
+                    "maxWords": 1,
+                    "responseFormat": "json"
+                }
+            },
+            translation: {
+                systemPrompt: `한국어 단어를 영어로 번역하고 발음기호를 제공하세요.
+
+번역 기준:
+- 정확한 영어 번역
+- 발음기호 (IPA 또는 한글 발음)
+- 간단한 설명이나 예시
+
+JSON 형식:
+{
+  "translations": [
+    {"original": "한국어", "english": "English", "pronunciation": "[발음기호]"}
+  ]
+}`,
+                userPrompt: "다음 한국어 단어들을 번역해주세요:\n{words}",
+                metadata: {
+                    "agentType": "translation",
+                    "responseFormat": "json"
+                }
+            }
+        };
+
+        // Agent 탭 전환
+        function switchAgentTab(agentType) {
+            // 모든 탭 버튼과 콘텐츠 비활성화
+            document.querySelectorAll('.agent-tab').forEach(tab => tab.classList.remove('active'));
+            document.querySelectorAll('.agent-tab-content').forEach(content => content.classList.remove('active'));
+            
+            // 선택된 탭과 콘텐츠 활성화
+            document.querySelector(`[onclick="switchAgentTab('${agentType}')"]`).classList.add('active');
+            document.getElementById(`${agentType}-tab`).classList.add('active');
+        }
+
+        // Agent 프롬프트 로드
+        function loadAgentPrompt(agentType) {
+            const template = promptTemplates[agentType];
+            
+            document.getElementById(`${agentType}SystemPrompt`).value = template.systemPrompt;
+            document.getElementById(`${agentType}UserPrompt`).value = template.userPrompt;
+            document.getElementById(`${agentType}Metadata`).value = JSON.stringify(template.metadata, null, 2);
+        }
+
+        // Agent 프롬프트 저장
+        function saveAgentPrompt(agentType) {
+            const systemPrompt = document.getElementById(`${agentType}SystemPrompt`).value;
+            const userPrompt = document.getElementById(`${agentType}UserPrompt`).value;
+            let metadata = {};
+            
+            try {
+                metadata = JSON.parse(document.getElementById(`${agentType}Metadata`).value);
+            } catch (e) {
+                showStatus('promptStatus', 'error', `${agentType} Agent: 메타데이터 JSON 형식이 올바르지 않습니다.`);
+                return;
+            }
+            
+            // 로컬 스토리지에 저장
+            const promptData = {
+                systemPrompt: systemPrompt,
+                userPrompt: userPrompt,
+                metadata: metadata
+            };
+            
+            localStorage.setItem(`prompt_${agentType}`, JSON.stringify(promptData));
+            showStatus('promptStatus', 'success', `${agentType} Agent 프롬프트가 저장되었습니다!`);
+        }
+
+        // Agent 프롬프트 리셋
+        function resetAgentPrompt(agentType) {
+            loadAgentPrompt(agentType);
+            showStatus('promptStatus', 'info', `${agentType} Agent: 기본 프롬프트로 리셋되었습니다.`);
+        }
+
+        // Agent 프롬프트 테스트
+        function testAgentPrompt(agentType) {
+            const systemPrompt = document.getElementById(`${agentType}SystemPrompt`).value;
+            const userPrompt = document.getElementById(`${agentType}UserPrompt`).value;
+            const metadata = JSON.parse(document.getElementById(`${agentType}Metadata`).value);
+            
+            // 테스트용 메시지
+            const testMessage = document.getElementById('messageContent').value || "안녕하세요! 한국어를 배우고 있어요.";
+            
+            showStatus('promptStatus', 'info', `${agentType} Agent 프롬프트 테스트 중...`);
+            
+            try {
+                // 변수 치환
+                let processedUserPrompt = userPrompt
+                    .replace('{userMessage}', testMessage)
+                    .replace('{level}', metadata.level || 1)
+                    .replace('{userLevel}', metadata.userLevel || 1)
+                    .replace('{words}', testMessage);
+                
+                const promptData = {
+                    agentType: agentType,
+                    systemPrompt: systemPrompt,
+                    userPrompt: processedUserPrompt,
+                    metadata: metadata,
+                    testMessage: testMessage
+                };
+                
+                showStatus('promptStatus', 'success', `${agentType} Agent: 프롬프트 구조가 생성되었습니다!`);
+                console.log(`${agentType} Agent Prompt Data:`, promptData);
+                
+                // 프롬프트 미리보기 표시
+                const preview = `
+=== ${agentType.toUpperCase()} AGENT 프롬프트 미리보기 ===
+
+System Prompt:
+${systemPrompt}
+
+User Prompt:
+${processedUserPrompt}
+
+Metadata:
+${JSON.stringify(metadata, null, 2)}
+
+Test Message: ${testMessage}
+                `;
+                
+                alert(preview);
+                
+            } catch (error) {
+                showStatus('promptStatus', 'error', `${agentType} Agent 테스트 오류: ${error.message}`);
+            }
+        }
+
+        // 페이지 로드 시 기본값 설정
+        window.onload = function() {
+            // UUID 생성 함수
+            function generateUUID() {
+                return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+                    const r = Math.random() * 16 | 0;
+                    const v = c == 'x' ? r : (r & 0x3 | 0x8);
+                    return v.toString(16);
+                });
+            }
+            
+            // 기본 UUID 설정 (실제 테스트 ID 사용)
+            document.getElementById('userId').value = '3fa85f64-5717-4562-b3fc-2c963f66afa6';
+            document.getElementById('chatbotId').value = '3fa85f64-5717-4562-b3fc-2c963f66afa7';
+            
+            // 모든 Agent 프롬프트 템플릿 초기 로드
+            ['conversation', 'intimacy', 'vocabulary', 'translation'].forEach(agentType => {
+                loadAgentPrompt(agentType);
+            });
+        };
+    </script>
+</body>
+</html>

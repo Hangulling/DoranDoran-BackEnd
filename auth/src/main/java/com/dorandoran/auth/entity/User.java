@@ -17,7 +17,7 @@ import java.util.UUID;
  * 사용자 엔티티 (Auth 서비스)
  */
 @Entity
-@Table(name = "app_user", schema = "auth_schema")
+@Table(name = "app_user", schema = "user_schema")
 @Data
 @Builder
 @NoArgsConstructor

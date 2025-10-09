@@ -12,6 +12,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
@@ -27,21 +28,25 @@ public class SSEController {
 	private final ChatRoomRepository chatRoomRepository;
 
 	@GetMapping(value = "/stream/{chatroomId}", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
-	public ResponseEntity<SseEmitter> stream(@PathVariable UUID chatroomId) {
-		// 사용자 인증 확인
-		UUID userId = extractUserIdFromSecurityContext();
-		if (userId == null) {
-			log.warn("SSE 연결 실패: 인증되지 않은 사용자, chatroomId={}", chatroomId);
-			return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+	public ResponseEntity<SseEmitter> stream(@PathVariable UUID chatroomId, 
+	                                        @RequestParam(required = false) UUID userId) {
+		// SecurityContext에서 우선 추출, 없으면 요청 파라미터
+		UUID uid = extractUserIdFromSecurityContext();
+		if (uid == null && userId != null) {
+			uid = userId;
+		}
+		if (uid == null) {
+			log.warn("SSE 연결 실패: 사용자 ID 없음, chatroomId={}", chatroomId);
+			return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
 		}
 		
 		// 채팅방 접근 권한 확인
-		if (!chatRoomRepository.existsByUserIdAndIdAndIsDeletedFalse(userId, chatroomId)) {
-			log.warn("SSE 접근 거부: userId={}, chatroomId={}", userId, chatroomId);
+		if (!chatRoomRepository.existsByUserIdAndIdAndIsDeletedFalse(uid, chatroomId)) {
+			log.warn("SSE 접근 거부: userId={}, chatroomId={}", uid, chatroomId);
 			return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
 		}
 		
-		log.info("SSE 연결 성공: userId={}, chatroomId={}", userId, chatroomId);
+		log.info("SSE 연결 성공: userId={}, chatroomId={}", uid, chatroomId);
 		return ResponseEntity.ok(sseManager.create(chatroomId));
 	}
 	

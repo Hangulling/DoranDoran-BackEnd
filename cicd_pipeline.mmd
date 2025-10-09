@@ -1,0 +1,12 @@
+graph LR
+    A[Code Commit] --> B[GitHub]
+    B --> C[GitHub Actions]
+    C --> D[Build & Test]
+    D --> E[Security Scan]
+    E --> F[Docker Build]
+    F --> G[Push to Registry]
+    G --> H[Deploy to Staging]
+    H --> I[Integration Tests]
+    I --> J[Deploy to Production]
+    J --> K[Health Check]
+    K --> L[Monitoring]

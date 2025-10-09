@@ -8,6 +8,9 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
+import com.fasterxml.jackson.databind.JsonNode;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -44,10 +47,12 @@ public class ChatRoom {
     private String description;
 
     @Column(name = "settings", columnDefinition = "jsonb")
-    private String settings;
+    @JdbcTypeCode(SqlTypes.JSON)
+    private JsonNode settings;
     
     @Column(name = "context_data", columnDefinition = "jsonb")
-    private String contextData;
+    @JdbcTypeCode(SqlTypes.JSON)
+    private JsonNode contextData;
 
     @Column(name = "last_message_at")
     private LocalDateTime lastMessageAt;

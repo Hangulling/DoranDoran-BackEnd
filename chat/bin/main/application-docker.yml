@@ -2,6 +2,14 @@ spring:
   application:
     name: chat-service
   
+  # Spring Security 완전 비활성화
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration
+      - org.springframework.boot.autoconfigure.security.servlet.UserDetailsServiceAutoConfiguration
+      - org.springframework.boot.autoconfigure.security.servlet.SecurityFilterAutoConfiguration
+      - org.springframework.boot.actuate.autoconfigure.security.servlet.ManagementWebSecurityAutoConfiguration
+  
   # Chat 서비스 공유 데이터베이스 설정
   datasource:
     url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://shared-db:5432/dorandoran}
@@ -9,12 +17,14 @@ spring:
     password: ${SPRING_DATASOURCE_PASSWORD:doran}
     driver-class-name: org.postgresql.Driver
     hikari:
-      maximum-pool-size: 10
-      minimum-idle: 5
+      maximum-pool-size: 5
+      minimum-idle: 2
       connection-timeout: 30000
-      idle-timeout: 600000
-      max-lifetime: 1800000
-      leak-detection-threshold: 60000
+      idle-timeout: 300000
+      max-lifetime: 1200000
+      leak-detection-threshold: 300000
+      connection-test-query: SELECT 1
+      validation-timeout: 5000
   
   # JPA 설정
   jpa:
@@ -51,6 +61,15 @@ spring:
 logging:
   level:
     com.dorandoran.chat: DEBUG
+    com.dorandoran.chat.service.OpenAIClient: DEBUG
+
+# AI 설정
+ai:
+  openai:
+    api-key: ${OPENAI_API_KEY}
+    base-url: https://api.openai.com
+    model: gpt-4o-mini
+    max-output-tokens: 800
 
 # Actuator 설정
 management:

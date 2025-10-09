@@ -17,7 +17,7 @@ import java.util.UUID;
  * 사용자 엔티티 (Chat 서비스)
  */
 @Entity
-@Table(name = "app_user", schema = "chat_schema")
+@Table(name = "app_user", schema = "user_schema")
 @Data
 @Builder
 @NoArgsConstructor
@@ -81,7 +81,6 @@ public class User {
     private List<ChatRoom> chatRooms = new ArrayList<>();
     
     // 주의: billing 엔티티들과의 연관관계는 각 billing 엔티티에서 관리
-    // 순환 참조를 피하기 위해 User 엔티티에서는 참조하지 않음
     
     /**
      * 사용자 상태 열거형

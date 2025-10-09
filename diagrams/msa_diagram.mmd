@@ -1,0 +1,62 @@
+graph TB
+    %% External Layer
+    subgraph "External Layer"
+        Client[웹 클라이언트]
+        Mobile[모바일 앱]
+    end
+
+    %% API Gateway Layer
+    subgraph "API Gateway Layer"
+        Gateway[API Gateway<br/>Spring Cloud Gateway<br/>Port: 8080]
+    end
+
+    %% Service Layer
+    subgraph "Microservices Layer"
+        Auth[Auth Service<br/>Spring Boot<br/>Port: 8081]
+        User[User Service<br/>Spring Boot<br/>Port: 8082]
+        Chat[Chat Service<br/>Spring Boot<br/>Port: 8083]
+        Batch[Batch Service<br/>Spring Boot<br/>Port: 8085]
+    end
+
+    %% Data Layer
+    subgraph "Data Layer"
+        DB[(PostgreSQL<br/>Port: 5432<br/>Shared Database)]
+        Redis[(Redis<br/>Port: 6379<br/>Cache & Session)]
+    end
+
+    %% External Services
+    subgraph "External Services"
+        OpenAI[OpenAI API<br/>GPT Models]
+        Prometheus[Prometheus<br/>Port: 9090]
+        Grafana[Grafana<br/>Port: 3000]
+    end
+
+    %% Connections
+    Client --> Gateway
+    Mobile --> Gateway
+    
+    Gateway --> Auth
+    Gateway --> User
+    Gateway --> Chat
+    Gateway --> Batch
+
+    Auth --> DB
+    Auth --> Redis
+    User --> DB
+    User --> Redis
+    Chat --> DB
+    Chat --> Redis
+    Batch --> DB
+
+    Chat --> OpenAI
+
+    Auth --> Prometheus
+    User --> Prometheus
+    Chat --> Prometheus
+    Batch --> Prometheus
+    Prometheus --> Grafana
+
+    %% Service Communication
+    Auth -.->|Feign Client| User
+    Chat -.->|Feign Client| User
+    Chat -.->|Feign Client| Auth

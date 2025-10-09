@@ -78,6 +78,8 @@ services:
       dockerfile: docker/Dockerfile.chat
     container_name: dd-chat-service
     ports: ["8083:8083"]
+    env_file:
+      - ../.env
     environment:
       - SPRING_PROFILES_ACTIVE=docker
       - SPRING_DATASOURCE_URL=jdbc:postgresql://shared-db:5432/dorandoran
@@ -86,6 +88,7 @@ services:
       - SPRING_JPA_HIBERNATE_DEFAULT_SCHEMA=chat_schema
       - SPRING_REDIS_HOST=redis
       - SPRING_REDIS_PORT=6379
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
     depends_on:
       shared-db:
         condition: service_healthy

@@ -10,12 +10,15 @@ import com.dorandoran.chat.repository.ChatRoomRepository;
 import com.dorandoran.chat.repository.MessageRepository;
 import com.dorandoran.chat.service.ChatService;
 import com.dorandoran.chat.service.AIService;
+import com.dorandoran.chat.service.GreetingService;
+import com.dorandoran.chat.service.MultiAgentOrchestrator;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -35,6 +38,7 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/api/chat")
 @RequiredArgsConstructor
+@Slf4j
 @Tag(name = "Chat Management", description = "채팅 서비스 API")
 public class ChatController {
 
@@ -42,6 +46,8 @@ public class ChatController {
     private final ChatRoomRepository chatRoomRepository;
     private final MessageRepository messageRepository;
     private final AIService aiService;
+    private final GreetingService greetingService;
+    private final MultiAgentOrchestrator multiAgentOrchestrator;
 
     @Operation(summary = "채팅방 생성/조회", description = "새로운 채팅방을 생성하거나 기존 채팅방을 조회합니다.")
     @ApiResponses(value = {
@@ -54,7 +60,17 @@ public class ChatController {
         // SecurityContext에서 userId 우선 사용 (없으면 요청 바디)
         UUID userId = extractUserIdFromSecurityContext();
         if (userId == null) userId = request.getUserId();
+        
+        // 기존 채팅방이 있는지 확인
+        boolean isNewRoom = !chatRoomRepository.findByUserIdAndChatbotIdAndIsDeletedFalse(userId, request.getChatbotId()).isPresent();
+        
         ChatRoom room = chatService.getOrCreateRoom(userId, request.getChatbotId(), request.getName());
+        
+        // 새로 생성된 채팅방에만 AI 인사말 발송
+        if (isNewRoom) {
+            greetingService.sendGreeting(room.getId(), userId);
+        }
+        
         return ResponseEntity.ok(ChatRoomResponse.from(room));
     }
 
@@ -64,8 +80,11 @@ public class ChatController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
         UUID uid = extractUserIdFromSecurityContext();
+        if (uid == null && userId != null) {
+            uid = userId;
+        }
         if (uid == null) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(null);
         }
         
         Pageable pageable = PageRequest.of(page, size);
@@ -77,11 +96,15 @@ public class ChatController {
     @GetMapping("/chatrooms/{chatroomId}/messages")
     public ResponseEntity<Page<MessageResponse>> listMessages(
             @PathVariable UUID chatroomId,
+            @RequestParam(required = false) UUID userId,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "50") int size) {
         UUID uid = extractUserIdFromSecurityContext();
+        if (uid == null && userId != null) {
+            uid = userId;
+        }
         if (uid == null) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(null);
         }
         if (!chatRoomRepository.existsByUserIdAndIdAndIsDeletedFalse(uid, chatroomId)) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
@@ -105,14 +128,18 @@ public class ChatController {
             @PathVariable UUID chatroomId,
             @Valid @RequestBody MessageSendRequest request,
             @Parameter(description = "사용자 ID (선택적 헤더)")
-            @RequestHeader(value = "X-User-Id", required = false) String userIdHeader) {
-        // SecurityContext에서 우선 추출, 없으면 헤더
+            @RequestHeader(value = "X-User-Id", required = false) String userIdHeader,
+            @RequestParam(required = false) UUID userId) {
+        // SecurityContext에서 우선 추출, 없으면 요청 파라미터, 마지막으로 헤더
         UUID senderId = extractUserIdFromSecurityContext();
+        if (senderId == null && userId != null) {
+            senderId = userId;
+        }
         if (senderId == null && userIdHeader != null && !userIdHeader.isBlank()) {
             try { senderId = UUID.fromString(userIdHeader); } catch (IllegalArgumentException ignored) {}
         }
         if (senderId == null) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(null);
         }
         if (!chatRoomRepository.existsByUserIdAndIdAndIsDeletedFalse(senderId, chatroomId)) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
@@ -123,8 +150,15 @@ public class ChatController {
             senderType = "user";
         }
         Message saved = chatService.sendMessage(chatroomId, senderId, senderType, request.getContent(), request.getContentType());
+        log.info("=== ChatController: 메시지 저장 완료 - messageId={}, senderType={} ===", saved.getId(), senderType);
+        
         if ("user".equalsIgnoreCase(senderType)) {
-            aiService.streamAIResponse(saved);
+            log.info("=== ChatController: Multi-Agent 처리 시작 - chatroomId={}, senderId={} ===", chatroomId, senderId);
+            // Multi-Agent 처리로 변경
+            multiAgentOrchestrator.processUserMessage(chatroomId, senderId, saved);
+            log.info("=== ChatController: Multi-Agent 처리 호출 완료 ===");
+        } else {
+            log.info("=== ChatController: Multi-Agent 처리 건너뜀 - senderType={} ===", senderType);
         }
         return ResponseEntity.ok(MessageResponse.from(saved));
     }

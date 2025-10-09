@@ -90,7 +90,7 @@ CREATE TABLE chat_schema.chatbots
     system_prompt    text,
     capabilities    jsonb,
     settings    jsonb,
-    intimacy_level    integer DEFAULT 0 CHECK (intimacy_level >= 0 AND intimacy_level <= 100),
+    intimacy_level    integer DEFAULT 1 CHECK (intimacy_level >= 1 AND intimacy_level <= 3),
     avatar_url    character varying(500),
     is_active    boolean DEFAULT true,
     created_at    timestamp without time zone DEFAULT NOW(),
@@ -108,7 +108,7 @@ COMMENT ON COLUMN chat_schema.chatbots.personality IS '챗봇 성격 설정 (JSO
 COMMENT ON COLUMN chat_schema.chatbots.system_prompt IS '시스템 프롬프트';
 COMMENT ON COLUMN chat_schema.chatbots.capabilities IS '챗봇 기능 설정 (JSONB)';
 COMMENT ON COLUMN chat_schema.chatbots.settings IS '챗봇 설정 (JSONB)';
-COMMENT ON COLUMN chat_schema.chatbots.intimacy_level IS '친밀도 레벨 (0-100)';
+COMMENT ON COLUMN chat_schema.chatbots.intimacy_level IS '친밀도 레벨 (1=격식체, 2=부드러운 존댓말, 3=반말)';
 COMMENT ON COLUMN chat_schema.chatbots.avatar_url IS '아바타 URL';
 COMMENT ON COLUMN chat_schema.chatbots.is_active IS '활성 상태';
 COMMENT ON COLUMN chat_schema.chatbots.created_at IS '생성 시간';
@@ -362,7 +362,7 @@ CREATE TABLE chat_schema.messages
     sender_type    character varying(20) NOT NULL CHECK (sender_type IN ('user', 'bot', 'system')),
     sender_id    UUID,
     content    text NOT NULL,
-    content_type    character varying(20) DEFAULT 'text' CHECK (content_type IN ('text', 'code', 'system')),
+    content_type    character varying(20) DEFAULT 'text' CHECK (content_type IN ('text', 'code', 'system', 'json')),
     metadata    jsonb,
     parent_message_id    UUID,
     sequence_number    bigint NOT NULL,
@@ -419,6 +419,33 @@ ALTER TABLE chat_schema.messages
 
 -- Store 스키마는 단순화 버전에서 제거됨
 -- 파일 첨부 기능이 제거되어 보관함 기능도 불필요
+
+-- ========================================
+-- 친밀도 진척 추적 테이블 (Multi-Agent AI)
+-- ========================================
+
+-- 친밀도 진척 추적 (채팅방별)
+DROP TABLE IF EXISTS chat_schema.intimacy_progress CASCADE;
+CREATE TABLE chat_schema.intimacy_progress (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    chatroom_id UUID NOT NULL REFERENCES chat_schema.chatrooms(id) ON DELETE CASCADE,
+    user_id UUID NOT NULL REFERENCES user_schema.app_user(id) ON DELETE CASCADE,
+    intimacy_level INTEGER NOT NULL DEFAULT 1 CHECK (intimacy_level IN (1, 2, 3)),
+    total_corrections INTEGER DEFAULT 0,
+    last_feedback TEXT,
+    last_updated TIMESTAMP WITHOUT TIME ZONE DEFAULT NOW(),
+    progress_data JSONB,
+    CONSTRAINT uq_intimacy_chatroom UNIQUE (chatroom_id)
+);
+
+CREATE INDEX idx_intimacy_progress_chatroom ON chat_schema.intimacy_progress(chatroom_id);
+CREATE INDEX idx_intimacy_progress_user ON chat_schema.intimacy_progress(user_id);
+
+COMMENT ON TABLE chat_schema.intimacy_progress IS '채팅방별 친밀도 진척 추적';
+COMMENT ON COLUMN chat_schema.intimacy_progress.intimacy_level IS '현재 친밀도 레벨 (1=격식체, 2=부드러운 존댓말, 3=반말)';
+COMMENT ON COLUMN chat_schema.intimacy_progress.total_corrections IS '누적 교정 횟수';
+COMMENT ON COLUMN chat_schema.intimacy_progress.last_feedback IS '마지막 피드백 메시지';
+COMMENT ON COLUMN chat_schema.intimacy_progress.progress_data IS '세부 학습 통계 (JSONB)';
 
 -- ========================================
 -- 3. 권한 설정

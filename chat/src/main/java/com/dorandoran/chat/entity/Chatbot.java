@@ -57,7 +57,7 @@ public class Chatbot {
     private String settings;
 
     @Column(name = "intimacy_level")
-    private Integer intimacyLevel;
+    private Integer intimacyLevel; // 1=격식체, 2=부드러운 존댓말, 3=반말
 
     @Column(name = "avatar_url", length = 500)
     private String avatarUrl;

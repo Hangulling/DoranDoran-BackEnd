@@ -1,13 +1,37 @@
-## Chat Service 설계 문서 (WebSocket + SSE, AI 챗봇) - 단순화 버전
+## Chat Service 설계 문서 (Multi-Agent AI, WebSocket + SSE) - 단순화 버전
 
 ### 목적
-AI 챗봇과 사용자가 1:1로 실시간 대화하는 시스템을 안정적이고 확장 가능하게 구축하기 위한 데이터 모델과 런타임 아키텍처, API 가이드라인을 정의한다. 본 문서는 각 테이블/컴포넌트의 설계 의도(WHY)를 명시하여 향후 기능 축소/확장 시 근거로 활용한다.
+외국인 사용자의 한국어 학습을 지원하는 Multi-Agent AI 시스템을 구축한다. Parallel + Aggregator 패턴으로 친밀도 분석, 어휘 추출, 번역, 대화 Agent를 조율하여 실시간으로 학습 지원을 제공한다.
 
-**단순화 원칙**: 1:1 대화에 집중, 파일 기능 제거, 읽음 상태 추적 제거, 컨텍스트를 룸에 통합
+**Multi-Agent 원칙**: 병렬 처리로 성능 최적화, SSE 스트리밍으로 실시간 피드백, 친밀도 레벨 1-3 단계로 단순화
 
 ---
 
-## 1. 데이터베이스 스키마 (chat_schema) - 단순화
+## 1. Multi-Agent AI 아키텍처
+
+### 1.1 Agent 구성
+- **IntimacyAgent**: 한국어 친밀도 분석 및 교정 (1=격식체, 2=부드러운 존댓말, 3=반말)
+- **VocabularyAgent**: 어휘 난이도 분석 및 어려운 단어 추출 (최대 1개)
+- **TranslationAgent**: 추출된 단어의 영어 번역 및 발음기호 제공
+- **ConversationAgent**: 자연스러운 대화 응답 생성
+
+### 1.2 처리 패턴
+- **Phase 1 (병렬)**: IntimacyAgent, VocabularyAgent, ConversationAgent 동시 실행
+- **Phase 2 (순차)**: VocabularyAgent 결과를 TranslationAgent에 전달
+- **Phase 3 (스트림)**: ConversationAgent는 독립적으로 SSE 스트리밍
+- **Phase 4 (집계)**: 모든 Agent 결과를 통합하여 최종 피드백 제공
+
+### 1.3 SSE 이벤트 타입
+- `intimacy_analysis`: 친밀도 분석 결과
+- `vocabulary_extracted`: 어휘 추출 결과
+- `vocabulary_translated`: 번역 결과
+- `conversation_chunk`: 대화 응답 스트림
+- `conversation_complete`: 대화 완료
+- `aggregated_complete`: 전체 결과 집계
+
+---
+
+## 2. 데이터베이스 스키마 (chat_schema) - 단순화
 
 ### 1.1 chatbots
 설명: AI 챗봇 메타 정보를 관리한다. 다양한 모델/인격/기능을 가진 챗봇을 유연하게 확장하기 위함.
@@ -16,7 +40,7 @@ AI 챗봇과 사용자가 1:1로 실시간 대화하는 시스템을 안정적�
 - id UUID PK, name, display_name, description
 - bot_type (예: gpt, claude, custom), model_name
 - personality JSONB, system_prompt TEXT, capabilities JSONB, settings JSONB
-- intimacy_level INT(0~100), avatar_url, is_active
+- intimacy_level INT(1~3), avatar_url, is_active
 - created_at, updated_at, created_by (user_schema.app_user 참조)
 
 WHY:
@@ -137,7 +161,7 @@ WHY:
 스키마(의도 기반 요약):
 - id UUID PK, chatroom_id FK
 - sender_type('user'|'bot'|'system'), sender_id UUID
-- content TEXT, content_type('text'|'code'|'system')
+- content TEXT, content_type('text'|'code'|'system'|'json')
 - metadata JSONB, parent_message_id(self FK)
 - sequence_number BIGINT NOT NULL
 - token_count, processing_time_ms
@@ -146,7 +170,7 @@ WHY:
 
 WHY:
 - TEXT 사용: 100자 제약 제거, 긴 답변/코드/시스템 메세지 대응.
-- content_type 단순화: 파일 관련 타입 제거, text/code/system만 유지.
+- content_type 확장: Multi-Agent 결과 저장을 위해 json 타입 추가.
 - metadata: 코드 언어, 시스템 메시지 타입 등 가벼운 확장 정보만 저장.
 - sequence_number: 룸 내 정렬 안정성 보장(타임스탬프 충돌/클럭 드리프트 방지).
 - parent_message_id: 답글/스레드 기능을 위한 확장성 유지.
@@ -266,5 +290,41 @@ WHY 선택 배경:
 - `capabilities/personality`: MVP에서는 단순 `system_prompt`만 두고 축소 가능.
 
 각 항목은 기능 복잡도/개발 속도/운영 비용을 고려해 단계적으로 도입한다.
+
+---
+
+## 3. Multi-Agent AI 아키텍처 상세
+
+### 3.1 intimacy_progress (신규)
+설명: 채팅방별 친밀도 진척을 추적한다. Multi-Agent AI의 IntimacyAgent 분석 결과를 저장하고 학습 진척도를 측정하기 위함.
+
+스키마(의도 기반 요약):
+- id UUID PK, chatroom_id FK, user_id FK, intimacy_level INT(1~3)
+- total_corrections INT, last_feedback TEXT, last_updated TIMESTAMP
+- progress_data JSONB
+
+WHY:
+- intimacy_level: 1-3 단계로 단순화 (1=격식체, 2=부드러운 존댓말, 3=반말)
+- total_corrections: 교정 횟수로 학습 진척도 측정
+- progress_data: 세부 학습 통계 (레벨별 교정 빈도, 자주 틀리는 패턴 등)
+- 채팅방별 유니크 제약: 한 채팅방당 하나의 진척도만 추적
+
+### 3.2 Agent 처리 흐름
+1. **사용자 메시지 수신** → ChatController
+2. **병렬 Agent 실행**:
+   - IntimacyAgent: 친밀도 분석 및 교정
+   - VocabularyAgent: 어려운 단어 추출 (최대 1개)
+   - ConversationAgent: 자연스러운 대화 응답
+3. **순차 처리**: VocabularyAgent → TranslationAgent
+4. **SSE 스트리밍**: 각 Agent 완료 시 즉시 전송
+5. **진척도 업데이트**: IntimacyAgent 결과로 학습 진척 추적
+
+### 3.3 SSE 이벤트 타입 상세
+- `intimacy_analysis`: 친밀도 분석 결과 (detectedLevel, correctedSentence, feedback)
+- `vocabulary_extracted`: 어휘 추출 결과 (words 배열)
+- `vocabulary_translated`: 번역 결과 (translations 배열)
+- `conversation_chunk`: 대화 응답 스트림 (실시간 텍스트)
+- `conversation_complete`: 대화 완료 (messageId, content)
+- `aggregated_complete`: 전체 결과 집계 (intimacy, vocabulary 통합)
 
 
