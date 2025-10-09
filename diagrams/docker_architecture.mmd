@@ -1,0 +1,49 @@
+graph TB
+    subgraph "Docker Host"
+        subgraph "Database Containers"
+            PostgreSQL[(PostgreSQL<br/>shared-db:5432)]
+            Redis[(Redis<br/>redis:6379)]
+        end
+        
+        subgraph "Application Containers"
+            AuthContainer[Auth Service<br/>dd-auth-service:8081]
+            UserContainer[User Service<br/>dd-user-service:8082]
+            ChatContainer[Chat Service<br/>dd-chat-service:8083]
+            BatchContainer[Batch Service<br/>dd-batch-service:8085]
+            GatewayContainer[API Gateway<br/>dd-api-gateway:8080]
+        end
+        
+        subgraph "Monitoring Containers"
+            PrometheusContainer[Prometheus<br/>dd-prometheus:9090]
+            GrafanaContainer[Grafana<br/>dd-grafana:3000]
+        end
+    end
+
+    subgraph "External Services"
+        OpenAI[OpenAI API]
+    end
+
+    %% Container Dependencies
+    AuthContainer --> PostgreSQL
+    UserContainer --> PostgreSQL
+    ChatContainer --> PostgreSQL
+    BatchContainer --> PostgreSQL
+    
+    AuthContainer --> Redis
+    UserContainer --> Redis
+    ChatContainer --> Redis
+    GatewayContainer --> Redis
+    
+    ChatContainer --> OpenAI
+    
+    GatewayContainer --> AuthContainer
+    GatewayContainer --> UserContainer
+    GatewayContainer --> ChatContainer
+    GatewayContainer --> BatchContainer
+    
+    PrometheusContainer --> AuthContainer
+    PrometheusContainer --> UserContainer
+    PrometheusContainer --> ChatContainer
+    PrometheusContainer --> BatchContainer
+    
+    GrafanaContainer --> PrometheusContainer

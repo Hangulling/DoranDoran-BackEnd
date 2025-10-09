@@ -1,0 +1,83 @@
+spring:
+  application:
+    name: chat-service
+  
+  # Spring Security 완전 비활성화
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration
+      - org.springframework.boot.autoconfigure.security.servlet.UserDetailsServiceAutoConfiguration
+      - org.springframework.boot.autoconfigure.security.servlet.SecurityFilterAutoConfiguration
+      - org.springframework.boot.actuate.autoconfigure.security.servlet.ManagementWebSecurityAutoConfiguration
+  
+  # Chat 서비스 공유 데이터베이스 설정
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://shared-db:5432/dorandoran}
+    username: ${SPRING_DATASOURCE_USERNAME:doran}
+    password: ${SPRING_DATASOURCE_PASSWORD:doran}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 5
+      minimum-idle: 2
+      connection-timeout: 30000
+      idle-timeout: 300000
+      max-lifetime: 1200000
+      leak-detection-threshold: 300000
+      connection-test-query: SELECT 1
+      validation-timeout: 5000
+  
+  # JPA 설정
+  jpa:
+    hibernate:
+      ddl-auto: update
+      default_schema: chat_schema
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
+        connection:
+          characterEncoding: UTF-8
+          useUnicode: true
+        jdbc:
+          time_zone: UTC
+        # billing 스키마 접근을 위한 추가 설정
+        default_schema: chat_schema
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
+
+  # Redis 설정 (Docker 프로필)
+  data:
+    redis:
+      host: ${SPRING_REDIS_HOST:redis}
+      port: ${SPRING_REDIS_PORT:6379}
+      timeout: 2000ms
+      lettuce:
+        pool:
+          max-active: 8
+          max-idle: 8
+          min-idle: 0
+
+# 로깅 설정
+logging:
+  level:
+    com.dorandoran.chat: DEBUG
+    com.dorandoran.chat.service.OpenAIClient: DEBUG
+
+# AI 설정
+ai:
+  openai:
+    api-key: ${OPENAI_API_KEY}
+    base-url: https://api.openai.com
+    model: gpt-4o-mini
+    max-output-tokens: 800
+
+# Actuator 설정
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+      base-path: /actuator
+  endpoint:
+    prometheus:
+      enabled: true

@@ -1,0 +1,33 @@
+# Multi-stage build for User Service
+FROM gradle:8.5-jdk21 AS builder
+
+# Set working directory
+WORKDIR /app
+
+# Copy gradle files
+COPY build.gradle settings.gradle gradle.properties ./
+COPY gradle/ gradle/
+
+# Copy source code
+COPY shared/ shared/
+COPY common/ common/
+COPY infra/ infra/
+COPY user/ user/
+
+# Build the user service
+RUN gradle :user:bootJar --no-daemon
+
+# Runtime stage
+FROM eclipse-temurin:21-jre-alpine
+
+# Set working directory
+WORKDIR /app
+
+# Copy the built jar from builder stage
+COPY --from=builder /app/user/build/libs/*.jar app.jar
+
+# Expose port
+EXPOSE 8082
+
+# Run the application
+ENTRYPOINT ["java", "-jar", "app.jar"]

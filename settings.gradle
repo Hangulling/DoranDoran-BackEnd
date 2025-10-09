@@ -1,1 +1,11 @@
-rootProject.name = 'dorandoran-service '
+rootProject.name = 'DoranDoran'
+
+include(
+  'shared',
+  'common',
+  'auth',
+  'user',
+  'chat',
+  'batch',
+  'gateway'
+)

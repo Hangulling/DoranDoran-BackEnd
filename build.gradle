@@ -1,89 +1,39 @@
 plugins {
-	id 'java'
-	id 'org.springframework.boot' version '3.5.6'
-	id 'io.spring.dependency-management' version '1.1.7'
+    id 'org.springframework.boot' version '3.3.4' apply false
+    id 'io.spring.dependency-management' version '1.1.5'
+    id 'java'
 }
 
-group = 'com.dorandoran'
-version = '0.0.1-SNAPSHOT'
-description = '도란도란 서비스 백엔드 API'
+apply plugin: 'java'
 
-java {
-	toolchain {
-		languageVersion = JavaLanguageVersion.of(21)
-	}
+java { 
+    toolchain { 
+        languageVersion = JavaLanguageVersion.of(21) 
+    } 
 }
 
-repositories {
-	mavenCentral()
+// Root project doesn't need test dependencies
+
+allprojects {
+    group = 'com.dorandoran'
+    version = '0.1.0-SNAPSHOT'
+
+    repositories { 
+        mavenCentral() 
+    }
+
+    tasks.withType(Test) {
+        useJUnitPlatform()
+    }
 }
 
-dependencies {
-	// Spring Boot Starters
-	implementation 'org.springframework.boot:spring-boot-starter-web'
-	implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
-	implementation 'org.springframework.boot:spring-boot-starter-validation'
-	implementation 'org.springframework.boot:spring-boot-starter-security'
-	implementation 'org.springframework.boot:spring-boot-starter-data-redis'
-	implementation 'org.springframework.boot:spring-boot-starter-webflux' // SSE 및 WebClient용
-
-	// Database
-	implementation 'org.postgresql:postgresql'
-	implementation 'com.vladmihalcea:hibernate-types-60:2.21.1' // JSON 타입 지원
-
-	// JWT
-//	implementation 'io.jsonwebtoken:jjwt-api:0.12.3'
-//	runtimeOnly 'io.jsonwebtoken:jjwt-impl:0.12.3'
-//	runtimeOnly 'io.jsonwebtoken:jjwt-jackson:0.12.3'
-
-	// OpenAI API (ChatGPT)
-//	implementation 'com.theokanning.openai-gpt3-java:service:0.18.2'
-
-	// Redis
-	implementation 'org.springframework.boot:spring-boot-starter-cache'
-	implementation 'org.redisson:redisson-spring-boot-starter:3.25.0'
-
-	// Lombok
-	compileOnly 'org.projectlombok:lombok'
-	annotationProcessor 'org.projectlombok:lombok'
-
-	// JSON Processing
-	implementation 'com.fasterxml.jackson.datatype:jackson-datatype-jsr310'
-	implementation 'com.fasterxml.jackson.core:jackson-databind'
-
-	// API Documentation
-	implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.3.0'
-
-	// Monitoring
-	implementation 'org.springframework.boot:spring-boot-starter-actuator'
-	implementation 'io.micrometer:micrometer-registry-prometheus'
-
-	// Test
-	testImplementation 'org.springframework.boot:spring-boot-starter-test'
-	testImplementation 'org.springframework.security:spring-security-test'
-	testImplementation 'io.projectreactor:reactor-test'
-	testImplementation 'org.testcontainers:testcontainers:1.19.3'
-	testImplementation 'org.testcontainers:postgresql:1.19.3'
-	testImplementation 'org.testcontainers:junit-jupiter:1.19.3'
-
-	// Development Tools
-	developmentOnly 'org.springframework.boot:spring-boot-devtools'
-}
-
-tasks.named('test') {
-	useJUnitPlatform()
-
-	// 테스트 실행 시 시스템 속성 설정
-	systemProperty 'spring.profiles.active', 'test'
-
-	// 테스트 결과 출력
-	testLogging {
-		events "passed", "skipped", "failed"
-		exceptionFormat "full"
-	}
-
-	// 빌드 시 plain jar 생성 방지
-	jar {
-		enabled = false
-	}
+subprojects {
+    apply plugin: 'io.spring.dependency-management'
+    
+    dependencyManagement {
+        imports {
+            mavenBom 'org.springframework.boot:spring-boot-dependencies:3.3.4'
+            mavenBom 'org.springframework.cloud:spring-cloud-dependencies:2023.0.3'
+        }
+    }
 }

@@ -1,0 +1,127 @@
+server:
+  port: 8081
+
+spring:
+  application:
+    name: auth-service
+  
+  # Auth 서비스 공유 데이터베이스 설정
+  datasource:
+    url: jdbc:postgresql://localhost:5432/dorandoran
+    username: doran
+    password: doran
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 5
+      connection-timeout: 30000
+      idle-timeout: 600000
+      max-lifetime: 1800000
+      leak-detection-threshold: 60000
+  
+  # JPA 설정
+  jpa:
+    hibernate:
+      ddl-auto: update
+      default_schema: auth_schema
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
+        connection:
+          characterEncoding: UTF-8
+          useUnicode: true
+        jdbc:
+          time_zone: UTC
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
+
+# JWT 설정
+application:
+  security:
+    jwt:
+      secret-key: MTIzNDU2Nzg5MDEyMzQ1Njc4OTAxMjM0NTY3ODkwMTI=
+      access-token-expiration: 3600000  # 1시간
+      refresh-token-expiration: 604800000  # 7일
+
+# 서비스 간 통신 설정
+user:
+  service:
+    url: http://localhost:8082
+
+# Circuit Breaker 설정
+resilience4j:
+  circuitbreaker:
+    instances:
+      user-service:
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 30s
+        sliding-window-size: 10
+        minimum-number-of-calls: 5
+        permitted-number-of-calls-in-half-open-state: 3
+  retry:
+    instances:
+      user-service:
+        max-attempts: 3
+        wait-duration: 1s
+        exponential-backoff-multiplier: 2
+  timelimiter:
+    instances:
+      user-service:
+        timeout-duration: 5s
+
+# 로깅 설정
+logging:
+  level:
+    com.dorandoran.auth: DEBUG
+    org.springframework.security: DEBUG
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} - %msg%n"
+
+gateway:
+  jwt:
+    hmac-secret: change-me-hmac-secret
+    skew-ms: 60000
+
+# SpringDoc OpenAPI 설정
+springdoc:
+  api-docs:
+    path: /api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    enabled: true
+    operationsSorter: method
+    tagsSorter: alpha
+    tryItOutEnabled: true
+    displayRequestDuration: true
+    showExtensions: true
+    showCommonExtensions: true
+
+# Actuator 설정
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: always
+    prometheus:
+      enabled: true
+  metrics:
+    export:
+      prometheus:
+        enabled: true
+
+  # Redis 설정 (토큰 블랙리스트용)
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      password: 
+      timeout: 2000ms
+      lettuce:
+        pool:
+          max-active: 8
+          max-idle: 8
+          min-idle: 0

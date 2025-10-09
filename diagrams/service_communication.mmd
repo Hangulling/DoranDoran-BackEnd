@@ -1,0 +1,23 @@
+sequenceDiagram
+    participant Client
+    participant Gateway
+    participant Auth
+    participant User
+    participant Chat
+    participant MultiAgent
+    participant OpenAI
+
+    Client->>Gateway: POST /api/chat/messages
+    Gateway->>Auth: JWT 검증
+    Auth->>User: 사용자 정보 조회 (Feign)
+    User-->>Auth: UserDto 반환
+    Auth-->>Gateway: 인증 성공
+    Gateway->>Chat: 메시지 전송
+    Chat->>User: 사용자 정보 조회 (Feign)
+    User-->>Chat: UserDto 반환
+    Chat->>MultiAgent: Multi-Agent 처리
+    MultiAgent->>OpenAI: 병렬 AI 호출
+    OpenAI-->>MultiAgent: 스트림 응답
+    MultiAgent-->>Chat: 처리 완료
+    Chat-->>Gateway: 메시지 저장 완료
+    Gateway-->>Client: 응답

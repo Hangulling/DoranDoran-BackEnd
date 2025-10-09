@@ -1,0 +1,90 @@
+server:
+  port: 8083
+
+spring:
+  application:
+    name: chat-service
+  
+  # Spring Security 완전 비활성화
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration
+      - org.springframework.boot.autoconfigure.security.servlet.UserDetailsServiceAutoConfiguration
+      - org.springframework.boot.autoconfigure.security.servlet.SecurityFilterAutoConfiguration
+      - org.springframework.boot.actuate.autoconfigure.security.servlet.ManagementWebSecurityAutoConfiguration
+  
+  # Chat 서비스 공유 데이터베이스 설정
+  datasource:
+    url: jdbc:postgresql://localhost:5432/dorandoran
+    username: doran
+    password: doran
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 5
+      connection-timeout: 30000
+      idle-timeout: 600000
+      max-lifetime: 1800000
+      leak-detection-threshold: 60000
+  
+  # JPA 설정
+  jpa:
+    hibernate:
+      ddl-auto: none
+    show-sql: true
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
+        connection:
+          characterEncoding: UTF-8
+          useUnicode: true
+        jdbc:
+          time_zone: UTC
+        # PostgreSQL search_path 설정
+        default_schema: user_schema
+        # 다중 스키마 지원을 위한 설정
+        hbm2ddl:
+          auto: none
+        # 엔티티 스캔 패키지 명시적 설정 (다중 스키마 지원)
+        packages_to_scan: com.dorandoran.chat.entity,com.dorandoran.shared.entity,com.dorandoran.common.entity
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
+
+# 로깅 설정
+logging:
+  level:
+    com.dorandoran.chat: DEBUG
+    org.springframework.web: DEBUG
+    org.hibernate.SQL: DEBUG
+    org.hibernate.type.descriptor.sql.BasicBinder: TRACE
+    org.hibernate.type.descriptor.sql.BasicExtractor: TRACE
+    org.hibernate.engine.jdbc.binding.internal.BasicBinder: TRACE
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} - %msg%n"
+
+# AI 설정 (환경변수에서 주입)
+ai:
+  openai:
+    api-key: ${OPENAI_API_KEY}
+    base-url: ${OPENAI_BASE_URL:https://api.openai.com}
+    model: ${OPENAI_MODEL:gpt-4o-mini}
+    max-prompt-chars: ${OPENAI_MAX_PROMPT_CHARS:8000}
+    max-output-tokens: ${OPENAI_MAX_OUTPUT_TOKENS:800}
+    price-per1k-input: ${OPENAI_PRICE_IN_PER1K:0}
+    price-per1k-output: ${OPENAI_PRICE_OUT_PER1K:0}
+
+# SpringDoc OpenAPI 설정
+springdoc:
+  api-docs:
+    path: /api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    enabled: true
+    operationsSorter: method
+    tagsSorter: alpha
+    tryItOutEnabled: true
+    displayRequestDuration: true
+    showExtensions: true
+    showCommonExtensions: true
+
+# Actuator 설정은 application-docker.yml에서 관리
