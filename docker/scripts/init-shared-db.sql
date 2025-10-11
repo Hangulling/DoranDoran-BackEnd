@@ -417,58 +417,37 @@ ALTER TABLE chat_schema.messages
     REFERENCES chat_schema.messages(id)
     ON DELETE SET NULL;
 
--- ========================================================
+-- ===========================================================
 -- Store Schema 생성
--- ========================================================
+-- ===========================================================
 
--- pgcrypto 확장 (UUID 생성용)
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
--- Store 스키마 생성
 CREATE SCHEMA IF NOT EXISTS store_schema;
 
--- ======================================================
+-- ============================================================
 -- Stores 테이블 (보관함)
--- ======================================================
-
+-- ============================================================
 DROP TABLE IF EXISTS store_schema.stores CASCADE;
 
 CREATE TABLE store_schema.stores (
-    -- 기본 PK
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-
-    -- 관계 (MSA 원칙: FK 없음)
     user_id UUID NOT NULL,
     message_id UUID NOT NULL,
     chatroom_id UUID NOT NULL,
-
-    -- 표현 원본
     content TEXT NOT NULL,
-
-    -- Multi-Agent AI 응답 (JSONB)
     ai_response JSONB NOT NULL,
-
-    -- 필터링용 태그
-    intimacy_tag VARCHAR(20),
-
-    -- 사용자 추가
-    category VARCHAR(50),
-    memo TEXT,
-
-    -- 소프트 삭제
+    bot_type VARCHAR(20),
     is_deleted BOOLEAN NOT NULL DEFAULT FALSE,
     deleted_at TIMESTAMP,
-
-    -- 타임스탬프
     created_at TIMESTAMP NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMP NOT NULL DEFAULT NOW()
 );
 
--- 코멘트
 COMMENT ON TABLE store_schema.stores IS '보관함 - 사용자가 저장한 표현과 AI 응답';
-COMMENT ON COLUMN store_schema.stores.content IS '표현 원본 (예: 좋아 어디 치킨 먹을까?)';
+COMMENT ON COLUMN store_schema.stores.content IS '표현 원본';
 COMMENT ON COLUMN store_schema.stores.ai_response IS 'Multi-Agent AI 응답 (JSONB)';
-COMMENT ON COLUMN store_schema.stores.intimacy_tag IS '필터링 태그 (Honey, Coworker, Senior, Client)';
+COMMENT ON COLUMN store_schema.stores.bot_type IS '챗봇 역할 (Honey, Coworker, Senior, Client)';
 
 -- 인덱스
 CREATE UNIQUE INDEX idx_store_user_message
@@ -479,15 +458,10 @@ CREATE INDEX idx_store_user_created
     ON store_schema.stores(user_id, created_at DESC)
     WHERE is_deleted = FALSE;
 
-CREATE INDEX idx_store_intimacy_tag
-    ON store_schema.stores(user_id, intimacy_tag)
-    WHERE is_deleted = FALSE;
-
 CREATE INDEX idx_store_chatroom
     ON store_schema.stores(chatroom_id, created_at DESC)
     WHERE is_deleted = FALSE;
 
--- JSONB 인덱스 (선택사항 - 성능 최적화)
 CREATE INDEX idx_store_ai_response_gin
     ON store_schema.stores USING GIN (ai_response);
 

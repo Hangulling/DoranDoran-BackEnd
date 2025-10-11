@@ -16,14 +16,14 @@ import java.util.List;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-@JsonInclude(JsonInclude.Include.NON_NULL)  // null 필드 제외
+@JsonInclude(JsonInclude.Include.NON_NULL)
 public class AiResponse {
 
-  // 친밀도 레벨
-  private String intimacyLevel;  // "Close", "Casual", "Friendly"
+  // 친밀도 레벨 (Close, Casual, Friendly)
+  private String intimacyLevel;
 
   // AI 설명/피드백
-  private String description;  // "Close friends don't use formal language..."
+  private String description;
 
   // 번역 정보
   private Translation translation;
@@ -43,8 +43,8 @@ public class AiResponse {
   @AllArgsConstructor
   @JsonInclude(JsonInclude.Include.NON_NULL)
   public static class Translation {
-    private String english;       // 영어 번역
-    private String pronunciation; // 발음
+    private String english;
+    private String pronunciation;
   }
 
   /**
@@ -56,8 +56,8 @@ public class AiResponse {
   @AllArgsConstructor
   @JsonInclude(JsonInclude.Include.NON_NULL)
   public static class VocabularyItem {
-    private String word;          // 단어
-    private String pronunciation; // 발음
-    private String explanation;   // 설명
+    private String word;
+    private String pronunciation;
+    private String explanation;
   }
 }

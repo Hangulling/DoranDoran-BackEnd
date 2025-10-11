@@ -25,7 +25,6 @@ import java.util.UUID;
     indexes = {
         @Index(name = "idx_store_user_message", columnList = "user_id, message_id", unique = true),
         @Index(name = "idx_store_user_created", columnList = "user_id, created_at"),
-        @Index(name = "idx_store_intimacy_tag", columnList = "user_id, intimacy_tag"),
         @Index(name = "idx_store_chatroom", columnList = "chatroom_id, created_at")
     }
 )
@@ -61,16 +60,9 @@ public class Store {
   @Convert(converter = JsonbConverter.class)
   private AiResponse aiResponse;
 
-  // 필터링용 태그 (Honey, Coworker, Senior, Client)
-  @Column(name = "intimacy_tag", length = 20)
-  private String intimacyTag;
-
-  // 사용자 추가 정보 (선택)
-  @Column(name = "category", length = 50)
-  private String category;
-
-  @Column(name = "memo", columnDefinition = "text")
-  private String memo;
+  // 챗봇 역할 (Honey, Coworker, Senior, Client)
+  @Column(name = "bot_type", length = 20)
+  private String botType;
 
   // 소프트 삭제
   @Column(name = "is_deleted", nullable = false)

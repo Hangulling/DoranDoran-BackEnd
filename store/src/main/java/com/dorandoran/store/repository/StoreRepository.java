@@ -22,22 +22,12 @@ public interface StoreRepository extends JpaRepository<Store, UUID> {
   // 사용자별 전체 조회 (페이징)
   Page<Store> findByUserIdAndIsDeletedFalseOrderByCreatedAtDesc(UUID userId, Pageable pageable);
 
-  // 방별 필터링
+  // 방별 조회
   List<Store> findByUserIdAndChatroomIdAndIsDeletedFalseOrderByCreatedAtDesc(UUID userId, UUID chatroomId);
 
-  // 방별 필터링 (페이징)
+  // 방별 조회 (페이징)
   Page<Store> findByUserIdAndChatroomIdAndIsDeletedFalseOrderByCreatedAtDesc(
       UUID userId, UUID chatroomId, Pageable pageable
-  );
-
-  // 태그별 필터링 (Honey, Coworker, Senior, Client)
-  List<Store> findByUserIdAndIntimacyTagAndIsDeletedFalseOrderByCreatedAtDesc(
-      UUID userId, String intimacyTag
-  );
-
-  // 태그별 필터링 (페이징)
-  Page<Store> findByUserIdAndIntimacyTagAndIsDeletedFalseOrderByCreatedAtDesc(
-      UUID userId, String intimacyTag, Pageable pageable
   );
 
   // 중복 저장 확인

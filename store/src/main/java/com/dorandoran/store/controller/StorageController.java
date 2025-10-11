@@ -36,7 +36,6 @@ public class StorageController {
 
   /**
    * 표현 보관하기
-   * POST /api/store/bookmarks
    */
   @PostMapping
   @Operation(summary = "표현 보관", description = "사용자가 표현과 AI 응답을 보관함에 저장")
@@ -56,7 +55,6 @@ public class StorageController {
 
   /**
    * 보관함 전체 조회
-   * GET /api/store/bookmarks
    */
   @GetMapping
   @Operation(summary = "보관함 전체 조회", description = "사용자의 보관함 전체 목록 조회")
@@ -73,7 +71,6 @@ public class StorageController {
 
   /**
    * 보관함 전체 조회 (페이징)
-   * GET /api/store/bookmarks/page
    */
   @GetMapping("/page")
   @Operation(summary = "보관함 조회 (페이징)", description = "페이징된 보관함 목록 조회")
@@ -92,8 +89,26 @@ public class StorageController {
   }
 
   /**
+   * 방별 보관함 조회
+   */
+  @GetMapping("/chatroom/{chatroomId}")
+  @Operation(summary = "방별 보관함 조회", description = "특정 채팅방의 보관함만 조회")
+  public ResponseEntity<List<StorageListResponse>> getBookmarksByChatroom(
+      @Parameter(description = "사용자 ID", required = true)
+      @RequestHeader("X-User-Id") UUID userId,
+
+      @Parameter(description = "채팅방 ID", required = true)
+      @PathVariable UUID chatroomId) {
+
+    log.info("GET /api/store/bookmarks/chatroom/{} - userId: {}", chatroomId, userId);
+
+    List<StorageListResponse> response = storageService.getBookmarksByChatroom(userId, chatroomId);
+
+    return ResponseEntity.ok(response);
+  }
+
+  /**
    * 보관함 삭제
-   * DELETE /api/store/bookmarks/{bookmarkId}
    */
   @DeleteMapping("/{bookmarkId}")
   @Operation(summary = "보관함 삭제", description = "보관함 항목 삭제 (소프트 삭제)")
@@ -113,7 +128,6 @@ public class StorageController {
 
   /**
    * 보관함 일괄 삭제
-   * DELETE /api/store/bookmarks
    */
   @DeleteMapping
   @Operation(summary = "보관함 일괄 삭제", description = "여러 보관함 항목 한 번에 삭제")
@@ -133,7 +147,6 @@ public class StorageController {
 
   /**
    * 보관함 개수 조회
-   * GET /api/store/bookmarks/count
    */
   @GetMapping("/count")
   @Operation(summary = "보관함 개수", description = "사용자의 보관함 항목 개수 조회")

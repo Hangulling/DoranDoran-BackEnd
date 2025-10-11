@@ -24,9 +24,9 @@ public class BookmarkResponse {
   private UUID chatroomId;
   private String content;
   private AiResponse aiResponse;
-  private String intimacyTag;
+  private String botType;
   private LocalDateTime createdAt;
-  private String message;  // 성공 메시지
+  private String message;
 
   // Entity -> DTO 변환
   public static BookmarkResponse from(Store store, String message) {
@@ -36,7 +36,7 @@ public class BookmarkResponse {
         .chatroomId(store.getChatroomId())
         .content(store.getContent())
         .aiResponse(store.getAiResponse())
-        .intimacyTag(store.getIntimacyTag())
+        .botType(store.getBotType())
         .createdAt(store.getCreatedAt())
         .message(message)
         .build();

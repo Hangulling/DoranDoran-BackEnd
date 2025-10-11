@@ -25,9 +25,7 @@ public class StorageListResponse {
   private String chatroomName;  // Chat Service에서 조회 (Feign)
   private String content;
   private AiResponse aiResponse;
-  private String intimacyTag;
-  private String category;
-  private String memo;
+  private String botType;
   private LocalDateTime createdAt;
 
   // Entity -> DTO 변환
@@ -38,9 +36,7 @@ public class StorageListResponse {
         .chatroomId(store.getChatroomId())
         .content(store.getContent())
         .aiResponse(store.getAiResponse())
-        .intimacyTag(store.getIntimacyTag())
-        .category(store.getCategory())
-        .memo(store.getMemo())
+        .botType(store.getBotType())
         .createdAt(store.getCreatedAt())
         .build();
   }

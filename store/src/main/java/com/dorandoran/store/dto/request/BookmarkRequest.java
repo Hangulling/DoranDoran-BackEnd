@@ -18,9 +18,6 @@ import java.util.UUID;
 @AllArgsConstructor
 public class BookmarkRequest {
 
-  // 사용자 ID (SecurityContext에서 추출 가능, 선택)
-  private UUID userId;
-
   // 메시지 ID (필수)
   @NotNull(message = "메시지 ID는 필수입니다")
   private UUID messageId;
@@ -37,10 +34,6 @@ public class BookmarkRequest {
   @NotNull(message = "AI 응답은 필수입니다")
   private AiResponse aiResponse;
 
-  // 친밀도 태그 (Honey, Coworker, Senior, Client)
-  private String intimacyTag;
-
-  // 카테고리 (선택)
-  private String category;
-
+  // 챗봇 역할 (Honey, Coworker, Senior, Client)
+  private String botType;
 }

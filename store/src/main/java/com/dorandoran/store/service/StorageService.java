@@ -4,6 +4,9 @@ import com.dorandoran.store.dto.request.BookmarkRequest;
 import com.dorandoran.store.dto.response.BookmarkResponse;
 import com.dorandoran.store.dto.response.StorageListResponse;
 import com.dorandoran.store.entity.Store;
+import com.dorandoran.store.exception.BookmarkNotFoundException;
+import com.dorandoran.store.exception.DuplicateBookmarkException;
+import com.dorandoran.store.exception.UnauthorizedAccessException;
 import com.dorandoran.store.repository.StoreRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -39,7 +42,7 @@ public class StorageService {
     // 중복 체크
     if (storeRepository.existsByUserIdAndMessageIdAndIsDeletedFalse(userId, request.getMessageId())) {
       log.warn("중복 저장 시도: userId={}, messageId={}", userId, request.getMessageId());
-      throw new IllegalStateException("이미 보관함에 저장된 표현입니다");
+      throw new DuplicateBookmarkException("이미 보관함에 저장된 표현입니다");
     }
 
     // Store 엔티티 생성
@@ -49,8 +52,7 @@ public class StorageService {
         .chatroomId(request.getChatroomId())
         .content(request.getContent())
         .aiResponse(request.getAiResponse())
-        .intimacyTag(request.getIntimacyTag())
-        .category(request.getCategory())
+        .botType(request.getBotType())
         .isDeleted(false)
         .build();
 
@@ -92,6 +94,38 @@ public class StorageService {
   }
 
   /**
+   * 방별 보관함 조회
+   */
+  @Transactional(readOnly = true)
+  public List<StorageListResponse> getBookmarksByChatroom(UUID userId, UUID chatroomId) {
+    log.info("방별 보관함 조회: userId={}, chatroomId={}", userId, chatroomId);
+
+    List<Store> stores = storeRepository
+        .findByUserIdAndChatroomIdAndIsDeletedFalseOrderByCreatedAtDesc(userId, chatroomId);
+
+    if (stores.isEmpty()) {
+      log.info("해당 채팅방의 보관함이 비어있음: chatroomId={}", chatroomId);
+    }
+
+    return stores.stream()
+        .map(StorageListResponse::from)
+        .collect(Collectors.toList());
+  }
+
+  /**
+   * 방별 보관함 조회 (페이징)
+   */
+  @Transactional(readOnly = true)
+  public Page<StorageListResponse> getBookmarksByChatroom(UUID userId, UUID chatroomId, Pageable pageable) {
+    log.info("방별 보관함 조회 (페이징): userId={}, chatroomId={}", userId, chatroomId);
+
+    Page<Store> stores = storeRepository
+        .findByUserIdAndChatroomIdAndIsDeletedFalseOrderByCreatedAtDesc(userId, chatroomId, pageable);
+
+    return stores.map(StorageListResponse::from);
+  }
+
+  /**
    * 보관함 삭제 (소프트 삭제)
    */
   @Transactional
@@ -99,12 +133,12 @@ public class StorageService {
     log.info("보관함 삭제: userId={}, bookmarkId={}", userId, bookmarkId);
 
     Store store = storeRepository.findById(bookmarkId)
-        .orElseThrow(() -> new IllegalArgumentException("보관함 항목을 찾을 수 없습니다"));
+        .orElseThrow(() -> new BookmarkNotFoundException("보관함 항목을 찾을 수 없습니다"));
 
     // 권한 확인
     if (!store.getUserId().equals(userId)) {
       log.warn("삭제 권한 없음: userId={}, storeUserId={}", userId, store.getUserId());
-      throw new IllegalStateException("삭제 권한이 없습니다");
+      throw new UnauthorizedAccessException("삭제 권한이 없습니다");
     }
 
     // 이미 삭제됨
