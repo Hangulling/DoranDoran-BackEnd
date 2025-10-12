@@ -89,25 +89,6 @@ public class StorageController {
   }
 
   /**
-   * 방별 보관함 조회
-   */
-  @GetMapping("/chatroom/{chatroomId}")
-  @Operation(summary = "방별 보관함 조회", description = "특정 채팅방의 보관함만 조회")
-  public ResponseEntity<List<StorageListResponse>> getBookmarksByChatroom(
-      @Parameter(description = "사용자 ID", required = true)
-      @RequestHeader("X-User-Id") UUID userId,
-
-      @Parameter(description = "채팅방 ID", required = true)
-      @PathVariable UUID chatroomId) {
-
-    log.info("GET /api/store/bookmarks/chatroom/{} - userId: {}", chatroomId, userId);
-
-    List<StorageListResponse> response = storageService.getBookmarksByChatroom(userId, chatroomId);
-
-    return ResponseEntity.ok(response);
-  }
-
-  /**
    * 보관함 삭제
    */
   @DeleteMapping("/{bookmarkId}")

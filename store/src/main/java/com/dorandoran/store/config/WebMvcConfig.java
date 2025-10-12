@@ -60,29 +60,4 @@ public class WebMvcConfig implements WebMvcConfigurer {
         .allowCredentials(true)     // 쿠키/인증 정보 허용
         .maxAge(3600);              // Preflight 캐시 시간 (1시간)
   }
-
-  /**
-   * Interceptor 설정
-   *
-   * <p>HMAC 인증 인터셉터를 등록 (선택사항)</p>
-   *
-   * <h3>인터셉터 역할:</h3>
-   * <ul>
-   *   <li>서비스 간 통신 시 HMAC 서명 검증</li>
-   *   <li>API Gateway에서 오는 요청 검증</li>
-   * </ul>
-   *
-   * @param registry 인터셉터 레지스트리
-   */
-  @Override
-  public void addInterceptors(InterceptorRegistry registry) {
-    // HMAC 인증이 필요한 경우 활성화
-    // registry.addInterceptor(hmacAuthInterceptor)
-    //         .addPathPatterns("/api/**")  // 모든 API 경로
-    //         .excludePathPatterns(
-    //                 "/actuator/**",      // Actuator 제외
-    //                 "/swagger-ui/**",    // Swagger UI 제외
-    //                 "/api-docs/**"       // API Docs 제외
-    //         );
-  }
 }
