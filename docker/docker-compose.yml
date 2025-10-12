@@ -98,23 +98,23 @@ services:
   # Store Service
   store-service:
     build:
-      context: .
-      dockerfile: store/Dockerfile
+      context: ..
+      dockerfile: docker/Dockerfile.store
     container_name: dd-store-service
-    ports:
-      - "8084:8084"
+    ports: ["8084:8084"]
     environment:
-      SPRING_PROFILES_ACTIVE: docker
-    networks:
-      - dorandoran-network
+      - SPRING_PROFILES_ACTIVE=docker
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://shared-db:5432/dorandoran
+      - SPRING_DATASOURCE_USERNAME=doran
+      - SPRING_DATASOURCE_PASSWORD=doran
+      - SPRING_JPA_HIBERNATE_DEFAULT_SCHEMA=store_schema
+      - SPRING_REDIS_HOST=redis
+      - SPRING_REDIS_PORT=6379
     depends_on:
-      postgres:
+      shared-db:
         condition: service_healthy
-    healthcheck:
-      test: [ "CMD", "wget", "--spider", "http://localhost:8084/actuator/health" ]
-      interval: 30s
-      timeout: 10s
-      retries: 3
+      redis:
+        condition: service_started
 
   # Batch Service
   batch-service:
