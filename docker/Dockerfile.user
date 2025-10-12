@@ -11,7 +11,7 @@ COPY gradle/ gradle/
 # Copy source code
 COPY shared/ shared/
 COPY common/ common/
-COPY infra/ infra/
+# COPY infra/ infra/
 COPY user/ user/
 
 # Build the user service
