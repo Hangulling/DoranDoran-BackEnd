@@ -1,5 +1,6 @@
 package com.dorandoran.store.service;
 
+import com.dorandoran.store.client.ChatServiceClient;
 import com.dorandoran.store.dto.request.BookmarkRequest;
 import com.dorandoran.store.dto.response.BookmarkResponse;
 import com.dorandoran.store.dto.response.StorageListResponse;
@@ -30,7 +31,7 @@ import java.util.stream.Collectors;
 public class StorageService {
 
   private final StoreRepository storeRepository;
-  // TODO: ChatServiceClient 추가 (채팅방 이름 조회)
+  private final ChatServiceClient chatServiceClient;  // 채팅방 정보 획득
 
   /**
    * 표현 보관하기
@@ -76,7 +77,17 @@ public class StorageService {
     }
 
     return stores.stream()
-        .map(StorageListResponse::from)
+        .map(store -> {
+          StorageListResponse response = StorageListResponse.from(store);
+          try {
+            String chatroomName = chatServiceClient.getChatRoom(store.getChatroomId()).getName();
+            response.setChatroomNameFromClient(chatroomName);
+          } catch (Exception e) {
+            log.warn("채팅방 이름 조회 실패: chatroomId={}", store.getChatroomId(), e);
+            response.setChatroomNameFromClient("Unknown");
+          }
+          return response;
+        })
         .collect(Collectors.toList());
   }
 
@@ -90,7 +101,17 @@ public class StorageService {
 
     Page<Store> stores = storeRepository.findByUserIdAndIsDeletedFalseOrderByCreatedAtDesc(userId, pageable);
 
-    return stores.map(StorageListResponse::from);
+    return stores.map(store -> {
+      StorageListResponse response = StorageListResponse.from(store);
+      try {
+        String chatroomName = chatServiceClient.getChatRoom(store.getChatroomId()).getName();
+        response.setChatroomNameFromClient(chatroomName);
+      } catch (Exception e) {
+        log.warn("채팅방 이름 조회 실패: chatroomId={}", store.getChatroomId(), e);
+        response.setChatroomNameFromClient("Unknown");
+      }
+      return response;
+    });
   }
 
   /**
@@ -107,8 +128,21 @@ public class StorageService {
       log.info("해당 채팅방의 보관함이 비어있음: chatroomId={}", chatroomId);
     }
 
+    // 방별 조회는 같은 채팅방이므로 한 번만 조회
+    String chatroomName = "Unknown";
+    try {
+      chatroomName = chatServiceClient.getChatRoom(chatroomId).getName();
+    } catch (Exception e) {
+      log.warn("채팅방 이름 조회 실패: chatroomId={}", chatroomId, e);
+    }
+
+    final String finalChatroomName = chatroomName;
     return stores.stream()
-        .map(StorageListResponse::from)
+        .map(store -> {
+          StorageListResponse response = StorageListResponse.from(store);
+          response.setChatroomNameFromClient(finalChatroomName);
+          return response;
+        })
         .collect(Collectors.toList());
   }
 
@@ -122,7 +156,20 @@ public class StorageService {
     Page<Store> stores = storeRepository
         .findByUserIdAndChatroomIdAndIsDeletedFalseOrderByCreatedAtDesc(userId, chatroomId, pageable);
 
-    return stores.map(StorageListResponse::from);
+    // 방별 조회는 같은 채팅방이므로 한 번만 조회
+    String chatroomName = "Unknown";
+    try {
+      chatroomName = chatServiceClient.getChatRoom(chatroomId).getName();
+    } catch (Exception e) {
+      log.warn("채팅방 이름 조회 실패: chatroomId={}", chatroomId, e);
+    }
+
+    final String finalChatroomName = chatroomName;
+    return stores.map(store -> {
+      StorageListResponse response = StorageListResponse.from(store);
+      response.setChatroomNameFromClient(finalChatroomName);
+      return response;
+    });
   }
 
   /**
