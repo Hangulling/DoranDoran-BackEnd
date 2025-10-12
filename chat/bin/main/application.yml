@@ -5,6 +5,12 @@ spring:
   application:
     name: chat-service
   
+  # 정적 리소스 설정
+  web:
+    resources:
+      static-locations: classpath:/static/,file:./test-ai.html
+      add-mappings: true
+  
   # Spring Security 완전 비활성화
   autoconfigure:
     exclude:

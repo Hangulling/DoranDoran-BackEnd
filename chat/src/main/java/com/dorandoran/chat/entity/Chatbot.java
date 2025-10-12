@@ -50,6 +50,25 @@ public class Chatbot {
     @Column(name = "system_prompt")
     private String systemPrompt;
 
+    // 각 Agent별 프롬프트 필드
+    @Column(name = "intimacy_system_prompt")
+    private String intimacySystemPrompt;
+
+    @Column(name = "intimacy_user_prompt")
+    private String intimacyUserPrompt;
+
+    @Column(name = "vocabulary_system_prompt")
+    private String vocabularySystemPrompt;
+
+    @Column(name = "vocabulary_user_prompt")
+    private String vocabularyUserPrompt;
+
+    @Column(name = "translation_system_prompt")
+    private String translationSystemPrompt;
+
+    @Column(name = "translation_user_prompt")
+    private String translationUserPrompt;
+
     @Column(name = "capabilities", columnDefinition = "jsonb")
     private String capabilities;
 

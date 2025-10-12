@@ -5,6 +5,7 @@ import com.dorandoran.shared.dto.UpdateUserRequest;
 import com.dorandoran.shared.dto.UserDto;
 import com.dorandoran.shared.dto.ResetPasswordRequest;
 import com.dorandoran.user.service.UserService;
+import com.dorandoran.common.response.ApiResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -38,15 +39,16 @@ public class UserController {
         @ApiResponse(responseCode = "400", description = "잘못된 요청 데이터")
     })
     @PostMapping
-    public ResponseEntity<UserDto> createUser(@RequestBody CreateUserRequest request) {
+    public ResponseEntity<ApiResponse<UserDto>> createUser(@RequestBody CreateUserRequest request) {
         log.info("사용자 생성 요청: email={}", request.email());
         
         try {
             UserDto createdUser = userService.createUser(request);
-            return ResponseEntity.ok(createdUser);
+            return ResponseEntity.ok(ApiResponse.success(createdUser, "사용자가 성공적으로 생성되었습니다."));
         } catch (Exception e) {
             log.error("사용자 생성 실패: email={}, error={}", request.email(), e.getMessage());
-            return ResponseEntity.badRequest().build();
+            return ResponseEntity.badRequest()
+                    .body(ApiResponse.error("사용자 생성에 실패했습니다: " + e.getMessage()));
         }
     }
     
@@ -132,6 +134,35 @@ public class UserController {
         }
     }
     
+    /**
+     * 현재 사용자 정보 조회 (인증된 사용자)
+     */
+    @Operation(summary = "현재 사용자 정보 조회", description = "인증된 사용자의 정보를 조회합니다.")
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "사용자 정보 조회 성공"),
+        @ApiResponse(responseCode = "401", description = "인증 실패")
+    })
+    @GetMapping("/me")
+    public ResponseEntity<ApiResponse<UserDto>> getCurrentUser(
+            @RequestHeader("Authorization") String token) {
+        log.info("현재 사용자 정보 조회 API 호출");
+        
+        try {
+            // JWT 토큰에서 사용자 ID 추출 (간단한 구현)
+            // 실제로는 JWT 서비스에서 토큰을 검증하고 사용자 정보를 반환해야 함
+            String actualToken = token.startsWith("Bearer ") ? token.substring(7) : token;
+            
+            // 임시로 첫 번째 사용자를 반환 (실제로는 JWT에서 사용자 ID를 추출해야 함)
+            // TODO: JWT 토큰 검증 및 사용자 ID 추출 로직 구현
+            UserDto user = userService.findById(UUID.randomUUID()); // 임시 구현
+            return ResponseEntity.ok(ApiResponse.success(user, "사용자 정보를 성공적으로 조회했습니다."));
+        } catch (Exception e) {
+            log.error("사용자 정보 조회 실패: {}", e.getMessage());
+            return ResponseEntity.status(401)
+                    .body(ApiResponse.error("사용자 정보 조회에 실패했습니다: " + e.getMessage()));
+        }
+    }
+
     /**
      * 헬스체크
      */

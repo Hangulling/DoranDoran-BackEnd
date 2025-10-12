@@ -7,7 +7,7 @@ import java.util.UUID;
  * 사용자 정보 DTO (Record 타입)
  */
 public record UserDto(
-    UUID id,
+    String id,              // UUID -> String으로 변경
     String email,
     String firstName,
     String lastName,
@@ -15,6 +15,7 @@ public record UserDto(
     String passwordHash,
     String picture,
     String info,
+    String preferences,     // 프론트엔드에 맞춰 추가
     LocalDateTime lastConnTime,
     UserStatus status,
     RoleName role,
@@ -22,6 +23,15 @@ public record UserDto(
     LocalDateTime createdAt,
     LocalDateTime updatedAt
 ) {
+    
+    // UUID를 String으로 변환하는 생성자
+    public UserDto(UUID id, String email, String firstName, String lastName, String name,
+                   String passwordHash, String picture, String info, String preferences,
+                   LocalDateTime lastConnTime, UserStatus status, RoleName role,
+                   boolean coachCheck, LocalDateTime createdAt, LocalDateTime updatedAt) {
+        this(id.toString(), email, firstName, lastName, name, passwordHash, picture, info, 
+             preferences, lastConnTime, status, role, coachCheck, createdAt, updatedAt);
+    }
     
     /**
      * UserStatus 열거형
