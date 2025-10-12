@@ -160,4 +160,45 @@ public class StorageController {
 
     return ResponseEntity.ok(count);
   }
+
+  /**
+   * 챗봇별 보관함 조회
+   */
+  @GetMapping("/chatbot/{chatbotId}")
+  @Operation(summary = "챗봇별 보관함 조회", description = "특정 챗봇의 모든 보관함 조회 (여러 채팅방 포함)")
+  public ResponseEntity<List<StorageListResponse>> getBookmarksByChatbot(
+      @Parameter(description = "사용자 ID", required = true)
+      @RequestHeader("X-User-Id") UUID userId,
+
+      @Parameter(description = "챗봇 ID", required = true)
+      @PathVariable UUID chatbotId) {
+
+    log.info("GET /api/store/bookmarks/chatbot/{} - userId: {}", chatbotId, userId);
+
+    List<StorageListResponse> response = storageService.getBookmarksByChatbot(userId, chatbotId);
+
+    return ResponseEntity.ok(response);
+  }
+
+  /**
+   * Cursor 기반 페이징 조회
+   */
+  @GetMapping("/cursor")
+  @Operation(summary = "보관함 조회 (Cursor 페이징)", description = "Cursor 기반 무한 스크롤용 페이징 조회")
+  public ResponseEntity<Page<StorageListResponse>> getBookmarksWithCursor(
+      @Parameter(description = "사용자 ID", required = true)
+      @RequestHeader("X-User-Id") UUID userId,
+
+      @Parameter(description = "마지막 조회 ID (null이면 처음부터)")
+      @RequestParam(required = false) UUID lastId,
+
+      @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC)
+      Pageable pageable) {
+
+    log.info("GET /api/store/bookmarks/cursor - userId: {}, lastId: {}", userId, lastId);
+
+    Page<StorageListResponse> response = storageService.getBookmarksWithCursor(userId, lastId, pageable);
+
+    return ResponseEntity.ok(response);
+  }
 }

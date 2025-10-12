@@ -1,12 +1,13 @@
 package com.dorandoran.store.entity;
 
-import com.dorandoran.store.config.JsonbConverter;
 import com.dorandoran.store.dto.AiResponse;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
@@ -51,13 +52,16 @@ public class Store {
   @Column(name = "chatroom_id", nullable = false)
   private UUID chatroomId;
 
+  @Column(name = "chatbot_id", nullable = false)
+  private UUID chatbotId;
+
   // 표현 원본
   @Column(name = "content", columnDefinition = "text", nullable = false)
   private String content;
 
   // Multi-Agent AI 응답 (JSONB)
   @Column(name = "ai_response", columnDefinition = "jsonb", nullable = false)
-  @Convert(converter = JsonbConverter.class)
+  @JdbcTypeCode(SqlTypes.JSON)
   private AiResponse aiResponse;
 
   // 챗봇 역할 (Honey, Coworker, Senior, Client)

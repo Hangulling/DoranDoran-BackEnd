@@ -51,6 +51,7 @@ public class StorageService {
         .userId(userId)
         .messageId(request.getMessageId())
         .chatroomId(request.getChatroomId())
+        .chatbotId(request.getChatbotId())
         .content(request.getContent())
         .aiResponse(request.getAiResponse())
         .botType(request.getBotType())
@@ -227,5 +228,57 @@ public class StorageService {
   @Transactional(readOnly = true)
   public long countBookmarks(UUID userId) {
     return storeRepository.countByUserIdAndIsDeletedFalse(userId);
+  }
+
+  /**
+   * 챗봇별 보관함 조회
+   */
+  @Transactional(readOnly = true)
+  public List<StorageListResponse> getBookmarksByChatbot(UUID userId, UUID chatbotId) {
+    log.info("챗봇별 보관함 조회: userId={}, chatbotId={}", userId, chatbotId);
+
+    List<Store> stores = storeRepository
+        .findByUserIdAndChatbotIdAndIsDeletedFalseOrderByCreatedAtDesc(userId, chatbotId);
+
+    if (stores.isEmpty()) {
+      log.info("해당 챗봇의 보관함이 비어있음: chatbotId={}", chatbotId);
+    }
+
+    return stores.stream()
+        .map(store -> {
+          StorageListResponse response = StorageListResponse.from(store);
+          try {
+            String chatroomName = chatServiceClient.getChatRoom(store.getChatroomId()).getName();
+            response.setChatroomNameFromClient(chatroomName);
+          } catch (Exception e) {
+            log.warn("채팅방 이름 조회 실패: chatroomId={}", store.getChatroomId(), e);
+            response.setChatroomNameFromClient("Unknown");
+          }
+          return response;
+        })
+        .collect(Collectors.toList());
+  }
+
+  /**
+   * Cursor 기반 페이징 조회
+   */
+  @Transactional(readOnly = true)
+  public Page<StorageListResponse> getBookmarksWithCursor(UUID userId, UUID lastId, Pageable pageable) {
+    log.info("Cursor 기반 보관함 조회: userId={}, lastId={}, size={}",
+        userId, lastId, pageable.getPageSize());
+
+    Page<Store> stores = storeRepository.findByUserIdWithCursor(userId, lastId, pageable);
+
+    return stores.map(store -> {
+      StorageListResponse response = StorageListResponse.from(store);
+      try {
+        String chatroomName = chatServiceClient.getChatRoom(store.getChatroomId()).getName();
+        response.setChatroomNameFromClient(chatroomName);
+      } catch (Exception e) {
+        log.warn("채팅방 이름 조회 실패: chatroomId={}", store.getChatroomId(), e);
+        response.setChatroomNameFromClient("Unknown");
+      }
+      return response;
+    });
   }
 }

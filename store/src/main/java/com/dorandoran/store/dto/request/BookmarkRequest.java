@@ -26,6 +26,10 @@ public class BookmarkRequest {
   @NotNull(message = "채팅방 ID는 필수입니다")
   private UUID chatroomId;
 
+  // 챗봇 ID (필수)
+  @NotNull(message = "챗봇 ID는 필수입니다")
+  private UUID chatbotId;
+
   // 표현 원본 (필수)
   @NotNull(message = "표현 내용은 필수입니다")
   private String content;
