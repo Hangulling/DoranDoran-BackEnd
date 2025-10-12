@@ -294,4 +294,32 @@ public class ChatController {
         } catch (Exception ignored) {}
         return null;
     }
+
+    /**
+     * 채팅방 단 건 조회
+     * (보관함 사용)
+     */
+    @GetMapping("/chatrooms/{chatroomId}")
+    @Operation(summary = "채팅방 조회", description = "채팅방 ID로 채팅방 정보 조회")
+    public ResponseEntity<ChatRoomResponse> getChatRoom(
+        @Parameter(description = "채팅방 ID", required = true)
+        @PathVariable UUID chatroomId,
+
+        @Parameter(description = "사용자 ID (선택)")
+        @RequestParam(required = false) UUID userId) {
+
+        // SecurityContext에서 우선 추출
+        UUID uid = extractUserIdFromSecurityContext();
+        if (uid == null && userId != null) {
+            uid = userId;
+        }
+
+        // 권한 확인 (요청한 사용자의 채팅방인지)
+        if (uid != null && !chatRoomRepository.existsByUserIdAndIdAndIsDeletedFalse(uid, chatroomId)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+
+        ChatRoom room = chatService.getChatRoomById(chatroomId);
+        return ResponseEntity.ok(ChatRoomResponse.from(room));
+    }
 }

@@ -424,8 +424,54 @@ ALTER TABLE chat_schema.messages
     REFERENCES chat_schema.messages(id)
     ON DELETE SET NULL;
 
--- Store 스키마는 단순화 버전에서 제거됨
--- 파일 첨부 기능이 제거되어 보관함 기능도 불필요
+-- ===========================================================
+-- Store Schema 생성
+-- ===========================================================
+
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
+
+CREATE SCHEMA IF NOT EXISTS store_schema;
+
+-- ============================================================
+-- Stores 테이블 (보관함)
+-- ============================================================
+DROP TABLE IF EXISTS store_schema.stores CASCADE;
+
+CREATE TABLE store_schema.stores (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL,
+    message_id UUID NOT NULL,
+    chatroom_id UUID NOT NULL,
+    content TEXT NOT NULL,
+    ai_response JSONB NOT NULL,
+    bot_type VARCHAR(20),
+    is_deleted BOOLEAN NOT NULL DEFAULT FALSE,
+    deleted_at TIMESTAMP,
+    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
+COMMENT ON TABLE store_schema.stores IS '보관함 - 사용자가 저장한 표현과 AI 응답';
+COMMENT ON COLUMN store_schema.stores.content IS '표현 원본';
+COMMENT ON COLUMN store_schema.stores.ai_response IS 'Multi-Agent AI 응답 (JSONB)';
+COMMENT ON COLUMN store_schema.stores.bot_type IS '챗봇 역할 (Honey, Coworker, Senior, Client)';
+
+-- 인덱스
+CREATE UNIQUE INDEX idx_store_user_message
+    ON store_schema.stores(user_id, message_id)
+    WHERE is_deleted = FALSE;
+
+CREATE INDEX idx_store_user_created
+    ON store_schema.stores(user_id, created_at DESC)
+    WHERE is_deleted = FALSE;
+
+CREATE INDEX idx_store_chatroom
+    ON store_schema.stores(chatroom_id, created_at DESC)
+    WHERE is_deleted = FALSE;
+
+CREATE INDEX idx_store_ai_response_gin
+    ON store_schema.stores USING GIN (ai_response);
+
 
 -- ========================================
 -- 친밀도 진척 추적 테이블 (Multi-Agent AI)
