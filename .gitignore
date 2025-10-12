@@ -29,3 +29,6 @@ logs/
 
 # Node (if any)
 node_modules/
+
+# Render deployment artifacts
+render_deployment/

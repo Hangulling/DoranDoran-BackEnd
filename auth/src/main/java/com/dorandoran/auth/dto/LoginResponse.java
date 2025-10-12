@@ -17,7 +17,5 @@ public class LoginResponse {
     private String refreshToken;
     private String tokenType;
     private Long expiresIn;
-    private String userId;
-    private String email;
-    private String name;
+    private UserDto user;        // 개별 필드 대신 UserDto 객체 사용
 }

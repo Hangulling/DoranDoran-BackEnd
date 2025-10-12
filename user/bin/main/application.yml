@@ -22,7 +22,7 @@ spring:
   # JPA 설정
   jpa:
     hibernate:
-      ddl-auto: create-drop
+      ddl-auto: none
       default_schema: user_schema
     show-sql: false
     properties:
@@ -82,7 +82,7 @@ management:
       enabled: true
     diskspace:
       enabled: true
-  metrics:
-    export:
-      prometheus:
+  prometheus:
+    metrics:
+      export:
         enabled: true

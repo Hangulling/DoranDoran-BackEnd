@@ -12,6 +12,8 @@ import com.dorandoran.chat.service.ChatService;
 import com.dorandoran.chat.service.AIService;
 import com.dorandoran.chat.service.GreetingService;
 import com.dorandoran.chat.service.MultiAgentOrchestrator;
+import com.dorandoran.chat.service.ChatbotService;
+import com.dorandoran.chat.service.dto.ChatbotUpdateRequest;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
@@ -30,6 +32,8 @@ import org.springframework.web.bind.annotation.*;
 import jakarta.validation.Valid;
 
 import java.util.List;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.UUID;
 
 /**
@@ -48,6 +52,7 @@ public class ChatController {
     private final AIService aiService;
     private final GreetingService greetingService;
     private final MultiAgentOrchestrator multiAgentOrchestrator;
+    private final ChatbotService chatbotService;
 
     @Operation(summary = "채팅방 생성/조회", description = "새로운 채팅방을 생성하거나 기존 채팅방을 조회합니다.")
     @ApiResponses(value = {
@@ -161,6 +166,123 @@ public class ChatController {
             log.info("=== ChatController: Multi-Agent 처리 건너뜀 - senderType={} ===", senderType);
         }
         return ResponseEntity.ok(MessageResponse.from(saved));
+    }
+
+    @Operation(summary = "챗봇 프롬프트 수정", description = "챗봇의 프롬프트를 수정합니다.")
+    @ApiResponses(value = {
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "프롬프트 수정 성공"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "잘못된 요청 데이터"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "챗봇을 찾을 수 없음")
+    })
+    @PostMapping("/chatbots/prompt")
+    public ResponseEntity<?> updateChatbotPrompt(@Valid @RequestBody ChatbotUpdateRequest request) {
+        log.info("=== 챗봇 프롬프트 수정 요청: {} ===", request);
+        
+        boolean success = chatbotService.updateChatbotPrompt(request);
+        
+        if (success) {
+            return ResponseEntity.ok(Map.of(
+                "success", true,
+                "message", "챗봇 프롬프트가 성공적으로 업데이트되었습니다.",
+                "chatbotId", request.getChatbotId(),
+                "agentType", request.getAgentType()
+            ));
+        } else {
+            return ResponseEntity.badRequest().body(Map.of(
+                "success", false,
+                "message", "챗봇 프롬프트 업데이트에 실패했습니다.",
+                "chatbotId", request.getChatbotId()
+            ));
+        }
+    }
+
+    @Operation(summary = "챗봇 프롬프트 리셋", description = "챗봇의 프롬프트를 기본값으로 리셋합니다.")
+    @ApiResponses(value = {
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "프롬프트 리셋 성공"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "잘못된 요청 데이터"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "챗봇을 찾을 수 없음")
+    })
+    @PostMapping("/chatbots/reset")
+    public ResponseEntity<?> resetChatbotPrompt(
+            @RequestParam String chatbotId,
+            @RequestParam String agentType) {
+        log.info("=== 챗봇 프롬프트 리셋 요청: chatbotId={}, agentType={} ===", chatbotId, agentType);
+        
+        boolean success = chatbotService.resetChatbotPrompt(chatbotId, agentType);
+        
+        if (success) {
+            return ResponseEntity.ok(Map.of(
+                "success", true,
+                "message", "챗봇 프롬프트가 기본값으로 리셋되었습니다.",
+                "chatbotId", chatbotId,
+                "agentType", agentType
+            ));
+        } else {
+            return ResponseEntity.badRequest().body(Map.of(
+                "success", false,
+                "message", "챗봇 프롬프트 리셋에 실패했습니다.",
+                "chatbotId", chatbotId
+            ));
+        }
+    }
+
+    @Operation(summary = "챗봇 조회", description = "챗봇 정보를 조회합니다.")
+    @ApiResponses(value = {
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "챗봇 조회 성공"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "챗봇을 찾을 수 없음")
+    })
+    @GetMapping("/chatbots/{chatbotId}")
+    public ResponseEntity<?> getChatbot(@PathVariable String chatbotId) {
+        log.info("=== 챗봇 조회 요청: {} ===", chatbotId);
+        
+        return chatbotService.getChatbot(chatbotId)
+            .map(chatbot -> {
+                Map<String, Object> chatbotData = new HashMap<>();
+                chatbotData.put("id", chatbot.getId());
+                chatbotData.put("name", chatbot.getName());
+                chatbotData.put("displayName", chatbot.getDisplayName());
+                chatbotData.put("description", chatbot.getDescription());
+                chatbotData.put("systemPrompt", chatbot.getSystemPrompt());
+                chatbotData.put("intimacySystemPrompt", chatbot.getIntimacySystemPrompt());
+                chatbotData.put("intimacyUserPrompt", chatbot.getIntimacyUserPrompt());
+                chatbotData.put("vocabularySystemPrompt", chatbot.getVocabularySystemPrompt());
+                chatbotData.put("vocabularyUserPrompt", chatbot.getVocabularyUserPrompt());
+                chatbotData.put("translationSystemPrompt", chatbot.getTranslationSystemPrompt());
+                chatbotData.put("translationUserPrompt", chatbot.getTranslationUserPrompt());
+                chatbotData.put("intimacyLevel", chatbot.getIntimacyLevel());
+                chatbotData.put("isActive", chatbot.getIsActive());
+                
+                return ResponseEntity.ok(Map.of(
+                    "success", true,
+                    "chatbot", chatbotData
+                ));
+            })
+            .orElse(ResponseEntity.notFound().build());
+    }
+
+    @Operation(summary = "Agent 프롬프트 조회", description = "특정 Agent의 프롬프트를 조회합니다.")
+    @ApiResponses(value = {
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Agent 프롬프트 조회 성공"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "챗봇을 찾을 수 없음")
+    })
+    @GetMapping("/chatbots/{chatbotId}/agents/{agentType}")
+    public ResponseEntity<?> getAgentPrompts(
+            @PathVariable String chatbotId,
+            @PathVariable String agentType) {
+        log.info("=== Agent 프롬프트 조회 요청: chatbotId={}, agentType={} ===", chatbotId, agentType);
+        
+        Map<String, String> prompts = chatbotService.getAgentPrompts(chatbotId, agentType);
+        
+        if (prompts.isEmpty()) {
+            return ResponseEntity.notFound().build();
+        }
+        
+        return ResponseEntity.ok(Map.of(
+            "success", true,
+            "chatbotId", chatbotId,
+            "agentType", agentType,
+            "prompts", prompts
+        ));
     }
 
     private UUID extractUserIdFromSecurityContext() {

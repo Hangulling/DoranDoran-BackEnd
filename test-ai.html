@@ -793,8 +793,8 @@ JSON 형식:
             document.getElementById(`${agentType}Metadata`).value = JSON.stringify(template.metadata, null, 2);
         }
 
-        // Agent 프롬프트 저장
-        function saveAgentPrompt(agentType) {
+        // Agent 프롬프트 저장 (실제 DB 업데이트)
+        async function saveAgentPrompt(agentType) {
             const systemPrompt = document.getElementById(`${agentType}SystemPrompt`).value;
             const userPrompt = document.getElementById(`${agentType}UserPrompt`).value;
             let metadata = {};
@@ -806,21 +806,61 @@ JSON 형식:
                 return;
             }
             
-            // 로컬 스토리지에 저장
-            const promptData = {
-                systemPrompt: systemPrompt,
-                userPrompt: userPrompt,
-                metadata: metadata
-            };
+            // 모든 Agent를 DB에서 관리
+            showStatus('promptStatus', 'info', `${agentType} Agent: 데이터베이스 업데이트 중...`);
             
-            localStorage.setItem(`prompt_${agentType}`, JSON.stringify(promptData));
-            showStatus('promptStatus', 'success', `${agentType} Agent 프롬프트가 저장되었습니다!`);
+            try {
+                const response = await fetch(`${BASE_URL}/api/chat/chatbots/prompt`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        chatbotId: document.getElementById('chatbotId').value,
+                        systemPrompt: systemPrompt,
+                        userPrompt: userPrompt,
+                        metadata: metadata,
+                        agentType: agentType
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok && result.success) {
+                    showStatus('promptStatus', 'success', `${agentType} Agent: 데이터베이스 업데이트 성공! 실제 AI가 새로운 프롬프트를 사용합니다.`);
+                } else {
+                    showStatus('promptStatus', 'error', `${agentType} Agent: 업데이트 실패 - ${result.message}`);
+                }
+            } catch (error) {
+                showStatus('promptStatus', 'error', `${agentType} Agent: 네트워크 오류 - ${error.message}`);
+            }
         }
 
-        // Agent 프롬프트 리셋
-        function resetAgentPrompt(agentType) {
-            loadAgentPrompt(agentType);
-            showStatus('promptStatus', 'info', `${agentType} Agent: 기본 프롬프트로 리셋되었습니다.`);
+        // Agent 프롬프트 리셋 (실제 DB 리셋)
+        async function resetAgentPrompt(agentType) {
+            // 모든 Agent를 DB에서 리셋
+            showStatus('promptStatus', 'info', `${agentType} Agent: 데이터베이스 리셋 중...`);
+            
+            try {
+                const response = await fetch(`${BASE_URL}/api/chat/chatbots/reset?chatbotId=${document.getElementById('chatbotId').value}&agentType=${agentType}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok && result.success) {
+                    // 기본값으로 UI 업데이트
+                    loadAgentPrompt(agentType);
+                    showStatus('promptStatus', 'success', `${agentType} Agent: 데이터베이스 리셋 성공! 기본 프롬프트로 되돌아갔습니다.`);
+                } else {
+                    showStatus('promptStatus', 'error', `${agentType} Agent: 리셋 실패 - ${result.message}`);
+                }
+            } catch (error) {
+                showStatus('promptStatus', 'error', `${agentType} Agent: 네트워크 오류 - ${error.message}`);
+            }
         }
 
         // Agent 프롬프트 테스트
@@ -876,6 +916,54 @@ Test Message: ${testMessage}
             }
         }
 
+        // 현재 챗봇 프롬프트 로드
+        async function loadCurrentChatbotPrompt() {
+            const chatbotId = document.getElementById('chatbotId').value;
+            if (!chatbotId) return;
+            
+            try {
+                const response = await fetch(`${BASE_URL}/api/chat/chatbots/${chatbotId}`);
+                const result = await response.json();
+                
+                if (response.ok && result.success && result.chatbot) {
+                    const chatbot = result.chatbot;
+                    
+                    // ConversationAgent의 systemPrompt 업데이트
+                    if (chatbot.systemPrompt) {
+                        document.getElementById('conversationSystemPrompt').value = chatbot.systemPrompt;
+                    }
+                    
+                    // IntimacyAgent 프롬프트 업데이트
+                    if (chatbot.intimacySystemPrompt) {
+                        document.getElementById('intimacySystemPrompt').value = chatbot.intimacySystemPrompt;
+                    }
+                    if (chatbot.intimacyUserPrompt) {
+                        document.getElementById('intimacyUserPrompt').value = chatbot.intimacyUserPrompt;
+                    }
+                    
+                    // VocabularyAgent 프롬프트 업데이트
+                    if (chatbot.vocabularySystemPrompt) {
+                        document.getElementById('vocabularySystemPrompt').value = chatbot.vocabularySystemPrompt;
+                    }
+                    if (chatbot.vocabularyUserPrompt) {
+                        document.getElementById('vocabularyUserPrompt').value = chatbot.vocabularyUserPrompt;
+                    }
+                    
+                    // TranslationAgent 프롬프트 업데이트
+                    if (chatbot.translationSystemPrompt) {
+                        document.getElementById('translationSystemPrompt').value = chatbot.translationSystemPrompt;
+                    }
+                    if (chatbot.translationUserPrompt) {
+                        document.getElementById('translationUserPrompt').value = chatbot.translationUserPrompt;
+                    }
+                    
+                    showStatus('promptStatus', 'info', '현재 챗봇 프롬프트를 불러왔습니다.');
+                }
+            } catch (error) {
+                console.log('챗봇 프롬프트 로드 실패:', error);
+            }
+        }
+
         // 페이지 로드 시 기본값 설정
         window.onload = function() {
             // UUID 생성 함수
@@ -895,6 +983,9 @@ Test Message: ${testMessage}
             ['conversation', 'intimacy', 'vocabulary', 'translation'].forEach(agentType => {
                 loadAgentPrompt(agentType);
             });
+            
+            // 현재 챗봇의 실제 프롬프트 로드
+            loadCurrentChatbotPrompt();
         };
     </script>
 </body>

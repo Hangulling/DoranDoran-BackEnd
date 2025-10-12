@@ -88,6 +88,13 @@ CREATE TABLE chat_schema.chatbots
     model_name    character varying(100),
     personality    jsonb,
     system_prompt    text,
+    -- 각 Agent별 프롬프트 필드
+    intimacy_system_prompt    text,
+    intimacy_user_prompt    text,
+    vocabulary_system_prompt    text,
+    vocabulary_user_prompt    text,
+    translation_system_prompt    text,
+    translation_user_prompt    text,
     capabilities    jsonb,
     settings    jsonb,
     intimacy_level    integer DEFAULT 1 CHECK (intimacy_level >= 1 AND intimacy_level <= 3),
