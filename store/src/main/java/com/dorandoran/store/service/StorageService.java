@@ -94,6 +94,25 @@ public class StorageService {
   }
 
   /**
+   * 방별 보관함 조회
+   */
+  @Transactional(readOnly = true)
+  public List<StorageListResponse> getBookmarksByChatroom(UUID userId, UUID chatroomId) {
+    log.info("방별 보관함 조회: userId={}, chatroomId={}", userId, chatroomId);
+
+    List<Store> stores = storeRepository
+        .findByUserIdAndChatroomIdAndIsDeletedFalseOrderByCreatedAtDesc(userId, chatroomId);
+
+    if (stores.isEmpty()) {
+      log.info("해당 채팅방의 보관함이 비어있음: chatroomId={}", chatroomId);
+    }
+
+    return stores.stream()
+        .map(StorageListResponse::from)
+        .collect(Collectors.toList());
+  }
+
+  /**
    * 방별 보관함 조회 (페이징)
    */
   @Transactional(readOnly = true)
