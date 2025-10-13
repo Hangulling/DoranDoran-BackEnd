@@ -30,6 +30,7 @@ dependencies {
 
     // 데이터베이스
     runtimeOnly 'org.postgresql:postgresql:42.7.3'
+    implementation 'org.flywaydb:flyway-core'
     
     // 모니터링
     implementation 'io.micrometer:micrometer-registry-prometheus'

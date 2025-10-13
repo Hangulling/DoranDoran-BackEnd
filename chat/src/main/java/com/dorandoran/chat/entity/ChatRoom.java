@@ -43,7 +43,7 @@ public class ChatRoom {
     @Column(name = "name", nullable = false, length = 100)
     private String name;
     
-    @Column(name = "description")
+    @Column(name = "description", length = 1000)
     private String description;
 
     @Column(name = "settings", columnDefinition = "jsonb")
@@ -70,6 +70,10 @@ public class ChatRoom {
     @Column(name = "is_deleted")
     private Boolean isDeleted;
     
+    @Version
+    @Column(name = "version")
+    private Long version;
+    
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
@@ -77,4 +81,14 @@ public class ChatRoom {
     @UpdateTimestamp
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
+
+    @PrePersist
+    private void prePersist() {
+        if (isArchived == null) {
+            isArchived = false;
+        }
+        if (isDeleted == null) {
+            isDeleted = false;
+        }
+    }
 }

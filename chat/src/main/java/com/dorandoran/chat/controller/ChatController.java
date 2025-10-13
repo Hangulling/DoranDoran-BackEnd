@@ -2,18 +2,15 @@ package com.dorandoran.chat.controller;
 
 import com.dorandoran.chat.entity.ChatRoom;
 import com.dorandoran.chat.entity.Message;
-import com.dorandoran.chat.service.dto.ChatRoomCreateRequest;
-import com.dorandoran.chat.service.dto.ChatRoomResponse;
-import com.dorandoran.chat.service.dto.MessageResponse;
-import com.dorandoran.chat.service.dto.MessageSendRequest;
+import com.dorandoran.chat.service.dto.*;
 import com.dorandoran.chat.repository.ChatRoomRepository;
 import com.dorandoran.chat.repository.MessageRepository;
 import com.dorandoran.chat.service.ChatService;
 import com.dorandoran.chat.service.AIService;
 import com.dorandoran.chat.service.GreetingService;
 import com.dorandoran.chat.service.MultiAgentOrchestrator;
+import com.fasterxml.jackson.databind.node.BooleanNode;
 import com.dorandoran.chat.service.ChatbotService;
-import com.dorandoran.chat.service.dto.ChatbotUpdateRequest;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
@@ -319,6 +316,81 @@ public class ChatController {
         }
 
         ChatRoom room = chatService.getChatRoomById(chatroomId);
+        return ResponseEntity.ok(ChatRoomResponse.from(room));
+    }
+
+    // --- rooms 경로 동시 제공 (CRUD) ---
+    @Operation(summary = "채팅방 생성/조회", description = "사용자-챗봇 1:1 기준 방을 생성하거나 기존 방을 반환합니다.")
+    @PostMapping("/rooms")
+    public ResponseEntity<ChatRoomResponse> createOrGetRoom(@Valid @RequestBody ChatRoomCreateRequest request) {
+        UUID uid = extractUserIdFromSecurityContext();
+        if (uid == null) uid = request.getUserId();
+        if (uid == null) return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
+        boolean isNewRoom = !chatRoomRepository.findByUserIdAndChatbotIdAndIsDeletedFalse(uid, request.getChatbotId()).isPresent();
+        ChatRoom room = chatService.getOrCreateRoom(uid, request.getChatbotId(), request.getName());
+        if (isNewRoom) {
+            greetingService.sendGreeting(room.getId(), uid);
+        }
+        return ResponseEntity.ok(ChatRoomResponse.from(room));
+    }
+
+    @Operation(summary = "채팅방 목록", description = "내 채팅방 목록을 조회합니다.")
+    @GetMapping("/rooms")
+    public ResponseEntity<Page<ChatRoomResponse>> getRooms(@RequestParam(defaultValue = "0") int page,
+                                                           @RequestParam(defaultValue = "20") int size,
+                                                           @RequestParam(required = false) UUID userId) {
+        UUID uid = extractUserIdFromSecurityContext();
+        if (uid == null && userId != null) uid = userId;
+        if (uid == null) return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
+        Pageable pageable = PageRequest.of(page, size);
+        Page<ChatRoom> rooms = chatService.listRooms(uid, pageable);
+        return ResponseEntity.ok(rooms.map(ChatRoomResponse::from));
+    }
+
+    @Operation(summary = "채팅방 수정", description = "채팅방의 이름/설명/아카이브를 수정합니다.")
+    @PatchMapping("/rooms/{roomId}")
+    public ResponseEntity<ChatRoomResponse> updateRoom(@PathVariable("roomId") UUID roomId,
+                                                       @Valid @RequestBody ChatRoomUpdateRequest request,
+                                                       @RequestParam(required = false) UUID userId) {
+        UUID uid = extractUserIdFromSecurityContext();
+        if (uid == null && userId != null) uid = userId;
+        if (uid == null) return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
+        ChatRoom room = chatService.updateRoom(roomId, uid, request.getName(), request.getDescription(), request.getArchived());
+        return ResponseEntity.ok(ChatRoomResponse.from(room));
+    }
+
+    @Operation(summary = "채팅방 삭제", description = "채팅방을 소프트 삭제합니다.")
+    @DeleteMapping("/rooms/{roomId}")
+    public ResponseEntity<Void> deleteRoomByRooms(@PathVariable("roomId") UUID roomId,
+                                                  @RequestParam(required = false) UUID userId) {
+        UUID uid = extractUserIdFromSecurityContext();
+        if (uid == null && userId != null) uid = userId;
+        if (uid == null) return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
+        chatService.softDeleteRoom(roomId, uid);
+        return ResponseEntity.ok().build();
+    }
+
+    // --- 코치마크 ---
+    @Operation(summary = "코치마크 상태 조회", description = "채팅방의 코치마크 표시 여부를 반환합니다.")
+    @GetMapping("/rooms/{roomId}/coachmark")
+    public ResponseEntity<String> getCoachmark(@PathVariable("roomId") UUID roomId,
+                                               @RequestParam(required = false) UUID userId) {
+        UUID uid = extractUserIdFromSecurityContext();
+        if (uid == null && userId != null) uid = userId;
+        if (uid == null) return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
+        boolean shown = chatService.isCoachmarkShown(roomId, uid);
+        return ResponseEntity.ok(Boolean.toString(shown));
+    }
+
+    @Operation(summary = "코치마크 완료 설정", description = "코치마크를 완료(표시됨) 상태로 설정합니다.")
+    @PostMapping("/rooms/{roomId}/coachmark")
+    public ResponseEntity<ChatRoomResponse> setCoachmark(@PathVariable("roomId") UUID roomId,
+                                                         @RequestParam(defaultValue = "true") boolean shown,
+                                                         @RequestParam(required = false) UUID userId) {
+        UUID uid = extractUserIdFromSecurityContext();
+        if (uid == null && userId != null) uid = userId;
+        if (uid == null) return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
+        ChatRoom room = chatService.setCoachmarkShown(roomId, uid, shown);
         return ResponseEntity.ok(ChatRoomResponse.from(room));
     }
 }

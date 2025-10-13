@@ -9,6 +9,9 @@ import com.dorandoran.chat.repository.MessageRepository;
 import com.dorandoran.chat.repository.UserRepository;
 import com.dorandoran.chat.repository.ChatbotRepository;
 import jakarta.transaction.Transactional;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -30,6 +33,7 @@ public class ChatService {
     private final MessageRepository messageRepository;
     private final UserRepository userRepository;
     private final ChatbotRepository chatbotRepository;
+    private final ObjectMapper objectMapper;
     // AI 트리거는 컨트롤러에서 수행하여 순환 의존 제거
 
     /**
@@ -143,5 +147,75 @@ public class ChatService {
     public ChatRoom getChatRoomById(UUID chatroomId) {
         return chatRoomRepository.findById(chatroomId)
             .orElseThrow(() -> new RuntimeException("ChatRoom not found: " + chatroomId));
+    }
+
+    /**
+     * 채팅방 수정 (이름/설명/아카이브)
+     */
+    @Transactional
+    public ChatRoom updateRoom(UUID chatroomId, UUID userId, String name, String description, Boolean archived) {
+        ChatRoom room = getChatRoomById(chatroomId);
+        if (!chatRoomRepository.existsByUserIdAndIdAndIsDeletedFalse(userId, chatroomId)) {
+            throw new RuntimeException("Access denied or room deleted: " + chatroomId);
+        }
+        if (name != null && !name.isBlank()) {
+            room.setName(name);
+        }
+        if (description != null) {
+            room.setDescription(description);
+        }
+        if (archived != null) {
+            room.setIsArchived(archived);
+        }
+        room.setUpdatedAt(java.time.LocalDateTime.now());
+        return chatRoomRepository.save(room);
+    }
+
+    /**
+     * 채팅방 소프트 삭제
+     */
+    @Transactional
+    public void softDeleteRoom(UUID chatroomId, UUID userId) {
+        ChatRoom room = getChatRoomById(chatroomId);
+        if (!chatRoomRepository.existsByUserIdAndIdAndIsDeletedFalse(userId, chatroomId)) {
+            throw new RuntimeException("Access denied or room already deleted: " + chatroomId);
+        }
+        room.setIsDeleted(true);
+        room.setUpdatedAt(java.time.LocalDateTime.now());
+        chatRoomRepository.save(room);
+    }
+
+    /**
+     * 코치마크 표시 여부 조회 (room.settings.coachmarkShown)
+     */
+    @Transactional
+    public boolean isCoachmarkShown(UUID chatroomId, UUID userId) {
+        if (!chatRoomRepository.existsByUserIdAndIdAndIsDeletedFalse(userId, chatroomId)) {
+            throw new RuntimeException("Access denied or room deleted: " + chatroomId);
+        }
+        ChatRoom room = getChatRoomById(chatroomId);
+        JsonNode settings = room.getSettings();
+        if (settings != null && settings.has("coachmarkShown")) {
+            return settings.get("coachmarkShown").asBoolean(false);
+        }
+        return false;
+    }
+
+    /**
+     * 코치마크 표시 완료로 설정 (room.settings.coachmarkShown=true)
+     */
+    @Transactional
+    public ChatRoom setCoachmarkShown(UUID chatroomId, UUID userId, boolean shown) {
+        if (!chatRoomRepository.existsByUserIdAndIdAndIsDeletedFalse(userId, chatroomId)) {
+            throw new RuntimeException("Access denied or room deleted: " + chatroomId);
+        }
+        ChatRoom room = getChatRoomById(chatroomId);
+        ObjectNode settings = room.getSettings() != null && room.getSettings().isObject()
+            ? (ObjectNode) room.getSettings()
+            : objectMapper.createObjectNode();
+        settings.put("coachmarkShown", shown);
+        room.setSettings(settings);
+        room.setUpdatedAt(java.time.LocalDateTime.now());
+        return chatRoomRepository.save(room);
     }
 }
