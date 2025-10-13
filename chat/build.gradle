@@ -29,8 +29,8 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-aop'
 
     // 데이터베이스
-    runtimeOnly 'org.postgresql:postgresql:42.7.3'
-    implementation 'org.flywaydb:flyway-core'
+    runtimeOnly 'org.postgresql:postgresql:42.7.4'
+    implementation 'org.flywaydb:flyway-core:10.8.1'
     
     // 모니터링
     implementation 'io.micrometer:micrometer-registry-prometheus'
