@@ -65,7 +65,6 @@ public class ChatController {
         // SecurityContext에서 userId 우선 사용 (없으면 요청 바디)
         UUID userId = extractUserIdFromSecurityContext();
         if (userId == null) userId = request.getUserId();
-        
         // 기존 채팅방이 있는지 확인
         boolean isNewRoom = !chatRoomRepository.findByUserIdAndChatbotIdAndIsDeletedFalse(userId, request.getChatbotId()).isPresent();
         
