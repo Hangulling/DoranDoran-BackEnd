@@ -52,8 +52,14 @@ public class ChatService {
         Chatbot chatbot = chatbotRepository.findById(chatbotId)
             .orElseThrow(() -> new RuntimeException("Chatbot not found: " + chatbotId));
         
+        // UUID 충돌 방지: 기존 레코드와 겹치지 않을 때까지 생성
+        UUID roomId;
+        do {
+            roomId = UUID.randomUUID();
+        } while (chatRoomRepository.findById(roomId).isPresent());
+
         ChatRoom room = ChatRoom.builder()
-            .id(UUID.randomUUID())
+            .id(roomId)
             .user(user)
             .chatbot(chatbot)
             .name(name)

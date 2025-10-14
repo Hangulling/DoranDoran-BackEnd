@@ -32,6 +32,7 @@ import java.util.List;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 /**
  * Chat Service REST API Controller (단순화 스키마 기반)
@@ -345,6 +346,31 @@ public class ChatController {
         Pageable pageable = PageRequest.of(page, size);
         Page<ChatRoom> rooms = chatService.listRooms(uid, pageable);
         return ResponseEntity.ok(rooms.map(ChatRoomResponse::from));
+    }
+
+    @Operation(summary = "채팅방 목록(최대 4개)", description = "삭제되지 않은 채팅방을 최대 4개까지 반환합니다. 페이지네이션 없이 사용합니다.")
+    @GetMapping("/chatrooms/all")
+    public ResponseEntity<List<ChatRoomResponse>> getAllRooms(@RequestParam(required = false) UUID userId) {
+        UUID uid = extractUserIdFromSecurityContext();
+        if (uid == null && userId != null) uid = userId;
+        if (uid == null) return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
+        List<ChatRoom> rooms = chatService.listRooms(uid);
+        List<ChatRoomResponse> response = rooms.stream()
+            .limit(4)
+            .map(ChatRoomResponse::from)
+            .collect(Collectors.toList());
+        return ResponseEntity.ok(response);
+    }
+
+    @Operation(summary = "채팅방 삭제", description = "채팅방을 소프트 삭제합니다.")
+    @DeleteMapping("/chatrooms/{chatroomId}")
+    public ResponseEntity<Void> deleteRoomByChatrooms(@PathVariable("chatroomId") UUID chatroomId,
+                                                      @RequestParam(required = false) UUID userId) {
+        UUID uid = extractUserIdFromSecurityContext();
+        if (uid == null && userId != null) uid = userId;
+        if (uid == null) return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
+        chatService.softDeleteRoom(chatroomId, uid);
+        return ResponseEntity.ok().build();
     }
 
     @Operation(summary = "채팅방 수정", description = "채팅방의 이름/설명/아카이브를 수정합니다.")
