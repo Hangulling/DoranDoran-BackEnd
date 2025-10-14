@@ -32,3 +32,6 @@ node_modules/
 
 # Render deployment artifacts
 render_deployment/
+
+# Local problem reports
+problem_solved/
