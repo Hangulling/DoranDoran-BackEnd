@@ -8,6 +8,7 @@ import com.dorandoran.common.exception.DoranDoranException;
 import com.dorandoran.common.exception.ErrorCode;
 import com.dorandoran.shared.dto.UserDto;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.time.LocalDateTime;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -67,12 +68,13 @@ class AuthControllerTest {
                 "$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBOsl7iKTVEFDi", // bcrypt hash
                 "https://example.com/profile.jpg",
                 "Hello World",
-                null, // lastConnTime
+                "{}", // preferences
+                LocalDateTime.now(), // lastConnTime
                 UserDto.UserStatus.ACTIVE,
                 UserDto.RoleName.ROLE_USER,
                 false, // coachCheck
-                null, // createdAt
-                null  // updatedAt
+                LocalDateTime.now(), // createdAt
+                LocalDateTime.now()  // updatedAt
         );
 
         loginRequest = LoginRequest.builder()
@@ -85,9 +87,7 @@ class AuthControllerTest {
                 .refreshToken("refresh-token")
                 .tokenType("Bearer")
                 .expiresIn(3600L)
-                .userId(userDto.id().toString())
-                .email(userDto.email())
-                .name(userDto.name())
+                .user(userDto)
                 .build();
 
         refreshTokenRequest = RefreshTokenRequest.builder()
@@ -102,7 +102,7 @@ class AuthControllerTest {
         when(authService.login(any(LoginRequest.class))).thenReturn(loginResponse);
 
         // When & Then
-        mockMvc.perform(post("/api/v1/auth/login")
+        mockMvc.perform(post("/api/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(loginRequest)))
                 .andExpect(status().isOk())
@@ -111,9 +111,10 @@ class AuthControllerTest {
                 .andExpect(jsonPath("$.data.refreshToken").value("refresh-token"))
                 .andExpect(jsonPath("$.data.tokenType").value("Bearer"))
                 .andExpect(jsonPath("$.data.expiresIn").value(3600))
-                .andExpect(jsonPath("$.data.userId").value(userDto.id().toString()))
-                .andExpect(jsonPath("$.data.email").value("test@example.com"))
-                .andExpect(jsonPath("$.data.name").value("Test User"))
+                .andExpect(jsonPath("$.data.user.id").value(userDto.id()))
+                .andExpect(jsonPath("$.data.user.email").value("test@example.com"))
+                .andExpect(jsonPath("$.data.user.name").value("Test User"))
+                .andExpect(jsonPath("$.data.user.passwordHash").doesNotExist())
                 .andExpect(jsonPath("$.message").value("로그인에 성공했습니다."));
 
         verify(authService, times(1)).login(any(LoginRequest.class));
@@ -127,7 +128,7 @@ class AuthControllerTest {
                 .thenThrow(new DoranDoranException(ErrorCode.INVALID_PASSWORD));
 
         // When & Then
-        mockMvc.perform(post("/api/v1/auth/login")
+        mockMvc.perform(post("/api/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(loginRequest)))
                 .andExpect(status().isBadRequest())
@@ -145,7 +146,7 @@ class AuthControllerTest {
                 .thenThrow(new DoranDoranException(ErrorCode.USER_NOT_FOUND));
 
         // When & Then
-        mockMvc.perform(post("/api/v1/auth/login")
+        mockMvc.perform(post("/api/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(loginRequest)))
                 .andExpect(status().isBadRequest())
@@ -163,7 +164,7 @@ class AuthControllerTest {
                 .thenThrow(new RuntimeException("Database connection failed"));
 
         // When & Then
-        mockMvc.perform(post("/api/v1/auth/login")
+        mockMvc.perform(post("/api/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(loginRequest)))
                 .andExpect(status().isInternalServerError())
@@ -180,7 +181,7 @@ class AuthControllerTest {
         doNothing().when(authService).logout(anyString());
 
         // When & Then
-        mockMvc.perform(post("/api/v1/auth/logout")
+        mockMvc.perform(post("/api/auth/logout")
                         .header("Authorization", "Bearer access-token"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
@@ -197,7 +198,7 @@ class AuthControllerTest {
         doNothing().when(authService).logout(anyString());
 
         // When & Then
-        mockMvc.perform(post("/api/v1/auth/logout")
+        mockMvc.perform(post("/api/auth/logout")
                         .header("Authorization", "access-token"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
@@ -214,7 +215,7 @@ class AuthControllerTest {
         doThrow(new RuntimeException("Redis connection failed")).when(authService).logout(anyString());
 
         // When & Then
-        mockMvc.perform(post("/api/v1/auth/logout")
+        mockMvc.perform(post("/api/auth/logout")
                         .header("Authorization", "Bearer access-token"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
@@ -231,7 +232,7 @@ class AuthControllerTest {
         when(authService.validateToken(anyString())).thenReturn(userDto);
 
         // When & Then
-        mockMvc.perform(get("/api/v1/auth/validate")
+        mockMvc.perform(get("/api/auth/validate")
                         .header("Authorization", "Bearer access-token"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
@@ -249,7 +250,7 @@ class AuthControllerTest {
                 .when(authService).validateToken(anyString());
 
         // When & Then
-        mockMvc.perform(get("/api/v1/auth/validate")
+        mockMvc.perform(get("/api/auth/validate")
                         .header("Authorization", "Bearer invalid-token"))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.success").value(false))
@@ -266,7 +267,7 @@ class AuthControllerTest {
                 .when(authService).validateToken(anyString());
 
         // When & Then
-        mockMvc.perform(get("/api/v1/auth/validate")
+        mockMvc.perform(get("/api/auth/validate")
                         .header("Authorization", "Bearer access-token"))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.success").value(false))
@@ -282,7 +283,7 @@ class AuthControllerTest {
         when(authService.refreshToken(anyString())).thenReturn(loginResponse);
 
         // When & Then
-        mockMvc.perform(post("/api/v1/auth/refresh")
+        mockMvc.perform(post("/api/auth/refresh")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(refreshTokenRequest)))
                 .andExpect(status().isOk())
@@ -302,7 +303,7 @@ class AuthControllerTest {
                 .thenThrow(new DoranDoranException(ErrorCode.AUTH_TOKEN_INVALID));
 
         // When & Then
-        mockMvc.perform(post("/api/v1/auth/refresh")
+        mockMvc.perform(post("/api/auth/refresh")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(refreshTokenRequest)))
                 .andExpect(status().isBadRequest())
@@ -316,7 +317,7 @@ class AuthControllerTest {
     @DisplayName("헬스체크 테스트")
     void health_Success() throws Exception {
         // When & Then
-        mockMvc.perform(get("/api/v1/auth/health"))
+        mockMvc.perform(get("/api/auth/health"))
                 .andExpect(status().isOk())
                 .andExpect(content().string("Auth service is running"));
     }
@@ -331,7 +332,7 @@ class AuthControllerTest {
                 .build();
 
         // When & Then
-        mockMvc.perform(post("/api/v1/auth/login")
+        mockMvc.perform(post("/api/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(invalidRequest)))
                 .andExpect(status().isBadRequest());
