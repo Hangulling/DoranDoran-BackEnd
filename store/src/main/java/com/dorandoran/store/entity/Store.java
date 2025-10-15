@@ -52,9 +52,6 @@ public class Store {
   @Column(name = "chatroom_id", nullable = false)
   private UUID chatroomId;
 
-  @Column(name = "chatbot_id", nullable = false)
-  private UUID chatbotId;
-
   // 표현 원본
   @Column(name = "content", columnDefinition = "text", nullable = false)
   private String content;
@@ -64,8 +61,8 @@ public class Store {
   @JdbcTypeCode(SqlTypes.JSON)
   private AiResponse aiResponse;
 
-  // 챗봇 역할 (Honey, Coworker, Senior, Client)
-  @Column(name = "bot_type", length = 20)
+  // 챗봇 역할 (friend, honey, coworker, senior)
+  @Column(name = "bot_type", length = 20, nullable = false)
   private String botType;
 
   // 소프트 삭제
