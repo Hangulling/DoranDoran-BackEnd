@@ -7,7 +7,7 @@
 /build/
 /out/
 /target/
-**/build/libs/*.jar
+**/build/
 
 # Gradle
 /.gradle/
