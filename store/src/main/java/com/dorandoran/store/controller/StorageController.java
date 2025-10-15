@@ -88,21 +88,46 @@ public class StorageController {
     return ResponseEntity.ok(response);
   }
 
+//  /**
+//   * 방별 보관함 조회
+//   */
+//  @GetMapping("/chatroom/{chatroomId}")
+//  @Operation(summary = "방별 보관함 조회", description = "특정 채팅방의 보관함만 조회")
+//  public ResponseEntity<List<StorageListResponse>> getBookmarksByChatroom(
+//      @Parameter(description = "사용자 ID", required = true)
+//      @RequestHeader("X-User-Id") UUID userId,
+//
+//      @Parameter(description = "채팅방 ID", required = true)
+//      @PathVariable UUID chatroomId) {
+//
+//    log.info("GET /api/store/bookmarks/chatroom/{} - userId: {}", chatroomId, userId);
+//
+//    List<StorageListResponse> response = storageService.getBookmarksByChatroom(userId, chatroomId);
+//
+//    return ResponseEntity.ok(response);
+//  }
+
   /**
-   * 방별 보관함 조회
+   * 챗봇 타입별 보관함 조회
    */
-  @GetMapping("/chatroom/{chatroomId}")
-  @Operation(summary = "방별 보관함 조회", description = "특정 채팅방의 보관함만 조회")
-  public ResponseEntity<List<StorageListResponse>> getBookmarksByChatroom(
+  @GetMapping("/bot-type/{botType}")
+  @Operation(summary = "챗봇 타입별 보관함 조회", description = "특정 챗봇 타입의 모든 보관함 조회")
+  public ResponseEntity<List<StorageListResponse>> getBookmarksByBotType(
       @Parameter(description = "사용자 ID", required = true)
       @RequestHeader("X-User-Id") UUID userId,
 
-      @Parameter(description = "채팅방 ID", required = true)
-      @PathVariable UUID chatroomId) {
+      @Parameter(description = "챗봇 타입 (friend, honey, coworker, senior)", required = true)
+      @PathVariable String botType) {
 
-    log.info("GET /api/store/bookmarks/chatroom/{} - userId: {}", chatroomId, userId);
+    log.info("GET /api/store/bookmarks/bot-type/{} - userId: {}", botType, userId);
 
-    List<StorageListResponse> response = storageService.getBookmarksByChatroom(userId, chatroomId);
+    // botType 유효성 검증
+    if (!botType.matches("^(friend|honey|coworker|senior)$")) {
+      log.warn("유효하지 않은 botType: {}", botType);
+      return ResponseEntity.badRequest().build();
+    }
+
+    List<StorageListResponse> response = storageService.getBookmarksByBotType(userId, botType);
 
     return ResponseEntity.ok(response);
   }
@@ -161,24 +186,24 @@ public class StorageController {
     return ResponseEntity.ok(count);
   }
 
-  /**
-   * 챗봇별 보관함 조회
-   */
-  @GetMapping("/chatbot/{chatbotId}")
-  @Operation(summary = "챗봇별 보관함 조회", description = "특정 챗봇의 모든 보관함 조회 (여러 채팅방 포함)")
-  public ResponseEntity<List<StorageListResponse>> getBookmarksByChatbot(
-      @Parameter(description = "사용자 ID", required = true)
-      @RequestHeader("X-User-Id") UUID userId,
-
-      @Parameter(description = "챗봇 ID", required = true)
-      @PathVariable UUID chatbotId) {
-
-    log.info("GET /api/store/bookmarks/chatbot/{} - userId: {}", chatbotId, userId);
-
-    List<StorageListResponse> response = storageService.getBookmarksByChatbot(userId, chatbotId);
-
-    return ResponseEntity.ok(response);
-  }
+//  /**
+//   * 챗봇별 보관함 조회
+//   */
+//  @GetMapping("/chatbot/{chatbotId}")
+//  @Operation(summary = "챗봇별 보관함 조회", description = "특정 챗봇의 모든 보관함 조회 (여러 채팅방 포함)")
+//  public ResponseEntity<List<StorageListResponse>> getBookmarksByChatbot(
+//      @Parameter(description = "사용자 ID", required = true)
+//      @RequestHeader("X-User-Id") UUID userId,
+//
+//      @Parameter(description = "챗봇 ID", required = true)
+//      @PathVariable UUID chatbotId) {
+//
+//    log.info("GET /api/store/bookmarks/chatbot/{} - userId: {}", chatbotId, userId);
+//
+//    List<StorageListResponse> response = storageService.getBookmarksByChatbot(userId, chatbotId);
+//
+//    return ResponseEntity.ok(response);
+//  }
 
   /**
    * Cursor 기반 페이징 조회

@@ -11,6 +11,9 @@ import com.dorandoran.chat.repository.UserRepository;
 import com.dorandoran.chat.repository.ChatbotRepository;
 import com.dorandoran.chat.messaging.RedisMessagePublisher;
 import jakarta.transaction.Transactional;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -34,9 +37,14 @@ public class ChatService {
     private final MessageRepository messageRepository;
     private final UserRepository userRepository;
     private final ChatbotRepository chatbotRepository;
+    private final ObjectMapper objectMapper;
+    // AI 트리거는 컨트롤러에서 수행하여 순환 의존 제거
     private final RedisMessagePublisher redisPublisher;
     private final RedisCacheService cacheService;
 
+    /**
+     * 채팅방 조회 또는 생성 (userId + chatbotId 조합)
+     */
     @Transactional
     public ChatRoom getOrCreateRoom(UUID userId, UUID chatbotId, String name) {
         Optional<ChatRoom> existing = chatRoomRepository.findByUserIdAndChatbotIdAndIsDeletedFalse(userId, chatbotId);
@@ -44,13 +52,20 @@ public class ChatService {
             return existing.get();
         }
 
+        // User와 Chatbot 객체 조회
         User user = userRepository.findById(userId)
             .orElseThrow(() -> new RuntimeException("User not found: " + userId));
         Chatbot chatbot = chatbotRepository.findById(chatbotId)
             .orElseThrow(() -> new RuntimeException("Chatbot not found: " + chatbotId));
 
+        // UUID 충돌 방지: 기존 레코드와 겹치지 않을 때까지 생성
+        UUID roomId;
+        do {
+            roomId = UUID.randomUUID();
+        } while (chatRoomRepository.findById(roomId).isPresent());
+
         ChatRoom room = ChatRoom.builder()
-            .id(UUID.randomUUID())
+            .id(roomId)
             .user(user)
             .chatbot(chatbot)
             .name(name)
@@ -68,6 +83,9 @@ public class ChatService {
         return saved;
     }
 
+    /**
+     * 다음 시퀀스 번호 계산 (채팅방 내 최대값 + 1)
+     */
     @Transactional
     public long nextSequenceNumber(UUID chatroomId) {
         return messageRepository.findTopByChatRoomIdOrderBySequenceNumberDesc(chatroomId)
@@ -81,6 +99,7 @@ public class ChatService {
     @Transactional
     public Message sendMessage(UUID chatroomId, UUID senderId, String senderType, String content, String contentType) {
         long seq = nextSequenceNumber(chatroomId);
+        // ChatRoom 객체 조회
         ChatRoom chatRoom = chatRoomRepository.findById(chatroomId)
             .orElseThrow(() -> new RuntimeException("ChatRoom not found: " + chatroomId));
 
@@ -127,11 +146,17 @@ public class ChatService {
         return saved;
     }
 
+    /**
+     * 사용자별 채팅방 목록 조회 (삭제되지 않은, 최신 메시지 순) - 페이징
+     */
     @Transactional
     public Page<ChatRoom> listRooms(UUID userId, Pageable pageable) {
         return chatRoomRepository.findByUserIdAndIsDeletedFalseOrderByLastMessageAtDesc(userId, pageable);
     }
 
+    /**
+     * 사용자별 채팅방 목록 조회 (삭제되지 않은, 최신 메시지 순) - 전체
+     */
     @Transactional
     public List<ChatRoom> listRooms(UUID userId) {
         return chatRoomRepository.findByUserIdAndIsDeletedFalseOrderByLastMessageAtDesc(userId);
@@ -146,7 +171,7 @@ public class ChatService {
     }
 
     /**
-     * 메시지 조회 전체 (캐싱 적용)
+     * 채팅방 메시지 목록 조회 (시퀀스 오름차순) - 전체
      */
     @Transactional
     public List<Message> listMessages(UUID chatroomId) {
@@ -170,7 +195,7 @@ public class ChatService {
     }
 
     /**
-     * 채팅방 조회 (캐싱 적용)
+     * 채팅방 조회 (ID로)
      */
     @Transactional
     public ChatRoom getChatRoomById(UUID chatroomId) {
@@ -190,5 +215,75 @@ public class ChatService {
         cacheService.cacheChatRoom(chatRoom);
 
         return chatRoom;
+    }
+
+    /**
+     * 채팅방 수정 (이름/설명/아카이브)
+     */
+    @Transactional
+    public ChatRoom updateRoom(UUID chatroomId, UUID userId, String name, String description, Boolean archived) {
+        ChatRoom room = getChatRoomById(chatroomId);
+        if (!chatRoomRepository.existsByUserIdAndIdAndIsDeletedFalse(userId, chatroomId)) {
+            throw new RuntimeException("Access denied or room deleted: " + chatroomId);
+        }
+        if (name != null && !name.isBlank()) {
+            room.setName(name);
+        }
+        if (description != null) {
+            room.setDescription(description);
+        }
+        if (archived != null) {
+            room.setIsArchived(archived);
+        }
+        room.setUpdatedAt(java.time.LocalDateTime.now());
+        return chatRoomRepository.save(room);
+    }
+
+    /**
+     * 채팅방 소프트 삭제
+     */
+    @Transactional
+    public void softDeleteRoom(UUID chatroomId, UUID userId) {
+        ChatRoom room = getChatRoomById(chatroomId);
+        if (!chatRoomRepository.existsByUserIdAndIdAndIsDeletedFalse(userId, chatroomId)) {
+            throw new RuntimeException("Access denied or room already deleted: " + chatroomId);
+        }
+        room.setIsDeleted(true);
+        room.setUpdatedAt(java.time.LocalDateTime.now());
+        chatRoomRepository.save(room);
+    }
+
+    /**
+     * 코치마크 표시 여부 조회 (room.settings.coachmarkShown)
+     */
+    @Transactional
+    public boolean isCoachmarkShown(UUID chatroomId, UUID userId) {
+        if (!chatRoomRepository.existsByUserIdAndIdAndIsDeletedFalse(userId, chatroomId)) {
+            throw new RuntimeException("Access denied or room deleted: " + chatroomId);
+        }
+        ChatRoom room = getChatRoomById(chatroomId);
+        JsonNode settings = room.getSettings();
+        if (settings != null && settings.has("coachmarkShown")) {
+            return settings.get("coachmarkShown").asBoolean(false);
+        }
+        return false;
+    }
+
+    /**
+     * 코치마크 표시 완료로 설정 (room.settings.coachmarkShown=true)
+     */
+    @Transactional
+    public ChatRoom setCoachmarkShown(UUID chatroomId, UUID userId, boolean shown) {
+        if (!chatRoomRepository.existsByUserIdAndIdAndIsDeletedFalse(userId, chatroomId)) {
+            throw new RuntimeException("Access denied or room deleted: " + chatroomId);
+        }
+        ChatRoom room = getChatRoomById(chatroomId);
+        ObjectNode settings = room.getSettings() != null && room.getSettings().isObject()
+            ? (ObjectNode) room.getSettings()
+            : objectMapper.createObjectNode();
+        settings.put("coachmarkShown", shown);
+        room.setSettings(settings);
+        room.setUpdatedAt(java.time.LocalDateTime.now());
+        return chatRoomRepository.save(room);
     }
 }

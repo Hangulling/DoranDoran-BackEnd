@@ -24,13 +24,13 @@ public interface StoreRepository extends JpaRepository<Store, UUID> {
   // 사용자별 전체 조회 (페이징)
   Page<Store> findByUserIdAndIsDeletedFalseOrderByCreatedAtDesc(UUID userId, Pageable pageable);
 
-  // 방별 조회
-  List<Store> findByUserIdAndChatroomIdAndIsDeletedFalseOrderByCreatedAtDesc(UUID userId, UUID chatroomId);
-
-  // 방별 조회 (페이징)
-  Page<Store> findByUserIdAndChatroomIdAndIsDeletedFalseOrderByCreatedAtDesc(
-      UUID userId, UUID chatroomId, Pageable pageable
-  );
+//  // 방별 조회
+//  List<Store> findByUserIdAndChatroomIdAndIsDeletedFalseOrderByCreatedAtDesc(UUID userId, UUID chatroomId);
+//
+//  // 방별 조회 (페이징)
+//  Page<Store> findByUserIdAndChatroomIdAndIsDeletedFalseOrderByCreatedAtDesc(
+//      UUID userId, UUID chatroomId, Pageable pageable
+//  );
 
   // 중복 저장 확인
   boolean existsByUserIdAndMessageIdAndIsDeletedFalse(UUID userId, UUID messageId);
@@ -44,7 +44,16 @@ public interface StoreRepository extends JpaRepository<Store, UUID> {
   /**
    * 챗봇별 보관함 조회
    */
-  List<Store> findByUserIdAndChatbotIdAndIsDeletedFalseOrderByCreatedAtDesc(UUID userId, UUID chatbotId);
+//  List<Store> findByUserIdAndChatbotIdAndIsDeletedFalseOrderByCreatedAtDesc(UUID userId, UUID chatbotId);
+
+  /**
+   * 챗봇 타입 별 보관함 조회
+   * @param userId
+   * @param botType
+   * @return
+   */
+  List<Store> findByUserIdAndBotTypeAndIsDeletedFalseOrderByCreatedAtDesc(UUID userId, String botType);
+
 
   /**
    * Cursor 기반 페이징 조회

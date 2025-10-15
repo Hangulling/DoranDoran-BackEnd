@@ -246,9 +246,18 @@ Content-Type: application/json
     "user": {
       "id": "123e4567-e89b-12d3-a456-426614174000",
       "email": "user@example.com",
+      "firstName": "John",
+      "lastName": "Doe",
       "name": "John Doe",
+      "picture": "https://example.com/profile.jpg",
+      "info": "사용자 소개",
+      "preferences": "도란도란",
+      "lastConnTime": "2024-01-01T12:00:00",
       "status": "ACTIVE",
-      "role": "ROLE_USER"
+      "role": "ROLE_USER",
+      "coachCheck": false,
+      "createdAt": "2024-01-01T12:00:00",
+      "updatedAt": "2024-01-01T12:00:00"
     }
   },
   "errorCode": null
@@ -285,9 +294,18 @@ Authorization: Bearer {token}
   "data": {
     "id": "123e4567-e89b-12d3-a456-426614174000",
     "email": "user@example.com",
+    "firstName": "John",
+    "lastName": "Doe",
     "name": "John Doe",
+    "picture": "https://example.com/profile.jpg",
+    "info": "사용자 소개",
+    "preferences": "도란도란",
+    "lastConnTime": "2024-01-01T12:00:00",
     "status": "ACTIVE",
-    "role": "ROLE_USER"
+    "role": "ROLE_USER",
+    "coachCheck": false,
+    "createdAt": "2024-01-01T12:00:00",
+    "updatedAt": "2024-01-01T12:00:00"
   },
   "errorCode": null
 }
@@ -359,9 +377,18 @@ Authorization: Bearer {token}
   "data": {
     "id": "123e4567-e89b-12d3-a456-426614174000",
     "email": "user@example.com",
+    "firstName": "John",
+    "lastName": "Doe",
     "name": "John Doe",
+    "picture": "https://example.com/profile.jpg",
+    "info": "사용자 소개",
+    "preferences": "도란도란",
+    "lastConnTime": "2024-01-01T12:00:00",
     "status": "ACTIVE",
-    "role": "ROLE_USER"
+    "role": "ROLE_USER",
+    "coachCheck": false,
+    "createdAt": "2024-01-01T12:00:00",
+    "updatedAt": "2024-01-01T12:00:00"
   },
   "errorCode": null
 }

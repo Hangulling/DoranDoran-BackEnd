@@ -444,7 +444,7 @@ CREATE TABLE store_schema.stores (
     chatroom_id UUID NOT NULL,
     content TEXT NOT NULL,
     ai_response JSONB NOT NULL,
-    bot_type VARCHAR(20),
+    bot_type VARCHAR(20) NOT NULL CHECK (bot_type IN ('friend', 'honey', 'coworker', 'senior')),
     is_deleted BOOLEAN NOT NULL DEFAULT FALSE,
     deleted_at TIMESTAMP,
     created_at TIMESTAMP NOT NULL DEFAULT NOW(),

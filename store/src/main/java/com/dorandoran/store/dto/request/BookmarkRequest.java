@@ -1,7 +1,9 @@
 package com.dorandoran.store.dto.request;
 
 import com.dorandoran.store.dto.AiResponse;
+import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Pattern;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -26,10 +28,6 @@ public class BookmarkRequest {
   @NotNull(message = "채팅방 ID는 필수입니다")
   private UUID chatroomId;
 
-  // 챗봇 ID (필수)
-  @NotNull(message = "챗봇 ID는 필수입니다")
-  private UUID chatbotId;
-
   // 표현 원본 (필수)
   @NotNull(message = "표현 내용은 필수입니다")
   private String content;
@@ -38,6 +36,7 @@ public class BookmarkRequest {
   @NotNull(message = "AI 응답은 필수입니다")
   private AiResponse aiResponse;
 
-  // 챗봇 역할 (Honey, Coworker, Senior, Client)
+  @NotBlank(message = "챗봇 타입은 필수입니다")
+  @Pattern(regexp = "^(friend|honey|coworker|senior)$", message = "챗봇 타입은 friend, honey, coworker, senior 중 하나여야 합니다")
   private String botType;
 }

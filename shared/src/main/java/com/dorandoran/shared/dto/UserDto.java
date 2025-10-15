@@ -1,5 +1,6 @@
 package com.dorandoran.shared.dto;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
@@ -12,7 +13,7 @@ public record UserDto(
     String firstName,
     String lastName,
     String name,
-    String passwordHash,
+    @JsonIgnore String passwordHash,
     String picture,
     String info,
     String preferences,     // 프론트엔드에 맞춰 추가
