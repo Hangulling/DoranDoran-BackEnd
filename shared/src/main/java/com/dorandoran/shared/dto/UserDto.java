@@ -8,21 +8,21 @@ import java.util.UUID;
  * 사용자 정보 DTO (Record 타입)
  */
 public record UserDto(
-    String id,              // UUID -> String으로 변경
-    String email,
-    String firstName,
-    String lastName,
-    String name,
-    @JsonIgnore String passwordHash,
-    String picture,
-    String info,
-    String preferences,     // 프론트엔드에 맞춰 추가
-    LocalDateTime lastConnTime,
-    UserStatus status,
-    RoleName role,
-    boolean coachCheck,
-    LocalDateTime createdAt,
-    LocalDateTime updatedAt
+    String id,                    // UUID를 String으로 변환한 사용자 ID
+    String email,                 // 이메일
+    String firstName,             // 이름
+    String lastName,              // 성
+    String name,                  // 전체 이름
+    @JsonIgnore String passwordHash,  // 비밀번호 해시 (JSON 직렬화 시 제외)
+    String picture,               // 프로필 사진
+    String info,                  // 사용자 정보
+    String preferences,           // 사용자 설정 (프론트엔드용)
+    LocalDateTime lastConnTime,   // 마지막 연결 시간
+    UserStatus status,            // 사용자 상태
+    RoleName role,                // 사용자 역할
+    boolean coachCheck,           // 코치 여부
+    LocalDateTime createdAt,      // 생성 시간
+    LocalDateTime updatedAt       // 수정 시간
 ) {
     
     // UUID를 String으로 변환하는 생성자
