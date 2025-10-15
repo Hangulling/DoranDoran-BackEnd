@@ -2,6 +2,7 @@ package com.dorandoran.batch;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.scheduling.annotation.EnableScheduling;
 
 /**
  * Batch 서비스 독립 실행 애플리케이션
@@ -13,6 +14,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
     "com.dorandoran.common",
     "com.dorandoran.infra.persistence"
 })
+@EnableScheduling
 public class BatchApplication {
     public static void main(String[] args) {
         SpringApplication.run(BatchApplication.class, args);
