@@ -3,6 +3,7 @@ package com.dorandoran.chat.controller;
 import com.dorandoran.chat.entity.ChatRoom;
 import com.dorandoran.chat.entity.Message;
 import com.dorandoran.chat.service.dto.*;
+import com.dorandoran.chat.service.dto.IntimacyUpdateRequest;
 import com.dorandoran.chat.repository.ChatRoomRepository;
 import com.dorandoran.chat.repository.MessageRepository;
 import com.dorandoran.chat.service.ChatService;
@@ -66,14 +67,23 @@ public class ChatController {
         // 기존 채팅방이 있는지 확인
         boolean isNewRoom = !chatRoomRepository.findByUserIdAndChatbotIdAndIsDeletedFalse(userId, request.getChatbotId()).isPresent();
         
-        ChatRoom room = chatService.getOrCreateRoom(userId, request.getChatbotId(), request.getName());
+        ChatRoom room = chatService.getOrCreateRoom(
+            userId, 
+            request.getChatbotId(), 
+            request.getName(),
+            request.getConcept(),
+            request.getIntimacyLevel()
+        );
         
         // 새로 생성된 채팅방에만 AI 인사말 발송
         if (isNewRoom) {
-            greetingService.sendGreeting(room.getId(), userId);
+            greetingService.sendGreeting(room.getId(), userId, request.getIntimacyLevel());
         }
         
-        return ResponseEntity.ok(ChatRoomResponse.from(room));
+        // concept와 intimacyLevel을 포함한 응답 생성
+        String concept = chatService.getConcept(room.getId());
+        Integer intimacyLevel = chatService.getIntimacyLevel(room.getId());
+        return ResponseEntity.ok(ChatRoomResponse.from(room, concept, intimacyLevel));
     }
 
     @GetMapping("/chatrooms")
@@ -91,7 +101,11 @@ public class ChatController {
         
         Pageable pageable = PageRequest.of(page, size);
         Page<ChatRoom> rooms = chatService.listRooms(uid, pageable);
-        Page<ChatRoomResponse> response = rooms.map(ChatRoomResponse::from);
+        Page<ChatRoomResponse> response = rooms.map(room -> {
+            String concept = chatService.getConcept(room.getId());
+            Integer intimacyLevel = chatService.getIntimacyLevel(room.getId());
+            return ChatRoomResponse.from(room, concept, intimacyLevel);
+        });
         return ResponseEntity.ok(response);
     }
 
@@ -165,6 +179,69 @@ public class ChatController {
         return ResponseEntity.ok(MessageResponse.from(saved));
     }
 
+    @Operation(summary = "이메일로 사용자 조회", description = "이메일로 사용자 정보를 조회합니다.")
+    @ApiResponses(value = {
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "사용자 조회 성공"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "사용자를 찾을 수 없음")
+    })
+    @GetMapping("/users/by-email")
+    public ResponseEntity<Map<String, Object>> getUserByEmail(@RequestParam String email) {
+        log.info("=== 이메일로 사용자 조회: {} ===", email);
+        
+        try {
+            // user_schema에서 사용자 조회
+            var user = chatService.findUserByEmail(email);
+            if (user == null) {
+                return ResponseEntity.notFound().build();
+            }
+            
+            Map<String, Object> response = new HashMap<>();
+            response.put("id", user.getId());
+            response.put("email", user.getEmail());
+            response.put("name", user.getName());
+            response.put("first_name", user.getFirstName());
+            response.put("last_name", user.getLastName());
+            
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            log.error("사용자 조회 실패: {}", e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
+
+    @Operation(summary = "챗봇 프롬프트 조회", description = "챗봇의 특정 에이전트 프롬프트를 조회합니다.")
+    @ApiResponses(value = {
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "프롬프트 조회 성공"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "챗봇을 찾을 수 없음")
+    })
+    @GetMapping("/chatbots/prompt")
+    public ResponseEntity<?> getChatbotPrompt(
+            @RequestParam String chatbotId,
+            @RequestParam String agentType) {
+        log.info("=== 챗봇 프롬프트 조회 요청: chatbotId={}, agentType={} ===", chatbotId, agentType);
+        
+        try {
+            String prompt = chatbotService.getChatbotPrompt(chatbotId, agentType);
+            
+            if (prompt != null) {
+                return ResponseEntity.ok(Map.of(
+                    "success", true,
+                    "chatbotId", chatbotId,
+                    "agentType", agentType,
+                    "prompt", prompt
+                ));
+            } else {
+                return ResponseEntity.notFound().build();
+            }
+        } catch (Exception e) {
+            log.error("프롬프트 조회 오류: {}", e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of(
+                "success", false,
+                "message", "프롬프트 조회 중 오류가 발생했습니다."
+            ));
+        }
+    }
+
     @Operation(summary = "챗봇 프롬프트 수정", description = "챗봇의 프롬프트를 수정합니다.")
     @ApiResponses(value = {
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "프롬프트 수정 성공"),
@@ -219,6 +296,48 @@ public class ChatController {
                 "success", false,
                 "message", "챗봇 프롬프트 리셋에 실패했습니다.",
                 "chatbotId", chatbotId
+            ));
+        }
+    }
+
+    @Operation(summary = "전체 프롬프트 조회 (Concept 반영)", 
+        description = "Base Prompt + Dynamic Directives를 합친 전체 프롬프트를 조회합니다.")
+    @GetMapping("/chatbots/prompt/full")
+    public ResponseEntity<?> getFullChatbotPrompt(
+            @RequestParam String chatbotId,
+            @RequestParam String agentType,
+            @RequestParam(required = false) String chatroomId) {
+        log.info("=== 전체 프롬프트 조회: chatbotId={}, agentType={}, chatroomId={} ===", 
+            chatbotId, agentType, chatroomId);
+        
+        try {
+            if (chatroomId == null || chatroomId.isBlank()) {
+                // chatroomId 없으면 Base Prompt만 반환
+                String basePrompt = chatbotService.getChatbotPrompt(chatbotId, agentType);
+                return ResponseEntity.ok(Map.of(
+                    "success", true,
+                    "type", "base",
+                    "prompt", basePrompt,
+                    "message", "Base Prompt만 조회되었습니다. 채팅방 입장 후 전체 프롬프트를 확인하세요."
+                ));
+            }
+            
+            UUID roomId = UUID.fromString(chatroomId);
+            String fullPrompt = chatbotService.getFullPromptForAgent(chatbotId, agentType, roomId);
+            String basePrompt = chatbotService.getBasePromptForAgent(chatbotId, agentType, roomId);
+            
+            return ResponseEntity.ok(Map.of(
+                "success", true,
+                "type", "full",
+                "fullPrompt", fullPrompt,
+                "basePrompt", basePrompt,
+                "message", "Concept와 Intimacy Level이 반영된 전체 프롬프트입니다."
+            ));
+        } catch (Exception e) {
+            log.error("전체 프롬프트 조회 오류: {}", e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of(
+                "success", false,
+                "message", "프롬프트 조회 중 오류가 발생했습니다."
             ));
         }
     }
@@ -317,7 +436,9 @@ public class ChatController {
         }
 
         ChatRoom room = chatService.getChatRoomById(chatroomId);
-        return ResponseEntity.ok(ChatRoomResponse.from(room));
+        String concept = chatService.getConcept(room.getId());
+        Integer intimacyLevel = chatService.getIntimacyLevel(room.getId());
+        return ResponseEntity.ok(ChatRoomResponse.from(room, concept, intimacyLevel));
     }
 
     // --- rooms 경로 동시 제공 (CRUD) ---
@@ -328,11 +449,13 @@ public class ChatController {
         if (uid == null) uid = request.getUserId();
         if (uid == null) return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
         boolean isNewRoom = !chatRoomRepository.findByUserIdAndChatbotIdAndIsDeletedFalse(uid, request.getChatbotId()).isPresent();
-        ChatRoom room = chatService.getOrCreateRoom(uid, request.getChatbotId(), request.getName());
+        ChatRoom room = chatService.getOrCreateRoom(uid, request.getChatbotId(), request.getName(), request.getConcept(), request.getIntimacyLevel());
         if (isNewRoom) {
-            greetingService.sendGreeting(room.getId(), uid);
+            greetingService.sendGreeting(room.getId(), uid, request.getIntimacyLevel());
         }
-        return ResponseEntity.ok(ChatRoomResponse.from(room));
+        String concept = chatService.getConcept(room.getId());
+        Integer intimacyLevel = chatService.getIntimacyLevel(room.getId());
+        return ResponseEntity.ok(ChatRoomResponse.from(room, concept, intimacyLevel));
     }
 
     @Operation(summary = "채팅방 목록", description = "내 채팅방 목록을 조회합니다.")
@@ -345,7 +468,11 @@ public class ChatController {
         if (uid == null) return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
         Pageable pageable = PageRequest.of(page, size);
         Page<ChatRoom> rooms = chatService.listRooms(uid, pageable);
-        return ResponseEntity.ok(rooms.map(ChatRoomResponse::from));
+        return ResponseEntity.ok(rooms.map(room -> {
+            String concept = chatService.getConcept(room.getId());
+            Integer intimacyLevel = chatService.getIntimacyLevel(room.getId());
+            return ChatRoomResponse.from(room, concept, intimacyLevel);
+        }));
     }
 
     @Operation(summary = "채팅방 목록(최대 4개)", description = "삭제되지 않은 채팅방을 최대 4개까지 반환합니다. 페이지네이션 없이 사용합니다.")
@@ -357,21 +484,15 @@ public class ChatController {
         List<ChatRoom> rooms = chatService.listRooms(uid);
         List<ChatRoomResponse> response = rooms.stream()
             .limit(4)
-            .map(ChatRoomResponse::from)
+            .map(room -> {
+                String concept = chatService.getConcept(room.getId());
+                Integer intimacyLevel = chatService.getIntimacyLevel(room.getId());
+                return ChatRoomResponse.from(room, concept, intimacyLevel);
+            })
             .collect(Collectors.toList());
         return ResponseEntity.ok(response);
     }
 
-    @Operation(summary = "채팅방 삭제", description = "채팅방을 소프트 삭제합니다.")
-    @DeleteMapping("/chatrooms/{chatroomId}")
-    public ResponseEntity<Void> deleteRoomByChatrooms(@PathVariable("chatroomId") UUID chatroomId,
-                                                      @RequestParam(required = false) UUID userId) {
-        UUID uid = extractUserIdFromSecurityContext();
-        if (uid == null && userId != null) uid = userId;
-        if (uid == null) return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
-        chatService.softDeleteRoom(chatroomId, uid);
-        return ResponseEntity.ok().build();
-    }
 
     @Operation(summary = "채팅방 수정", description = "채팅방의 이름/설명/아카이브를 수정합니다.")
     @PatchMapping("/rooms/{roomId}")
@@ -382,18 +503,20 @@ public class ChatController {
         if (uid == null && userId != null) uid = userId;
         if (uid == null) return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
         ChatRoom room = chatService.updateRoom(roomId, uid, request.getName(), request.getDescription(), request.getArchived());
-        return ResponseEntity.ok(ChatRoomResponse.from(room));
+        String concept = chatService.getConcept(room.getId());
+        Integer intimacyLevel = chatService.getIntimacyLevel(room.getId());
+        return ResponseEntity.ok(ChatRoomResponse.from(room, concept, intimacyLevel));
     }
 
-    @Operation(summary = "채팅방 삭제", description = "채팅방을 소프트 삭제합니다.")
-    @DeleteMapping("/rooms/{roomId}")
-    public ResponseEntity<Void> deleteRoomByRooms(@PathVariable("roomId") UUID roomId,
-                                                  @RequestParam(required = false) UUID userId) {
+    @Operation(summary = "채팅방 나가기", description = "채팅방을 소프트 삭제합니다.")
+    @PostMapping("/chatrooms/{chatroomId}/leave")
+    public ResponseEntity<Void> leaveChatRoom(@PathVariable("chatroomId") UUID chatroomId,
+                                             @RequestParam(required = false) UUID userId) {
         UUID uid = extractUserIdFromSecurityContext();
         if (uid == null && userId != null) uid = userId;
         if (uid == null) return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
-        chatService.softDeleteRoom(roomId, uid);
-        return ResponseEntity.ok().build();
+        chatService.softDeleteRoom(chatroomId, uid);
+        return ResponseEntity.noContent().build();
     }
 
     // --- 코치마크 ---
@@ -417,6 +540,39 @@ public class ChatController {
         if (uid == null && userId != null) uid = userId;
         if (uid == null) return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
         ChatRoom room = chatService.setCoachmarkShown(roomId, uid, shown);
-        return ResponseEntity.ok(ChatRoomResponse.from(room));
+        String concept = chatService.getConcept(room.getId());
+        Integer intimacyLevel = chatService.getIntimacyLevel(room.getId());
+        return ResponseEntity.ok(ChatRoomResponse.from(room, concept, intimacyLevel));
+    }
+    
+    @Operation(summary = "친밀도 레벨 변경", description = "채팅방의 친밀도 레벨을 변경합니다.")
+    @ApiResponses(value = {
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "친밀도 변경 성공"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "잘못된 요청 데이터"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "채팅방을 찾을 수 없음")
+    })
+    @SecurityRequirement(name = "bearerAuth")
+    @PatchMapping("/chatrooms/{chatroomId}/intimacy")
+    public ResponseEntity<?> updateIntimacy(
+            @PathVariable UUID chatroomId, 
+            @Valid @RequestBody IntimacyUpdateRequest request) {
+        UUID userId = extractUserIdFromSecurityContext();
+        if (userId == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("error", "사용자 인증이 필요합니다"));
+        }
+        
+        try {
+            chatService.updateIntimacyLevel(chatroomId, userId, request.getIntimacyLevel());
+            return ResponseEntity.ok(Map.of(
+                "success", true,
+                "message", "친밀도가 변경되었습니다",
+                "intimacyLevel", request.getIntimacyLevel()
+            ));
+        } catch (RuntimeException e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of(
+                "success", false,
+                "error", e.getMessage()
+            ));
+        }
     }
 }

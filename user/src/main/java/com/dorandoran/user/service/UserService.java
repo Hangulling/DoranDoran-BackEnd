@@ -306,6 +306,7 @@ public class UserService {
             user.getPasswordHash(),
             user.getPicture(),
             user.getInfo(),
+            null, // preferences - User 엔티티에 해당 필드가 없으므로 null로 설정
             user.getLastConnTime(),
             convertToDtoStatus(user.getStatus()),
             convertToDtoRole(user.getRole()),

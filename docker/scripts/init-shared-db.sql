@@ -444,7 +444,7 @@ CREATE TABLE store_schema.stores (
     chatroom_id UUID NOT NULL,
     content TEXT NOT NULL,
     ai_response JSONB NOT NULL,
-    bot_type VARCHAR(20) NOT NULL CHECK (bot_type IN ('friend', 'honey', 'coworker', 'senior')),
+    bot_type VARCHAR(20),
     is_deleted BOOLEAN NOT NULL DEFAULT FALSE,
     deleted_at TIMESTAMP,
     created_at TIMESTAMP NOT NULL DEFAULT NOW(),
@@ -578,3 +578,181 @@ GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA user_schema TO doran;
 GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA chat_schema TO doran;
 GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA batch_schema TO doran;
 GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA store TO doran;
+
+-- ========================================
+-- 4. 테스트 데이터 생성
+-- ========================================
+
+-- 테스트 사용자 10명 생성 (user_schema)
+INSERT INTO user_schema.app_user (id, email, name, first_name, last_name, info, password_hash, role, status, coach_check, created_at, updated_at, last_conn_time) VALUES
+('11111111-1111-1111-1111-111111111111', 'test1@example.com', '테스트1', '테스트', '1', '테스트 사용자 1', '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBOsl7iKTVEFDi', 'ROLE_USER', 'ACTIVE', false, NOW(), NOW(), NOW()),
+('11111111-1111-1111-1111-111111111112', 'test2@example.com', '테스트2', '테스트', '2', '테스트 사용자 2', '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBOsl7iKTVEFDi', 'ROLE_USER', 'ACTIVE', false, NOW(), NOW(), NOW()),
+('11111111-1111-1111-1111-111111111113', 'test3@example.com', '테스트3', '테스트', '3', '테스트 사용자 3', '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBOsl7iKTVEFDi', 'ROLE_USER', 'ACTIVE', false, NOW(), NOW(), NOW()),
+('11111111-1111-1111-1111-111111111114', 'test4@example.com', '테스트4', '테스트', '4', '테스트 사용자 4', '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBOsl7iKTVEFDi', 'ROLE_USER', 'ACTIVE', false, NOW(), NOW(), NOW()),
+('11111111-1111-1111-1111-111111111115', 'test5@example.com', '테스트5', '테스트', '5', '테스트 사용자 5', '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBOsl7iKTVEFDi', 'ROLE_USER', 'ACTIVE', false, NOW(), NOW(), NOW()),
+('11111111-1111-1111-1111-111111111116', 'test6@example.com', '테스트6', '테스트', '6', '테스트 사용자 6', '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBOsl7iKTVEFDi', 'ROLE_USER', 'ACTIVE', false, NOW(), NOW(), NOW()),
+('11111111-1111-1111-1111-111111111117', 'test7@example.com', '테스트7', '테스트', '7', '테스트 사용자 7', '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBOsl7iKTVEFDi', 'ROLE_USER', 'ACTIVE', false, NOW(), NOW(), NOW()),
+('11111111-1111-1111-1111-111111111118', 'test8@example.com', '테스트8', '테스트', '8', '테스트 사용자 8', '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBOsl7iKTVEFDi', 'ROLE_USER', 'ACTIVE', false, NOW(), NOW(), NOW()),
+('11111111-1111-1111-1111-111111111119', 'test9@example.com', '테스트9', '테스트', '9', '테스트 사용자 9', '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBOsl7iKTVEFDi', 'ROLE_USER', 'ACTIVE', false, NOW(), NOW(), NOW()),
+('11111111-1111-1111-1111-11111111111a', 'test10@example.com', '테스트10', '테스트', '10', '테스트 사용자 10', '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBOsl7iKTVEFDi', 'ROLE_USER', 'ACTIVE', false, NOW(), NOW(), NOW());
+
+-- auth_schema에는 app_user 테이블이 없으므로 user_schema만 사용
+
+-- 기본 챗봇 4개 생성 (concept별)
+INSERT INTO chat_schema.chatbots (id, name, display_name, description, bot_type, model_name, personality, system_prompt, intimacy_system_prompt, intimacy_user_prompt, vocabulary_system_prompt, vocabulary_user_prompt, translation_system_prompt, translation_user_prompt, capabilities, settings, intimacy_level, avatar_url, is_active, created_by, created_at, updated_at) VALUES
+('22222222-2222-2222-2222-222222222221', 'friend-bot', '친구 봇', '친구처럼 편안하게 대화하는 AI 튜터', 'gpt', 'gpt-4o-mini', '{"personality": "friendly", "tone": "casual"}', '당신은 친구처럼 편안하고 친근한 한국어 학습 AI 튜터입니다. 격식 없이 대화하며 자연스럽게 한국어를 가르쳐주세요.', '당신은 외국인의 한국어 친밀도를 분석하는 전문가입니다.
+
+사용자의 문장을 분석하여 반드시 JSON 형식으로만 답변하세요.
+다른 텍스트나 설명은 포함하지 마세요.
+
+응답 형식:
+{
+  "detectedLevel": 1-3,
+  "correctedSentence": "교정된 문장",
+  "feedback": "피드백 메시지",
+  "corrections": ["변경사항1", "변경사항2"]
+}', '다음 한국어 문장의 친밀도를 분석하고, 더 적절한 친밀도로 수정해주세요: {input}', '외국인이 이해하기 어려운 한국어 단어/표현을 최대 1개 추출하세요. 반드시 1개만 추출하세요.
+
+추출 기준:
+- 문법적으로 복잡한 구조
+- 한국어 특유의 표현
+- 문화적 맥락이 필요한 단어
+- 학습자 레벨에 맞는 적절한 난이도
+
+사용자 레벨: {userLevel} (1=초급, 2=중급, 3=고급)
+
+JSON 형식:
+{
+  "words": [
+    {"word": "단어", "difficulty": 1-3, "context": "문맥"}
+  ]
+}', '다음 상황에서 사용할 수 있는 적절한 한국어 어휘를 추천해주세요: {input}', '한국어 단어를 영어로 번역하고 발음기호를 제공하세요. 단어가 아닐 경우 빈 배열을 반환하세요.
+
+번역 기준:
+- 정확한 영어 번역
+- 발음기호 (IPA 또는 한글 발음)
+- 간단한 설명이나 예시
+
+JSON 형식:
+{
+  "translations": [
+    {"original": "한국어", "english": "English", "pronunciation": "[발음기호]"}
+  ]
+}', '다음 텍스트를 번역해주세요: {input}', '{"conversation": true, "intimacy": true, "vocabulary": true, "translation": true}', '{"concept": "FRIEND", "intimacy_level": 2}', 2, 'https://example.com/avatar/friend.png', true, '11111111-1111-1111-1111-111111111111', NOW(), NOW()),
+('22222222-2222-2222-2222-222222222222', 'honey-bot', '꿀 봇', '연인처럼 애정적으로 대화하는 AI 튜터', 'gpt', 'gpt-4o-mini', '{"personality": "romantic", "tone": "intimate"}', '당신은 연인처럼 애정적이고 따뜻한 한국어 학습 AI 튜터입니다. 사랑스럽고 부드럽게 한국어를 가르쳐주세요.', '당신은 외국인의 한국어 친밀도를 분석하는 전문가입니다.
+
+사용자의 문장을 분석하여 반드시 JSON 형식으로만 답변하세요.
+다른 텍스트나 설명은 포함하지 마세요.
+
+응답 형식:
+{
+  "detectedLevel": 1-3,
+  "correctedSentence": "교정된 문장",
+  "feedback": "피드백 메시지",
+  "corrections": ["변경사항1", "변경사항2"]
+}', '다음 한국어 문장의 친밀도를 분석하고, 더 적절한 친밀도로 수정해주세요: {input}', '외국인이 이해하기 어려운 한국어 단어/표현을 최대 1개 추출하세요. 반드시 1개만 추출하세요.
+
+추출 기준:
+- 문법적으로 복잡한 구조
+- 한국어 특유의 표현
+- 문화적 맥락이 필요한 단어
+- 학습자 레벨에 맞는 적절한 난이도
+
+사용자 레벨: {userLevel} (1=초급, 2=중급, 3=고급)
+
+JSON 형식:
+{
+  "words": [
+    {"word": "단어", "difficulty": 1-3, "context": "문맥"}
+  ]
+}', '다음 상황에서 사용할 수 있는 적절한 한국어 어휘를 추천해주세요: {input}', '한국어 단어를 영어로 번역하고 발음기호를 제공하세요. 단어가 아닐 경우 빈 배열을 반환하세요.
+
+번역 기준:
+- 정확한 영어 번역
+- 발음기호 (IPA 또는 한글 발음)
+- 간단한 설명이나 예시
+
+JSON 형식:
+{
+  "translations": [
+    {"original": "한국어", "english": "English", "pronunciation": "[발음기호]"}
+  ]
+}', '다음 텍스트를 번역해주세요: {input}', '{"conversation": true, "intimacy": true, "vocabulary": true, "translation": true}', '{"concept": "HONEY", "intimacy_level": 3}', 3, 'https://example.com/avatar/lover.png', true, '11111111-1111-1111-1111-111111111111', NOW(), NOW()),
+('22222222-2222-2222-2222-222222222223', 'coworker-bot', '동료 봇', '직장 동료처럼 전문적으로 대화하는 AI 튜터', 'gpt', 'gpt-4o-mini', '{"personality": "professional", "tone": "formal"}', '당신은 직장 동료처럼 전문적이고 격식 있는 한국어 학습 AI 튜터입니다. 업무 상황에 맞는 한국어를 가르쳐주세요.', '당신은 외국인의 한국어 친밀도를 분석하는 전문가입니다.
+
+사용자의 문장을 분석하여 반드시 JSON 형식으로만 답변하세요.
+다른 텍스트나 설명은 포함하지 마세요.
+
+응답 형식:
+{
+  "detectedLevel": 1-3,
+  "correctedSentence": "교정된 문장",
+  "feedback": "피드백 메시지",
+  "corrections": ["변경사항1", "변경사항2"]
+}', '다음 한국어 문장의 친밀도를 분석하고, 더 적절한 친밀도로 수정해주세요: {input}', '외국인이 이해하기 어려운 한국어 단어/표현을 최대 1개 추출하세요. 반드시 1개만 추출하세요.
+
+추출 기준:
+- 문법적으로 복잡한 구조
+- 한국어 특유의 표현
+- 문화적 맥락이 필요한 단어
+- 학습자 레벨에 맞는 적절한 난이도
+
+사용자 레벨: {userLevel} (1=초급, 2=중급, 3=고급)
+
+JSON 형식:
+{
+  "words": [
+    {"word": "단어", "difficulty": 1-3, "context": "문맥"}
+  ]
+}', '다음 상황에서 사용할 수 있는 적절한 한국어 어휘를 추천해주세요: {input}', '한국어 단어를 영어로 번역하고 발음기호를 제공하세요. 단어가 아닐 경우 빈 배열을 반환하세요.
+
+번역 기준:
+- 정확한 영어 번역
+- 발음기호 (IPA 또는 한글 발음)
+- 간단한 설명이나 예시
+
+JSON 형식:
+{
+  "translations": [
+    {"original": "한국어", "english": "English", "pronunciation": "[발음기호]"}
+  ]
+}', '다음 텍스트를 번역해주세요: {input}', '{"conversation": true, "intimacy": true, "vocabulary": true, "translation": true}', '{"concept": "COWORKER", "intimacy_level": 2}', 2, 'https://example.com/avatar/coworker.png', true, '11111111-1111-1111-1111-111111111111', NOW(), NOW()),
+('22222222-2222-2222-2222-222222222224', 'senior-bot', '선배 봇', '선배처럼 존중하며 대화하는 AI 튜터', 'gpt', 'gpt-4o-mini', '{"personality": "respectful", "tone": "formal"}', '당신은 선배처럼 존중하고 격식 있는 한국어 학습 AI 튜터입니다. 존댓말과 격식을 중시하며 한국어를 가르쳐주세요.', '당신은 외국인의 한국어 친밀도를 분석하는 전문가입니다.
+
+사용자의 문장을 분석하여 반드시 JSON 형식으로만 답변하세요.
+다른 텍스트나 설명은 포함하지 마세요.
+
+응답 형식:
+{
+  "detectedLevel": 1-3,
+  "correctedSentence": "교정된 문장",
+  "feedback": "피드백 메시지",
+  "corrections": ["변경사항1", "변경사항2"]
+}', '다음 한국어 문장의 친밀도를 분석하고, 더 적절한 친밀도로 수정해주세요: {input}', '외국인이 이해하기 어려운 한국어 단어/표현을 최대 1개 추출하세요. 반드시 1개만 추출하세요.
+
+추출 기준:
+- 문법적으로 복잡한 구조
+- 한국어 특유의 표현
+- 문화적 맥락이 필요한 단어
+- 학습자 레벨에 맞는 적절한 난이도
+
+사용자 레벨: {userLevel} (1=초급, 2=중급, 3=고급)
+
+JSON 형식:
+{
+  "words": [
+    {"word": "단어", "difficulty": 1-3, "context": "문맥"}
+  ]
+}', '다음 상황에서 사용할 수 있는 적절한 한국어 어휘를 추천해주세요: {input}', '한국어 단어를 영어로 번역하고 발음기호를 제공하세요. 단어가 아닐 경우 빈 배열을 반환하세요.
+
+번역 기준:
+- 정확한 영어 번역
+- 발음기호 (IPA 또는 한글 발음)
+- 간단한 설명이나 예시
+
+JSON 형식:
+{
+  "translations": [
+    {"original": "한국어", "english": "English", "pronunciation": "[발음기호]"}
+  ]
+}', '다음 텍스트를 번역해주세요: {input}', '{"conversation": true, "intimacy": true, "vocabulary": true, "translation": true}', '{"concept": "SENIOR", "intimacy_level": 1}', 1, 'https://example.com/avatar/boss.png', true, '11111111-1111-1111-1111-111111111111', NOW(), NOW());
