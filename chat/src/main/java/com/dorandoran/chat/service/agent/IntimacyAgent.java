@@ -1,7 +1,11 @@
 package com.dorandoran.chat.service.agent;
 
 import com.dorandoran.chat.entity.IntimacyProgress;
+import com.dorandoran.chat.entity.ChatRoom;
+import com.dorandoran.chat.entity.Chatbot;
 import com.dorandoran.chat.repository.IntimacyProgressRepository;
+import com.dorandoran.chat.repository.ChatRoomRepository;
+import com.dorandoran.chat.repository.ChatbotRepository;
 import com.dorandoran.chat.service.OpenAIClient;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -12,6 +16,7 @@ import reactor.core.publisher.Mono;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 /**
@@ -24,6 +29,8 @@ import java.util.UUID;
 public class IntimacyAgent {
     private final OpenAIClient openAIClient;
     private final IntimacyProgressRepository intimacyProgressRepository;
+    private final ChatRoomRepository chatRoomRepository;
+    private final ChatbotRepository chatbotRepository;
     private final ObjectMapper objectMapper;
 
     public Mono<IntimacyAgentResponse> analyze(UUID chatroomId, String userMessage) {
@@ -35,7 +42,8 @@ public class IntimacyAgent {
             .orElse(1);
         log.info("=== IntimacyAgent 현재 레벨 조회: {} ===", currentLevel);
         
-        String systemPrompt = buildIntimacyPrompt(currentLevel);
+        String concept = getConceptFromChatRoom(chatroomId);
+        String systemPrompt = buildIntimacyPrompt(chatroomId, currentLevel, concept);
         log.info("=== IntimacyAgent systemPrompt: {} ===", systemPrompt);
         
         log.info("=== IntimacyAgent OpenAI API 호출 시작 ===");
@@ -52,19 +60,71 @@ public class IntimacyAgent {
             .doOnError(error -> log.error("=== IntimacyAgent 파싱 오류 ===", error));
     }
     
-    private String buildIntimacyPrompt(int level) {
-        return String.format("""
-            당신은 외국인의 한국어 친밀도를 분석하는 전문가입니다.
-            현재 학습자의 목표 레벨: %d (1=격식체/존댓말, 2=부드러운 존댓말, 3=친근한 반말)
+    private String getConceptFromChatRoom(UUID chatroomId) {
+        return chatRoomRepository.findById(chatroomId)
+            .map(room -> {
+                if (room.getSettings() != null && room.getSettings().has("concept")) {
+                    return room.getSettings().get("concept").asText();
+                }
+                return "FRIEND";
+            })
+            .orElse("FRIEND");
+    }
+    
+    private String buildIntimacyPrompt(UUID chatroomId, int level, String concept) {
+        // 1. DB에서 Base Prompt 조회
+        String basePrompt = getBasePromptFromDB(chatroomId);
+        
+        // 2. Dynamic Directives 생성
+        String conceptGuideline = getConceptGuideline(concept);
+        String dynamicDirectives = String.format("""
             
-            다음 문장을 분석하여 JSON 형식으로 답변하세요:
+            [분석 컨텍스트]
+            현재 학습자의 목표 레벨: %d (1=격식체/존댓말, 2=부드러운 존댓말, 3=친근한 반말)
+            대화 컨셉: %s
+            
+            [컨셉별 지침]
+            %s
+            
+            [응답 형식]
+            반드시 아래 JSON 형식으로만 응답하세요. 다른 텍스트는 포함하지 마세요:
             {
               "detectedLevel": 1-3,
               "correctedSentence": "교정된 문장",
               "feedback": "피드백 메시지",
               "corrections": ["변경사항1", "변경사항2"]
             }
-            """, level);
+            """, level, concept, conceptGuideline);
+        
+        // 3. 합성
+        return basePrompt + dynamicDirectives;
+    }
+    
+    private String getBasePromptFromDB(UUID chatroomId) {
+        return chatRoomRepository.findById(chatroomId)
+            .flatMap(room -> {
+                if (room.getChatbot() == null) return Optional.empty();
+                return chatbotRepository.findById(room.getChatbot().getId());
+            })
+            .map(Chatbot::getIntimacySystemPrompt)
+            .orElse(getDefaultIntimacyBasePrompt());
+    }
+    
+    private String getDefaultIntimacyBasePrompt() {
+        return """
+            당신은 외국인의 한국어 친밀도를 분석하는 전문가입니다.
+            
+            사용자의 문장을 분석하여 반드시 JSON 형식으로만 답변하세요.
+            다른 텍스트나 설명은 포함하지 마세요.
+            
+            응답 형식:
+            {
+              "detectedLevel": 1-3,
+              "correctedSentence": "교정된 문장",
+              "feedback": "피드백 메시지",
+              "corrections": ["변경사항1", "변경사항2"]
+            }
+            """;
     }
     
     private IntimacyAgentResponse parseIntimacyResponse(List<String> chunks) {
@@ -135,5 +195,15 @@ public class IntimacyAgent {
                 List.of()
             );
         }
+    }
+    
+    private String getConceptGuideline(String concept) {
+        return switch (concept) {
+            case "FRIEND" -> "친구와의 대화 상황을 고려하여 자연스럽고 편한 표현을 교정하세요.";
+            case "HONEY" -> "연인과의 대화 상황을 고려하여 애정 어린 표현을 교정하세요.";
+            case "COWORKER" -> "직장 동료와의 대화 상황을 고려하여 예의 바르고 전문적인 표현을 교정하세요.";
+            case "SENIOR" -> "선배와의 대화 상황을 고려하여 공손하고 정중한 표현을 교정하세요.";
+            default -> "일반적인 상황에 맞는 적절한 표현을 교정하세요.";
+        };
     }
 }

@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DoranDoran Chat Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .container { max-width: 800px; margin: 0 auto; }
+        .section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }
+        .input-group { margin: 10px 0; }
+        label { display: block; margin-bottom: 5px; font-weight: bold; }
+        input, textarea, button { width: 100%; padding: 8px; margin-bottom: 10px; }
+        button { background-color: #007bff; color: white; border: none; cursor: pointer; }
+        button:hover { background-color: #0056b3; }
+        .response { background-color: #f8f9fa; padding: 10px; border-radius: 3px; margin-top: 10px; }
+        .error { background-color: #f8d7da; color: #721c24; }
+        .success { background-color: #d4edda; color: #155724; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>DoranDoran Chat Service Test</h1>
+        
+        <!-- 테스트 데이터 -->
+        <div class="section">
+            <h3>테스트 데이터</h3>
+            <p><strong>사용자 ID:</strong> 20863cc0-c535-46af-afdf-6bfb9d8820e8</p>
+            <p><strong>챗봇 ID:</strong> 4609a499-8179-4846-9ac3-6ea3a02b1e6e</p>
+        </div>
+
+        <!-- 채팅방 생성 -->
+        <div class="section">
+            <h3>1. 채팅방 생성</h3>
+            <div class="input-group">
+                <label>채팅방 이름:</label>
+                <input type="text" id="roomName" value="테스트 채팅방" />
+            </div>
+            <button onclick="createChatRoom()">채팅방 생성</button>
+            <div id="roomResponse" class="response" style="display: none;"></div>
+        </div>
+
+        <!-- 메시지 전송 -->
+        <div class="section">
+            <h3>2. 메시지 전송</h3>
+            <div class="input-group">
+                <label>채팅방 ID:</label>
+                <input type="text" id="chatroomId" placeholder="위에서 생성된 채팅방 ID를 입력하세요" />
+            </div>
+            <div class="input-group">
+                <label>메시지 내용:</label>
+                <textarea id="messageContent" rows="3" placeholder="테스트할 메시지를 입력하세요"></textarea>
+            </div>
+            <button onclick="sendMessage()">메시지 전송</button>
+            <div id="messageResponse" class="response" style="display: none;"></div>
+        </div>
+
+        <!-- 메시지 조회 -->
+        <div class="section">
+            <h3>3. 메시지 조회</h3>
+            <div class="input-group">
+                <label>채팅방 ID:</label>
+                <input type="text" id="listChatroomId" placeholder="조회할 채팅방 ID를 입력하세요" />
+            </div>
+            <button onclick="listMessages()">메시지 조회</button>
+            <div id="listResponse" class="response" style="display: none;"></div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:8083/api/chat';
+        const USER_ID = '20863cc0-c535-46af-afdf-6bfb9d8820e8';
+        const CHATBOT_ID = '4609a499-8179-4846-9ac3-6ea3a02b1e6e';
+
+        async function createChatRoom() {
+            const roomName = document.getElementById('roomName').value;
+            const responseDiv = document.getElementById('roomResponse');
+            
+            try {
+                const response = await fetch(`${API_BASE}/chatrooms`, {
+                    method: 'POST',
+                    mode: 'cors',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Access-Control-Allow-Origin': '*',
+                    },
+                    body: JSON.stringify({
+                        userId: USER_ID,
+                        chatbotId: CHATBOT_ID,
+                        name: roomName
+                    })
+                });
+
+                const data = await response.json();
+                
+                if (response.ok) {
+                    responseDiv.className = 'response success';
+                    responseDiv.innerHTML = `<strong>성공!</strong><br>채팅방 ID: ${data.id}<br>이름: ${data.name}`;
+                    document.getElementById('chatroomId').value = data.id;
+                    document.getElementById('listChatroomId').value = data.id;
+                } else {
+                    responseDiv.className = 'response error';
+                    responseDiv.innerHTML = `<strong>에러:</strong> ${JSON.stringify(data)}`;
+                }
+            } catch (error) {
+                responseDiv.className = 'response error';
+                responseDiv.innerHTML = `<strong>에러:</strong> ${error.message}`;
+            }
+            
+            responseDiv.style.display = 'block';
+        }
+
+        async function sendMessage() {
+            const chatroomId = document.getElementById('chatroomId').value;
+            const content = document.getElementById('messageContent').value;
+            const responseDiv = document.getElementById('messageResponse');
+            
+            if (!chatroomId || !content) {
+                responseDiv.className = 'response error';
+                responseDiv.innerHTML = '<strong>에러:</strong> 채팅방 ID와 메시지 내용을 모두 입력하세요.';
+                responseDiv.style.display = 'block';
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE}/chatrooms/${chatroomId}/messages`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-User-Id': USER_ID
+                    },
+                    body: JSON.stringify({
+                        content: content,
+                        senderType: 'user',
+                        contentType: 'text'
+                    })
+                });
+
+                const data = await response.json();
+                
+                if (response.ok) {
+                    responseDiv.className = 'response success';
+                    responseDiv.innerHTML = `<strong>메시지 전송 성공!</strong><br>메시지 ID: ${data.id}<br>내용: ${data.content}`;
+                } else {
+                    responseDiv.className = 'response error';
+                    responseDiv.innerHTML = `<strong>에러:</strong> ${JSON.stringify(data)}`;
+                }
+            } catch (error) {
+                responseDiv.className = 'response error';
+                responseDiv.innerHTML = `<strong>에러:</strong> ${error.message}`;
+            }
+            
+            responseDiv.style.display = 'block';
+        }
+
+        async function listMessages() {
+            const chatroomId = document.getElementById('listChatroomId').value;
+            const responseDiv = document.getElementById('listResponse');
+            
+            if (!chatroomId) {
+                responseDiv.className = 'response error';
+                responseDiv.innerHTML = '<strong>에러:</strong> 채팅방 ID를 입력하세요.';
+                responseDiv.style.display = 'block';
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE}/chatrooms/${chatroomId}/messages?page=0&size=10`, {
+                    method: 'GET',
+                    headers: {
+                        'X-User-Id': USER_ID
+                    }
+                });
+
+                const data = await response.json();
+                
+                if (response.ok) {
+                    responseDiv.className = 'response success';
+                    let html = '<strong>메시지 목록:</strong><br>';
+                    if (data.content && data.content.length > 0) {
+                        data.content.forEach(msg => {
+                            html += `<div style="margin: 5px 0; padding: 5px; background: #e9ecef; border-radius: 3px;">
+                                <strong>${msg.senderType}:</strong> ${msg.content}<br>
+                                <small>시간: ${new Date(msg.createdAt).toLocaleString()}</small>
+                            </div>`;
+                        });
+                    } else {
+                        html += '메시지가 없습니다.';
+                    }
+                    responseDiv.innerHTML = html;
+                } else {
+                    responseDiv.className = 'response error';
+                    responseDiv.innerHTML = `<strong>에러:</strong> ${JSON.stringify(data)}`;
+                }
+            } catch (error) {
+                responseDiv.className = 'response error';
+                responseDiv.innerHTML = `<strong>에러:</strong> ${error.message}`;
+            }
+            
+            responseDiv.style.display = 'block';
+        }
+    </script>
+</body>
+</html>

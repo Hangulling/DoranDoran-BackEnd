@@ -18,6 +18,9 @@ public interface ChatRoomRepository extends JpaRepository<ChatRoom, UUID> {
     // 사용자와 챗봇의 1:1 룸 단건 조회 (삭제되지 않은)
     Optional<ChatRoom> findByUserIdAndChatbotIdAndIsDeletedFalse(UUID userId, UUID chatbotId);
 
+    // 사용자와 챗봇의 1:1 룸 단건 조회 (삭제 여부 무관)
+    Optional<ChatRoom> findByUserIdAndChatbotId(UUID userId, UUID chatbotId);
+
     // 사용자 ID와 삭제되지 않은 채팅방 목록 찾기
     List<ChatRoom> findByUserIdAndIsDeletedFalseOrderByLastMessageAtDesc(UUID userId);
     

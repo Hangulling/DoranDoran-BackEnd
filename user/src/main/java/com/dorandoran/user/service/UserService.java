@@ -316,30 +316,6 @@ public class UserService {
         );
     }
 
-//    private UserDto convertToDto(User user) {
-//        UserDto.RoleName roleName = user.getRole() != null ? UserDto.RoleName.valueOf(user.getRole().name()) : null;
-//        String preferences = ""; // User 엔티티에는 없으므로 빈 문자열 처리
-//
-//        return new UserDto(
-//            user.getId(),
-//            user.getEmail(),
-//            user.getFirstName(),
-//            user.getLastName(),
-//            user.getName(),
-//            user.getPasswordHash(),
-//            user.getPicture(),
-//            user.getInfo(),
-//            preferences,
-//            user.getLastConnTime(),
-//            UserDto.UserStatus.valueOf(user.getStatus().name()),
-//            roleName,
-//            user.isCoachCheck(),
-//            user.getCreatedAt(),
-//            user.getUpdatedAt()
-//        );
-//    }
-
-
     /**
      * Entity Status를 DTO Status로 변환
      */

@@ -23,8 +23,8 @@ public class SecurityConfig {
                 .requestMatchers("/swagger-ui/**", "/swagger-ui.html", "/v3/api-docs/**", "/api-docs/**").permitAll()
                 // Actuator 엔드포인트 허용
                 .requestMatchers("/actuator/**").permitAll()
-                // API 엔드포인트는 인증 필요
-                .requestMatchers("/api/**").authenticated()
+                // API 엔드포인트는 MSA 내부 통신이므로 허용 (HmacAuthInterceptor가 인증 담당)
+                .requestMatchers("/api/**").permitAll()
                 // 기타 모든 요청은 허용
                 .anyRequest().permitAll()
             )

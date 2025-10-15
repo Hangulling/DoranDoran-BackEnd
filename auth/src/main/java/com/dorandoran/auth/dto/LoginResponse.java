@@ -1,5 +1,6 @@
 package com.dorandoran.auth.dto;
 
+import com.dorandoran.shared.dto.UserDto;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;

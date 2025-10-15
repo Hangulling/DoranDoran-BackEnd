@@ -67,10 +67,11 @@ public class OpenAIClient {
             .doOnError(error -> log.error("=== OpenAI 스트림 오류 ===", error))
             .doOnComplete(() -> log.info("=== OpenAI 스트림 완료 ==="))
             .filter(s -> {
-                boolean isValid = s != null && !s.isEmpty() && !s.equals("[DONE]");
+                boolean isValid = s != null && !s.isEmpty();
                 log.info("=== OpenAI 필터링: '{}' -> {} ===", s, isValid);
                 return isValid;
-            });
+            })
+            .takeWhile(s -> !"[DONE]".equals(s.trim()));
     }
 
     /** 텍스트 청크만 추출 */

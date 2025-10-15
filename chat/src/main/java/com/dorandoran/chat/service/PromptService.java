@@ -2,8 +2,10 @@ package com.dorandoran.chat.service;
 
 import com.dorandoran.chat.entity.ChatRoom;
 import com.dorandoran.chat.entity.Chatbot;
+import com.dorandoran.chat.entity.IntimacyProgress;
 import com.dorandoran.chat.repository.ChatRoomRepository;
 import com.dorandoran.chat.repository.ChatbotRepository;
+import com.dorandoran.chat.repository.IntimacyProgressRepository;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
@@ -19,6 +21,7 @@ public class PromptService {
 
     private final ChatRoomRepository chatRoomRepository;
     private final ChatbotRepository chatbotRepository;
+    private final IntimacyProgressRepository intimacyProgressRepository;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     /**
@@ -39,8 +42,11 @@ public class PromptService {
 
         // 2) 룸 컨텍스트 반영 (요약/선호/세션)
         appendRoomContext(room, prompt);
+        
+        // 3) 컨셉과 친밀도 기반 지시문 추가
+        appendConceptAndIntimacyDirectives(room, prompt);
 
-        // 3) 마무리 지시
+        // 4) 마무리 지시
         prompt.append("\n\n- 응답은 한국어로, 핵심 위주로 간결하게 작성하세요.\n");
 
         return truncate(prompt.toString(), 8000);
@@ -192,6 +198,138 @@ public class PromptService {
         if (s == null) return null;
         if (s.length() <= max) return s;
         return s.substring(0, Math.max(0, max - 3)) + "...";
+    }
+    
+    private void appendConceptAndIntimacyDirectives(ChatRoom room, StringBuilder prompt) {
+        // 컨셉 기반 지시문
+        String concept = extractConceptFromSettings(room.getSettings());
+        prompt.append("\n[대화 컨셉]\n");
+        prompt.append(getConceptGuideline(concept));
+        
+        // 친밀도 기반 지시문
+        int intimacyLevel = getCurrentIntimacyLevel(room.getId());
+        prompt.append("\n[말투 지시]\n");
+        prompt.append(getIntimacyGuideline(intimacyLevel));
+    }
+    
+    private String extractConceptFromSettings(JsonNode settings) {
+        if (settings != null && settings.has("concept")) {
+            return settings.get("concept").asText();
+        }
+        return "FRIEND"; // 기본값
+    }
+    
+    private int getCurrentIntimacyLevel(UUID chatroomId) {
+        return intimacyProgressRepository.findByChatRoomId(chatroomId)
+            .map(IntimacyProgress::getIntimacyLevel)
+            .orElse(2); // 기본값
+    }
+    
+    private String getConceptGuideline(String concept) {
+        return switch (concept) {
+            case "FRIEND" -> "- 친구처럼 편하고 자연스럽게 대화하세요\n- 가벼운 농담이나 친근한 표현을 사용해도 좋습니다";
+            case "HONEY" -> "- 연인처럼 애정 어린 톤으로 대화하세요\n- 따뜻하고 사랑스러운 표현을 사용하세요";
+            case "COWORKER" -> "- 직장 동료처럼 예의 바르고 전문적으로 대화하세요\n- 업무와 관련된 주제를 우선적으로 다루세요";
+            case "SENIOR" -> "- 선배에게 대하듯 공손하고 정중하게 대화하세요\n- 존경과 예의를 바탕으로 한 대화를 하세요";
+            default -> "- 일반적인 상황에 맞게 대화하세요";
+        };
+    }
+    
+    private String getIntimacyGuideline(int level) {
+        return switch (level) {
+            case 1 -> "- 격식체(~습니다, ~입니다)를 사용하세요\n- 정중하고 공손한 표현을 사용하세요";
+            case 2 -> "- 부드러운 존댓말(~해요, ~이에요)을 사용하세요\n- 친근하면서도 예의 바른 표현을 사용하세요";
+            case 3 -> "- 친근한 반말(~야, ~어, ~지)을 사용하세요\n- 편하고 자연스러운 표현을 사용하세요";
+            default -> "- 적절한 말투로 대화하세요";
+        };
+    }
+    
+    /**
+     * ConversationAgent의 전체 프롬프트 생성 (Base + Dynamic)
+     */
+    public String buildFullConversationPrompt(UUID chatroomId) {
+        return buildSystemPrompt(chatroomId); // 기존 메서드 활용
+    }
+
+    /**
+     * ConversationAgent의 Base Prompt만 조회
+     */
+    public String getConversationBasePrompt(UUID chatroomId) {
+        Optional<ChatRoom> roomOpt = chatRoomRepository.findById(chatroomId);
+        if (roomOpt.isEmpty()) {
+            return defaultSystemPrompt();
+        }
+        
+        ChatRoom room = roomOpt.get();
+        if (room.getChatbot() == null) {
+            return defaultSystemPrompt();
+        }
+        
+        Optional<Chatbot> botOpt = chatbotRepository.findById(room.getChatbot().getId());
+        return botOpt.map(Chatbot::getSystemPrompt).orElse(defaultSystemPrompt());
+    }
+
+    /**
+     * IntimacyAgent의 전체 프롬프트 생성 (Base + Dynamic)
+     */
+    public String buildFullIntimacyPrompt(UUID chatroomId) {
+        String basePrompt = getIntimacyBasePrompt(chatroomId);
+        
+        // Dynamic Directives
+        ChatRoom room = chatRoomRepository.findById(chatroomId).orElse(null);
+        if (room == null) return basePrompt;
+        
+        String concept = extractConceptFromSettings(room.getSettings());
+        int level = getCurrentIntimacyLevel(chatroomId);
+        
+        String dynamicDirectives = String.format("""
+            
+            [분석 컨텍스트]
+            현재 학습자의 목표 레벨: %d
+            대화 컨셉: %s
+            
+            [컨셉별 지침]
+            %s
+            """, level, concept, getIntimacyConceptGuideline(concept));
+        
+        return basePrompt + dynamicDirectives;
+    }
+
+    /**
+     * IntimacyAgent의 Base Prompt만 조회
+     */
+    public String getIntimacyBasePrompt(UUID chatroomId) {
+        return chatRoomRepository.findById(chatroomId)
+            .flatMap(room -> {
+                if (room.getChatbot() == null) return Optional.empty();
+                return chatbotRepository.findById(room.getChatbot().getId());
+            })
+            .map(Chatbot::getIntimacySystemPrompt)
+            .orElse(getDefaultIntimacyBasePrompt());
+    }
+
+    private String getDefaultIntimacyBasePrompt() {
+        return """
+            당신은 외국인의 한국어 친밀도를 분석하는 전문가입니다.
+            
+            다음 문장을 분석하여 JSON 형식으로 답변하세요:
+            {
+              "detectedLevel": 1-3,
+              "correctedSentence": "교정된 문장",
+              "feedback": "피드백 메시지",
+              "corrections": ["변경사항1", "변경사항2"]
+            }
+            """;
+    }
+
+    private String getIntimacyConceptGuideline(String concept) {
+        return switch (concept) {
+            case "FRIEND" -> "친구와의 대화 상황을 고려하여 자연스럽고 편한 표현을 교정하세요.";
+            case "HONEY" -> "연인과의 대화 상황을 고려하여 애정 어린 표현을 교정하세요.";
+            case "COWORKER" -> "직장 동료와의 대화 상황을 고려하여 예의 바르고 전문적인 표현을 교정하세요.";
+            case "SENIOR" -> "선배와의 대화 상황을 고려하여 공손하고 정중한 표현을 교정하세요.";
+            default -> "일반적인 상황에 맞는 적절한 표현을 교정하세요.";
+        };
     }
 }
 

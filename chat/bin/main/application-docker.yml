@@ -17,12 +17,12 @@ spring:
     password: ${SPRING_DATASOURCE_PASSWORD:doran}
     driver-class-name: org.postgresql.Driver
     hikari:
-      maximum-pool-size: 5
-      minimum-idle: 2
-      connection-timeout: 30000
-      idle-timeout: 300000
-      max-lifetime: 1200000
-      leak-detection-threshold: 300000
+      maximum-pool-size: 20  # 동시 처리 능력 향상
+      minimum-idle: 5  # 최소 유휴 연결 증가
+      connection-timeout: 20000  # 연결 대기 시간 단축
+      idle-timeout: 300000  # 유휴 연결 타임아웃
+      max-lifetime: 600000  # 연결 최대 수명 단축 (10분)
+      leak-detection-threshold: 10000  # 누수 조기 감지 (10초)
       connection-test-query: SELECT 1
       validation-timeout: 5000
   
@@ -32,6 +32,7 @@ spring:
       ddl-auto: update
       default_schema: chat_schema
     show-sql: false
+    open-in-view: false  # SSE 연결 누수 방지
     properties:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect

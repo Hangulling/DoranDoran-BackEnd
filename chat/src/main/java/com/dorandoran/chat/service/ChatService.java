@@ -4,12 +4,14 @@ import com.dorandoran.chat.entity.ChatRoom;
 import com.dorandoran.chat.entity.Message;
 import com.dorandoran.chat.entity.User;
 import com.dorandoran.chat.entity.Chatbot;
+import com.dorandoran.chat.entity.IntimacyProgress;
 import com.dorandoran.chat.event.MessageEvent;
 import com.dorandoran.chat.repository.ChatRoomRepository;
 import com.dorandoran.chat.repository.MessageRepository;
 import com.dorandoran.chat.repository.UserRepository;
 import com.dorandoran.chat.repository.ChatbotRepository;
 import com.dorandoran.chat.messaging.RedisMessagePublisher;
+import com.dorandoran.chat.repository.IntimacyProgressRepository;
 import jakarta.transaction.Transactional;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -37,6 +39,7 @@ public class ChatService {
     private final MessageRepository messageRepository;
     private final UserRepository userRepository;
     private final ChatbotRepository chatbotRepository;
+    private final IntimacyProgressRepository intimacyProgressRepository;
     private final ObjectMapper objectMapper;
     // AI 트리거는 컨트롤러에서 수행하여 순환 의존 제거
     private final RedisMessagePublisher redisPublisher;
@@ -47,9 +50,30 @@ public class ChatService {
      */
     @Transactional
     public ChatRoom getOrCreateRoom(UUID userId, UUID chatbotId, String name) {
-        Optional<ChatRoom> existing = chatRoomRepository.findByUserIdAndChatbotIdAndIsDeletedFalse(userId, chatbotId);
+        return getOrCreateRoom(userId, chatbotId, name, "FRIEND", 2);
+    }
+
+    /**
+     * 채팅방 조회 또는 생성 (컨셉과 친밀도 포함)
+     */
+    @Transactional
+    public ChatRoom getOrCreateRoom(UUID userId, UUID chatbotId, String name, String concept, Integer intimacyLevel) {
+        // 먼저 삭제 여부 무관하게 채팅방 조회
+        Optional<ChatRoom> existing = chatRoomRepository.findByUserIdAndChatbotId(userId, chatbotId);
         if (existing.isPresent()) {
-            return existing.get();
+            ChatRoom room = existing.get();
+
+            // 삭제된 채팅방인 경우 복구
+            if (room.getIsDeleted()) {
+                room.setIsDeleted(false);
+                room.setUpdatedAt(LocalDateTime.now());
+                chatRoomRepository.save(room);
+            }
+
+            // 기존 채팅방의 concept과 intimacyLevel 업데이트
+            updateRoomSettings(room, concept);
+            updateIntimacyLevel(room.getId(), userId, intimacyLevel);
+            return room;
         }
 
         // User와 Chatbot 객체 조회
@@ -64,16 +88,28 @@ public class ChatService {
             roomId = UUID.randomUUID();
         } while (chatRoomRepository.findById(roomId).isPresent());
 
+        // settings에 concept 저장
+        ObjectNode settings = objectMapper.createObjectNode();
+        settings.put("concept", concept);
+
         ChatRoom room = ChatRoom.builder()
             .id(roomId)
             .user(user)
             .chatbot(chatbot)
             .name(name)
+            .settings(settings)
             .isArchived(false)
             .isDeleted(false)
             .createdAt(LocalDateTime.now())
             .updatedAt(LocalDateTime.now())
             .build();
+
+        ChatRoom savedRoom = chatRoomRepository.save(room);
+
+        // IntimacyProgress 초기화
+        initializeIntimacyProgress(savedRoom.getId(), userId, intimacyLevel);
+
+        return savedRoom;
 
         ChatRoom saved = chatRoomRepository.save(room);
 
@@ -163,7 +199,7 @@ public class ChatService {
     }
 
     /**
-     * 메시지 조회 (캐싱 적용)
+     * 채팅방 메시지 목록 조회 (시퀀스 오름차순) - 페이징
      */
     @Transactional
     public Page<Message> listMessages(UUID chatroomId, Pageable pageable) {
@@ -285,5 +321,106 @@ public class ChatService {
         room.setSettings(settings);
         room.setUpdatedAt(java.time.LocalDateTime.now());
         return chatRoomRepository.save(room);
+    }
+
+    /**
+     * 친밀도 레벨 업데이트
+     */
+    @Transactional
+    public void updateIntimacyLevel(UUID chatroomId, UUID userId, int intimacyLevel) {
+        if (!chatRoomRepository.existsByUserIdAndIdAndIsDeletedFalse(userId, chatroomId)) {
+            throw new RuntimeException("Access denied or room deleted: " + chatroomId);
+        }
+
+        IntimacyProgress progress = intimacyProgressRepository.findByChatRoomId(chatroomId)
+            .orElseGet(() -> {
+                ChatRoom chatRoom = getChatRoomById(chatroomId);
+                return IntimacyProgress.builder()
+                    .id(UUID.randomUUID())
+                    .chatRoom(chatRoom)
+                    .userId(userId)
+                    .intimacyLevel(intimacyLevel)
+                    .totalCorrections(0)
+                    .build();
+            });
+
+        progress.setIntimacyLevel(intimacyLevel);
+        progress.setLastUpdated(LocalDateTime.now());
+        intimacyProgressRepository.save(progress);
+    }
+
+    /**
+     * IntimacyProgress 초기화
+     */
+    private void initializeIntimacyProgress(UUID chatroomId, UUID userId, int intimacyLevel) {
+        IntimacyProgress progress = IntimacyProgress.builder()
+            .id(UUID.randomUUID())
+            .chatRoom(getChatRoomById(chatroomId))
+            .userId(userId)
+            .intimacyLevel(intimacyLevel)
+            .totalCorrections(0)
+            .lastFeedback("채팅방 생성")
+            .lastUpdated(LocalDateTime.now())
+            .progressData("{}")
+            .build();
+
+        intimacyProgressRepository.save(progress);
+    }
+
+    /**
+     * 채팅방의 컨셉과 친밀도 레벨 조회
+     */
+    public String getConcept(UUID chatroomId) {
+        ChatRoom room = getChatRoomById(chatroomId);
+        JsonNode settings = room.getSettings();
+        if (settings != null && settings.has("concept")) {
+            return settings.get("concept").asText();
+        }
+        return "FRIEND"; // 기본값
+    }
+
+    public Integer getIntimacyLevel(UUID chatroomId) {
+        return intimacyProgressRepository.findByChatRoomId(chatroomId)
+            .map(IntimacyProgress::getIntimacyLevel)
+            .orElse(2); // 기본값
+    }
+
+    /**
+     * 채팅방 settings에 concept 저장
+     */
+    private void updateRoomSettings(ChatRoom room, String concept) {
+        ObjectNode settings = room.getSettings() != null && room.getSettings().isObject()
+            ? (ObjectNode) room.getSettings()
+            : objectMapper.createObjectNode();
+        settings.put("concept", concept);
+        room.setSettings(settings);
+        room.setUpdatedAt(LocalDateTime.now());
+        chatRoomRepository.save(room);
+    }
+
+    /**
+     * 이메일로 사용자 조회
+     */
+    public com.dorandoran.chat.entity.User findUserByEmail(String email) {
+        // user_schema.app_user에서 조회
+        return userRepository.findByEmail(email).orElse(null);
+    }
+
+    /**
+     * concept별 챗봇 UUID 매핑
+     */
+    public UUID getChatbotIdByConcept(String concept) {
+        switch (concept.toUpperCase()) {
+            case "FRIEND":
+                return UUID.fromString("22222222-2222-2222-2222-222222222221");
+            case "HONEY":
+                return UUID.fromString("22222222-2222-2222-2222-222222222222");
+            case "COWORKER":
+                return UUID.fromString("22222222-2222-2222-2222-222222222223");
+            case "SENIOR":
+                return UUID.fromString("22222222-2222-2222-2222-222222222224");
+            default:
+                return UUID.fromString("22222222-2222-2222-2222-222222222221"); // 기본값: FRIEND
+        }
     }
 }

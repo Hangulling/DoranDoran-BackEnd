@@ -8,7 +8,6 @@ import com.dorandoran.user.service.UserService;
 import com.dorandoran.common.response.ApiResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
-import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
@@ -35,8 +34,8 @@ public class UserController {
      */
     @Operation(summary = "사용자 생성", description = "새로운 사용자를 등록합니다.")
     @ApiResponses(value = {
-        @ApiResponse(responseCode = "200", description = "사용자 생성 성공"),
-        @ApiResponse(responseCode = "400", description = "잘못된 요청 데이터")
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "사용자 생성 성공"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "잘못된 요청 데이터")
     })
     @PostMapping
     public ResponseEntity<ApiResponse<UserDto>> createUser(@RequestBody CreateUserRequest request) {
@@ -57,8 +56,8 @@ public class UserController {
      */
     @Operation(summary = "사용자 조회 (ID)", description = "사용자 ID로 사용자 정보를 조회합니다.")
     @ApiResponses(value = {
-        @ApiResponse(responseCode = "200", description = "사용자 조회 성공"),
-        @ApiResponse(responseCode = "404", description = "사용자를 찾을 수 없음")
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "사용자 조회 성공"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "사용자를 찾을 수 없음")
     })
     @GetMapping("/{userId}")
     public ResponseEntity<UserDto> getUserById(
@@ -139,8 +138,8 @@ public class UserController {
      */
     @Operation(summary = "현재 사용자 정보 조회", description = "인증된 사용자의 정보를 조회합니다.")
     @ApiResponses(value = {
-        @ApiResponse(responseCode = "200", description = "사용자 정보 조회 성공"),
-        @ApiResponse(responseCode = "401", description = "인증 실패")
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "사용자 정보 조회 성공"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "인증 실패")
     })
     @GetMapping("/me")
     public ResponseEntity<ApiResponse<UserDto>> getCurrentUser(
