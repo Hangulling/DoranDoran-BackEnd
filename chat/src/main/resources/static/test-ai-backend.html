@@ -1,0 +1,1344 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DoranDoran Chat Test - 개선된 UX</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1600px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+        
+        .header p {
+            font-size: 1.1em;
+            opacity: 0.9;
+        }
+        
+        .test-guide {
+            background: rgba(255,255,255,0.1);
+            margin-top: 15px;
+            padding: 15px;
+            border-radius: 10px;
+            font-size: 0.9em;
+        }
+        
+        .test-guide h4 {
+            margin-bottom: 10px;
+            color: #fff;
+        }
+        
+        .test-guide ul {
+            list-style: none;
+            padding: 0;
+        }
+        
+        .test-guide li {
+            margin: 5px 0;
+            padding-left: 20px;
+            position: relative;
+        }
+        
+        .test-guide li:before {
+            content: "✓";
+            position: absolute;
+            left: 0;
+            color: #4CAF50;
+            font-weight: bold;
+        }
+        
+        .main-content {
+            display: grid;
+            grid-template-columns: 1fr 2fr;
+            gap: 20px;
+            padding: 30px;
+        }
+        
+        .left-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        
+        .right-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        
+        .section {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 20px;
+            border: 1px solid #e1e8ed;
+        }
+        
+        .section h3 {
+            color: #2c3e50;
+            margin-bottom: 15px;
+            font-size: 1.2em;
+            border-bottom: 2px solid #3498db;
+            padding-bottom: 5px;
+        }
+        
+        .form-group {
+            margin-bottom: 15px;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 600;
+            color: #34495e;
+        }
+        
+        .form-group input, .form-group select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 14px;
+        }
+        
+        .form-group input:focus, .form-group select:focus {
+            outline: none;
+            border-color: #3498db;
+            box-shadow: 0 0 5px rgba(52, 152, 219, 0.3);
+        }
+        
+        .btn {
+            background: linear-gradient(135deg, #3498db, #2980b9);
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            margin: 5px;
+        }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(52, 152, 219, 0.4);
+        }
+        
+        .btn:disabled {
+            background: #bdc3c7;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+        
+        .btn-success {
+            background: linear-gradient(135deg, #27ae60, #229954);
+        }
+        
+        .btn-danger {
+            background: linear-gradient(135deg, #e74c3c, #c0392b);
+        }
+        
+        .btn-warning {
+            background: linear-gradient(135deg, #f39c12, #e67e22);
+        }
+        
+        .status {
+            padding: 10px;
+            border-radius: 5px;
+            margin: 10px 0;
+            font-weight: 600;
+        }
+        
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        
+        .status.info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+        
+        .status.warning {
+            background: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeaa7;
+        }
+        
+        .chat-container {
+            background: white;
+            border: 1px solid #e1e8ed;
+            border-radius: 10px;
+            height: 500px;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .chat-messages {
+            flex: 1;
+            padding: 15px;
+            overflow-y: auto;
+            background: #f8f9fa;
+        }
+        
+        .message {
+            margin-bottom: 15px;
+            padding: 10px 15px;
+            border-radius: 15px;
+            max-width: 80%;
+            word-wrap: break-word;
+        }
+        
+        .message.user {
+            background: #3498db;
+            color: white;
+            margin-left: auto;
+        }
+        
+        .message.bot {
+            background: #ecf0f1;
+            color: #2c3e50;
+            margin-right: auto;
+        }
+        
+        .message.system {
+            background: #f39c12;
+            color: white;
+            text-align: center;
+            margin: 0 auto;
+            max-width: 100%;
+        }
+        
+        .message.vocabulary {
+            background: #e3f2fd;
+            color: #1565c0;
+            margin-right: auto;
+            border-left: 3px solid #2196f3;
+        }
+        
+        .message.translation {
+            background: #f3e5f5;
+            color: #6a1b9a;
+            margin-right: auto;
+            border-left: 3px solid #9c27b0;
+        }
+        
+        .message.intimacy {
+            background: #fff3e0;
+            color: #e65100;
+            margin-left: auto;
+            border-left: 3px solid #ff9800;
+        }
+        
+        .chat-input {
+            padding: 15px;
+            border-top: 1px solid #e1e8ed;
+            display: flex;
+            gap: 10px;
+        }
+        
+        .chat-input input {
+            flex: 1;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 20px;
+            outline: none;
+        }
+        
+        .chat-input input:focus {
+            border-color: #3498db;
+        }
+        
+        .room-list {
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        
+        .room-item {
+            padding: 10px;
+            border: 1px solid #e1e8ed;
+            border-radius: 5px;
+            margin-bottom: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        
+        .room-item:hover {
+            background: #e8f4f8;
+        }
+        
+        .room-item.active {
+            background: #3498db;
+            color: white;
+        }
+        
+        .sse-status {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin: 10px 0;
+        }
+        
+        .status-indicator {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            display: inline-block;
+        }
+        
+        .status-indicator.connected {
+            background: #27ae60;
+            box-shadow: 0 0 10px rgba(39, 174, 96, 0.5);
+        }
+        
+        .status-indicator.disconnected {
+            background: #e74c3c;
+        }
+        
+        .log-container {
+            background: #2c3e50;
+            color: #ecf0f1;
+            padding: 15px;
+            border-radius: 5px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        
+        .log-entry {
+            margin-bottom: 5px;
+            padding: 2px 0;
+        }
+        
+        .log-entry.error {
+            color: #e74c3c;
+        }
+        
+        .log-entry.success {
+            color: #27ae60;
+        }
+        
+        .log-entry.info {
+            color: #3498db;
+        }
+        
+        .hidden {
+            display: none;
+        }
+        
+        .grid-2 {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+        
+        .full-width {
+            grid-column: 1 / -1;
+        }
+        
+        textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 13px;
+            resize: vertical;
+            min-height: 150px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🤖 DoranDoran Chat Test</h1>
+            <p>개선된 UX - 이메일 기반 로그인 & 자동 SSE 연결</p>
+            <div class="test-guide">
+                <h4>📋 테스트 가이드</h4>
+                <ul>
+                    <li>이메일로 로그인 (test1@example.com ~ test10@example.com)</li>
+                    <li>컨셉과 친밀도 선택 후 채팅방 생성</li>
+                    <li>자동 SSE 연결 및 채팅 시작</li>
+                    <li>챗봇 프롬프트 조회/수정 가능</li>
+                </ul>
+            </div>
+                </div>
+                
+        <div class="main-content">
+            <!-- 왼쪽 패널 -->
+            <div class="left-panel">
+                <!-- 사용자 로그인 섹션 -->
+                <div class="section">
+                    <h3>🔐 사용자 로그인</h3>
+                    <div class="form-group">
+                        <label for="userEmail">이메일 주소</label>
+                        <input type="email" id="userEmail" placeholder="test1@example.com" value="test1@example.com">
+                    </div>
+                    <button class="btn" onclick="loginWithEmail()">로그인</button>
+                    <div id="loginStatus" class="status hidden"></div>
+            </div>
+            
+                <!-- 채팅방 생성 섹션 -->
+                <div class="section">
+                    <h3>🏠 채팅방 생성</h3>
+                    <div class="form-group">
+                        <label for="roomName">채팅방 이름</label>
+                        <input type="text" id="roomName" placeholder="테스트 채팅방" value="테스트 채팅방">
+                </div>
+                    <div class="form-group">
+                        <label for="concept">컨셉</label>
+                        <select id="concept">
+                            <option value="FRIEND">친구</option>
+                            <option value="HONEY">꿀</option>
+                            <option value="COWORKER">동료</option>
+                            <option value="SENIOR">선배</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="intimacyLevel">친밀도 레벨</label>
+                        <select id="intimacyLevel">
+                            <option value="1">1 - 격식체/존댓말</option>
+                            <option value="2" selected>2 - 부드러운 존댓말</option>
+                            <option value="3">3 - 친근한 반말</option>
+                        </select>
+                    </div>
+                    <button class="btn btn-success" onclick="createAndEnterRoom()">채팅방 생성 & 입장</button>
+                    <div id="roomStatus" class="status hidden"></div>
+                    </div>
+                    
+                <!-- 채팅방 목록 섹션 -->
+                <div class="section">
+                    <h3>📋 채팅방 목록</h3>
+                    <button class="btn" onclick="loadChatRooms()">목록 새로고침</button>
+                    <div id="roomList" class="room-list"></div>
+                    </div>
+                
+                <!-- SSE 연결 상태 섹션 -->
+                <div class="section">
+                    <h3>🔗 SSE 연결 상태</h3>
+                    <div class="sse-status">
+                        <span class="status-indicator disconnected" id="sseIndicator"></span>
+                        <span id="sseStatusText">연결 끊김</span>
+                    </div>
+                    <button class="btn" onclick="connectSSE()" id="connectBtn">SSE 연결</button>
+                    <button class="btn btn-danger" onclick="disconnectSSE()" id="disconnectBtn">연결 끊기</button>
+                </div>
+                </div>
+
+            <!-- 오른쪽 패널 -->
+            <div class="right-panel">
+                <!-- 채팅방 정보 및 나가기 (채팅방 입장 후에만 표시) -->
+                <div class="section hidden" id="chatRoomInfo">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <h3>💬 채팅방</h3>
+                        <button class="btn btn-danger" onclick="leaveChatRoom()" style="margin: 0;">나가기</button>
+                    </div>
+                    <div id="roomInfoDisplay" style="margin-top: 10px; padding: 10px; background: #f8f9fa; border-radius: 4px;">
+                        <p style="margin: 5px 0;"><strong>채팅방 ID:</strong> <span id="currentRoomIdDisplay">-</span></p>
+                    </div>
+                    
+                    <!-- 친밀도 변경 UI -->
+                    <div class="form-group" style="margin-top: 15px;">
+                        <label for="currentIntimacyLevel">현재 친밀도 레벨</label>
+                        <select id="currentIntimacyLevel">
+                            <option value="1">1 - 격식체/존댓말</option>
+                            <option value="2">2 - 부드러운 존댓말</option>
+                            <option value="3">3 - 친근한 반말</option>
+                        </select>
+                        <button class="btn btn-warning" onclick="updateIntimacyLevel()" style="margin-top: 10px;">친밀도 변경</button>
+                    </div>
+                </div>
+                
+                <!-- 채팅 인터페이스 -->
+                <div class="section">
+                    <h3>💬 채팅</h3>
+                    <div class="chat-container">
+                        <div id="chatMessages" class="chat-messages">
+                            <div class="message system">채팅방에 입장하면 여기에 메시지가 표시됩니다.</div>
+                    </div>
+                <div class="chat-input">
+                            <input type="text" id="messageInput" placeholder="메시지를 입력하세요..." onkeypress="handleKeyPress(event)">
+                        <button class="btn" onclick="sendMessage()">전송</button>
+                    </div>
+                    </div>
+                </div>
+                
+                <!-- 챗봇 관리 섹션 (채팅방 입장 후에만 표시) -->
+                <div class="section hidden" id="chatbotManagement">
+                    <h3>🤖 챗봇 관리</h3>
+                    <div class="form-group">
+                        <label for="agentType">에이전트 타입</label>
+                        <select id="agentType" onchange="loadChatbotPrompt()">
+                            <option value="conversation">대화 (ConversationAgent)</option>
+                            <option value="intimacy">친밀도 분석 (IntimacyAgent)</option>
+                            <option value="vocabulary">어휘 추출 (VocabularyAgent)</option>
+                            <option value="translation">번역 (TranslationAgent)</option>
+                        </select>
+                    </div>
+                    
+                    <!-- Base Prompt (수정 가능) -->
+                    <div class="form-group">
+                        <label for="basePromptText">
+                            📝 Base Prompt (수정 가능)
+                            <span style="font-size: 0.9em; color: #666; font-weight: normal;">
+                                - 기본 지시사항을 작성하세요
+                            </span>
+                        </label>
+                        <textarea id="basePromptText" rows="8" placeholder="Base Prompt를 입력하세요..."></textarea>
+                    </div>
+                    
+                    <!-- Dynamic Directives (읽기 전용) -->
+                    <div class="form-group" id="dynamicDirectivesSection" style="display: none;">
+                        <label for="dynamicDirectivesText">
+                            🔄 Dynamic Directives (자동 생성, 읽기 전용)
+                            <span style="font-size: 0.9em; color: #666; font-weight: normal;">
+                                - Concept와 Intimacy Level에 따라 자동으로 추가됩니다
+                            </span>
+                        </label>
+                        <textarea id="dynamicDirectivesText" rows="6" readonly 
+                            style="background: #f0f0f0; cursor: not-allowed;" 
+                            placeholder="채팅방 입장 후 자동 생성됩니다..."></textarea>
+                    </div>
+                    
+                    <!-- 전체 프롬프트 미리보기 -->
+                    <div class="form-group" id="fullPromptSection" style="display: none;">
+                        <label for="fullPromptText">
+                            👁️ 전체 프롬프트 미리보기 (실제 AI에 전달되는 프롬프트)
+                        </label>
+                        <textarea id="fullPromptText" rows="12" readonly 
+                            style="background: #f9f9f9; border: 2px solid #3498db; cursor: default;" 
+                            placeholder="채팅방 입장 후 확인할 수 있습니다..."></textarea>
+                    </div>
+                    
+                    <div class="grid-2">
+                        <button class="btn" onclick="loadChatbotPrompt()">프롬프트 조회</button>
+                        <button class="btn btn-warning" onclick="updateChatbotPrompt()">Base Prompt 수정</button>
+                        <button class="btn btn-danger full-width" onclick="resetChatbotPrompt()">기본값으로 리셋</button>
+                    </div>
+                    <div id="promptDisplay" class="status hidden"></div>
+            </div>
+
+        <!-- 로그 섹션 -->
+                <div class="section">
+                    <h3>📊 로그</h3>
+                    <button class="btn" onclick="clearLogs()">로그 지우기</button>
+                    <div id="logContainer" class="log-container">
+                        <div class="log-entry info">시스템이 시작되었습니다.</div>
+                </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 전역 변수
+        let currentUserId = null;
+        let currentRoomId = null;
+        let currentChatbotId = null;  // 현재 채팅방의 챗봇 ID
+        let eventSource = null;
+        let isConnected = false;
+        let conversationBuffer = '';  // 대화 청크 버퍼
+        let displayedVocabulary = new Set();  // 중복 방지용
+        let pendingResponses = {
+            intimacy: null,
+            vocabulary: null,
+            translation: null,
+            conversation: null
+        };
+        let isLoadingResponse = false;
+
+        // 로그 함수
+        function log(message, type = 'info') {
+            const logContainer = document.getElementById('logContainer');
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = document.createElement('div');
+            logEntry.className = `log-entry ${type}`;
+            logEntry.textContent = `[${timestamp}] ${message}`;
+            logContainer.appendChild(logEntry);
+            logContainer.scrollTop = logContainer.scrollHeight;
+        }
+
+        // 로딩 UI 함수
+        function showLoadingMessage() {
+            const chatMessages = document.getElementById('chatMessages');
+            const loadingDiv = document.createElement('div');
+            loadingDiv.id = 'ai-loading';
+            loadingDiv.className = 'message bot';
+            loadingDiv.style.fontStyle = 'italic';
+            loadingDiv.style.opacity = '0.7';
+            loadingDiv.textContent = 'AI가 답변을 준비 중입니다...';
+            chatMessages.appendChild(loadingDiv);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+            isLoadingResponse = true;
+        }
+
+        function hideLoadingMessage() {
+            const loadingDiv = document.getElementById('ai-loading');
+            if (loadingDiv) {
+                loadingDiv.remove();
+            }
+            isLoadingResponse = false;
+        }
+
+        function clearLogs() {
+            document.getElementById('logContainer').innerHTML = '<div class="log-entry info">로그가 지워졌습니다.</div>';
+        }
+
+        // 응답 관리 함수
+        function checkAndDisplayAllResponses() {
+            // 모든 Agent가 응답했는지 확인
+            if (pendingResponses.intimacy !== null && 
+                pendingResponses.vocabulary !== null && 
+                pendingResponses.translation !== null && 
+                pendingResponses.conversation !== null) {
+                
+                hideLoadingMessage();
+                
+                // 순서대로 표시
+                // 1. Intimacy 피드백 (교정 포함)
+                if (pendingResponses.intimacy.feedback) {
+                    let message = `📊 ${pendingResponses.intimacy.feedback}`;
+                    if (pendingResponses.intimacy.correctedSentence) {
+                        message += `\n✏️ 교정된 문장: ${pendingResponses.intimacy.correctedSentence}`;
+                    }
+                    addMessageToChat(message, 'intimacy', false);
+                }
+                
+                // 2. 봇 응답
+                addMessageToChat(pendingResponses.conversation, 'bot', false);
+                
+                // 3. Vocabulary
+                if (pendingResponses.vocabulary.word) {
+                    const message = `💡 새로운 표현: ${pendingResponses.vocabulary.word}`;
+                    addMessageToChat(message, 'vocabulary', false);
+                }
+                
+                // 4. Translation
+                if (pendingResponses.translation.text) {
+                    addMessageToChat(pendingResponses.translation.text, 'translation', false);
+                }
+                
+                // 초기화
+                resetPendingResponses();
+            }
+        }
+
+        function resetPendingResponses() {
+            pendingResponses = {
+                intimacy: null,
+                vocabulary: null,
+                translation: null,
+                conversation: null
+            };
+        }
+
+        // 상태 표시 함수
+        function showStatus(elementId, message, type = 'info') {
+            const element = document.getElementById(elementId);
+            element.textContent = message;
+            element.className = `status ${type}`;
+            element.classList.remove('hidden');
+        }
+
+        // 이메일로 로그인
+        async function loginWithEmail() {
+            const email = document.getElementById('userEmail').value.trim();
+            if (!email) {
+                showStatus('loginStatus', '이메일을 입력해주세요.', 'error');
+                return;
+            }
+
+            try {
+                log(`이메일로 로그인 시도: ${email}`);
+                const response = await fetch(`/api/chat/users/by-email?email=${encodeURIComponent(email)}`);
+                
+                if (response.ok) {
+                    const user = await response.json();
+                    currentUserId = user.id;
+                    showStatus('loginStatus', `로그인 성공: ${user.name} (${user.email})`, 'success');
+                    log(`로그인 성공: ${user.name} (${user.id})`, 'success');
+                    
+                    // 채팅방 목록 로드
+                    loadChatRooms();
+                } else if (response.status === 404) {
+                    showStatus('loginStatus', '사용자를 찾을 수 없습니다.', 'error');
+                    log(`사용자 없음: ${email}`, 'error');
+                } else {
+                    showStatus('loginStatus', '로그인 실패', 'error');
+                    log(`로그인 실패: ${response.status}`, 'error');
+                }
+            } catch (error) {
+                showStatus('loginStatus', '로그인 중 오류 발생', 'error');
+                log(`로그인 오류: ${error.message}`, 'error');
+            }
+        }
+
+        // 채팅방 생성 및 입장
+        async function createAndEnterRoom() {
+            if (!currentUserId) {
+                showStatus('roomStatus', '먼저 로그인해주세요.', 'error');
+                return;
+            }
+
+            const roomName = document.getElementById('roomName').value.trim();
+            const concept = document.getElementById('concept').value;
+            const intimacyLevel = parseInt(document.getElementById('intimacyLevel').value);
+
+            if (!roomName) {
+                showStatus('roomStatus', '채팅방 이름을 입력해주세요.', 'error');
+                return;
+            }
+
+            try {
+                log(`채팅방 생성 시도: ${roomName} (${concept}, 레벨 ${intimacyLevel})`);
+                
+                // concept별 챗봇 UUID 매핑
+                const chatbotIdMap = {
+                    'FRIEND': '22222222-2222-2222-2222-222222222221',
+                    'HONEY': '22222222-2222-2222-2222-222222222222',
+                    'COWORKER': '22222222-2222-2222-2222-222222222223',
+                    'SENIOR': '22222222-2222-2222-2222-222222222224'
+                };
+                
+                const chatbotId = chatbotIdMap[concept];
+                
+                const response = await fetch('/api/chat/chatrooms', {
+                    method: 'POST',
+                    headers: {
+                    'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        userId: currentUserId,
+                        chatbotId: chatbotId,
+                        name: roomName,
+                        concept: concept,
+                        intimacyLevel: intimacyLevel
+                    })
+                });
+
+                if (response.ok) {
+                    const room = await response.json();
+                    currentRoomId = room.id;
+                    showStatus('roomStatus', `채팅방 생성 성공: ${room.name}`, 'success');
+                    log(`채팅방 생성 성공: ${room.id}`, 'success');
+                    
+                    // 자동 SSE 연결
+                    await connectSSE();
+                    
+                    // 채팅방 입장
+                    enterRoom(room.id);
+                    
+                    // 채팅방 목록 새로고침
+                    loadChatRooms();
+                } else {
+                    const error = await response.text();
+                    showStatus('roomStatus', `채팅방 생성 실패: ${response.status}`, 'error');
+                    log(`채팅방 생성 실패: ${error}`, 'error');
+                }
+            } catch (error) {
+                showStatus('roomStatus', '채팅방 생성 중 오류 발생', 'error');
+                log(`채팅방 생성 오류: ${error.message}`, 'error');
+            }
+        }
+
+        // 채팅방 입장
+        async function enterRoom(roomId) {
+            currentRoomId = roomId;
+            log(`채팅방 입장: ${roomId}`);
+            
+            // 버퍼 및 상태 초기화
+            conversationBuffer = '';
+            displayedVocabulary.clear();
+            resetPendingResponses();
+            hideLoadingMessage();
+            
+            // 채팅방 정보 가져와서 chatbotId 설정
+            try {
+                const response = await fetch(`/api/chat/chatrooms/${roomId}?userId=${currentUserId}`);
+                if (response.ok) {
+                    const room = await response.json();
+                    currentChatbotId = room.chatbot?.id || room.chatbotId;
+                    log(`챗봇 ID 설정: ${currentChatbotId}`);
+                    
+                    // 채팅방 정보 표시
+                    document.getElementById('chatRoomInfo').classList.remove('hidden');
+                    document.getElementById('currentRoomIdDisplay').textContent = roomId.substring(0, 8) + '...';
+                    
+                    // 친밀도 레벨 표시 추가
+                    if (room.intimacyLevel) {
+                        document.getElementById('currentIntimacyLevel').value = room.intimacyLevel;
+                    }
+                }
+            } catch (error) {
+                log(`채팅방 정보 조회 오류: ${error.message}`, 'error');
+            }
+            
+            // 챗봇 관리 섹션 표시
+            document.getElementById('chatbotManagement').classList.remove('hidden');
+            
+            // 채팅 메시지 로드
+            loadMessages();
+        }
+
+        // 채팅방 목록 로드
+        async function loadChatRooms() {
+            if (!currentUserId) return;
+
+            try {
+                const response = await fetch(`/api/chat/chatrooms/all?userId=${currentUserId}`);
+                if (response.ok) {
+                    const rooms = await response.json();
+                    const roomList = document.getElementById('roomList');
+                    roomList.innerHTML = '';
+                    
+                    if (rooms.length === 0) {
+                        roomList.innerHTML = '<div class="room-item">채팅방이 없습니다.</div>';
+            } else {
+                        rooms.forEach(room => {
+                            const roomItem = document.createElement('div');
+                            roomItem.className = 'room-item';
+                            roomItem.textContent = `${room.name} (${room.chatbotId ? '챗봇 연결됨' : '챗봇 없음'})`;
+                            roomItem.onclick = () => enterRoom(room.id);
+                            roomList.appendChild(roomItem);
+                        });
+                    }
+                    log(`채팅방 목록 로드: ${rooms.length}개`, 'success');
+                }
+            } catch (error) {
+                log(`채팅방 목록 로드 오류: ${error.message}`, 'error');
+            }
+        }
+
+        // SSE 연결
+        async function connectSSE() {
+            if (!currentUserId || !currentRoomId) {
+                log('SSE 연결 실패: 사용자 ID 또는 채팅방 ID가 없습니다.', 'error');
+                return;
+            }
+            
+            if (eventSource) {
+                eventSource.close();
+            }
+
+            try {
+                const url = `/api/chat/stream/${currentRoomId}?userId=${currentUserId}`;
+                log(`SSE 연결 시도: ${url}`);
+                
+                eventSource = new EventSource(url);
+                
+                eventSource.onopen = function() {
+                    isConnected = true;
+                    updateSSEStatus(true);
+                    log('SSE 연결 성공', 'success');
+                };
+                
+                // 개별 이벤트 타입별 리스너 등록
+                eventSource.addEventListener('conversation_chunk', function(event) {
+                    try {
+                        // conversation_chunk는 순수 텍스트로 전송됨
+                        const data = event.data;
+                        log(`대화 청크 수신: ${data}`, 'info');
+                        
+                        // 청크를 버퍼에 저장만 하고 표시하지 않음
+                        conversationBuffer += data;
+                    } catch (e) {
+                        log(`대화 청크 처리 오류: ${e.message}`, 'error');
+                    }
+                });
+                
+                eventSource.addEventListener('conversation_complete', function(event) {
+                    try {
+                        const data = JSON.parse(event.data);
+                        log(`대화 완료: ${data.content}`, 'success');
+                        
+                        // data.content를 사용 (띄어쓰기 적용됨)
+                        pendingResponses.conversation = data.content;
+                        checkAndDisplayAllResponses();
+                    } catch (e) {
+                        log(`대화 완료 파싱 오류: ${e.message}`, 'error');
+                    }
+                });
+                
+                eventSource.addEventListener('intimacy_analysis', function(event) {
+                    try {
+                        const data = JSON.parse(event.data);
+                        log(`친밀도 분석: ${data.feedback}`, 'info');
+                        
+                        pendingResponses.intimacy = {
+                            feedback: data.feedback,
+                            correctedSentence: data.correctedSentence
+                        };
+                        checkAndDisplayAllResponses();
+                    } catch (e) {
+                        log(`친밀도 분석 파싱 오류: ${e.message}`, 'error');
+                    }
+                });
+                
+                eventSource.addEventListener('vocabulary_extracted', function(event) {
+                    try {
+                        const data = JSON.parse(event.data);
+                        log(`어휘 추출: ${data.words?.length || 0}개`, 'info');
+                        
+                        if (data.words && data.words.length > 0) {
+                            const word = data.words[0];
+                            const wordKey = `${currentRoomId}_${word.word}`;
+                            
+                            if (!displayedVocabulary.has(wordKey)) {
+                                pendingResponses.vocabulary = { word: word.word };
+                                displayedVocabulary.add(wordKey);
+                            } else {
+                                pendingResponses.vocabulary = {}; // 중복인 경우 빈 객체
+                            }
+                        } else {
+                            pendingResponses.vocabulary = {};
+                        }
+                        checkAndDisplayAllResponses();
+                    } catch (e) {
+                        log(`어휘 추출 파싱 오류: ${e.message}`, 'error');
+                    }
+                });
+                
+                eventSource.addEventListener('vocabulary_translated', function(event) {
+                    try {
+                        const data = JSON.parse(event.data);
+                        log(`번역 완료: ${data.translations?.length || 0}개`, 'info');
+                        
+                        if (data.translations && data.translations.length > 0) {
+                            const trans = data.translations[0];
+                            pendingResponses.translation = {
+                                text: `${trans.original} → ${trans.english} ${trans.pronunciation}`
+                            };
+                        } else {
+                            pendingResponses.translation = {};
+                        }
+                        checkAndDisplayAllResponses();
+                    } catch (e) {
+                        log(`번역 완료 파싱 오류: ${e.message}`, 'error');
+                    }
+                });
+                
+                eventSource.addEventListener('aggregated_complete', function(event) {
+                    try {
+                        const data = JSON.parse(event.data);
+                        log(`전체 처리 완료`, 'success');
+                    } catch (e) {
+                        log(`전체 처리 완료 파싱 오류: ${e.message}`, 'error');
+                    }
+                });
+                
+                eventSource.addEventListener('conversation_error', function(event) {
+                    try {
+                        const data = JSON.parse(event.data);
+                        addMessageToChat(`대화 오류: ${data}`, 'system');
+                        log(`대화 오류: ${data}`, 'error');
+                    } catch (e) {
+                        log(`대화 오류 파싱 오류: ${e.message}`, 'error');
+                    }
+                });
+                
+                eventSource.addEventListener('agent_error', function(event) {
+                    try {
+                        const data = JSON.parse(event.data);
+                        addMessageToChat(`에이전트 오류: ${data}`, 'system');
+                        log(`에이전트 오류: ${data}`, 'error');
+                    } catch (e) {
+                        log(`에이전트 오류 파싱 오류: ${e.message}`, 'error');
+                    }
+                });
+                
+                // 기본 메시지 처리 (fallback)
+                eventSource.onmessage = function(event) {
+                    log(`기본 SSE 메시지: ${event.data}`, 'info');
+                };
+                
+                eventSource.onerror = function(event) {
+                    isConnected = false;
+                    updateSSEStatus(false);
+                    log('SSE 연결 오류', 'error');
+                };
+                
+            } catch (error) {
+                log(`SSE 연결 오류: ${error.message}`, 'error');
+            }
+        }
+
+        // SSE 연결 끊기
+        function disconnectSSE() {
+            if (eventSource) {
+                eventSource.close();
+                eventSource = null;
+            }
+            isConnected = false;
+            updateSSEStatus(false);
+            log('SSE 연결 끊김', 'info');
+        }
+
+        // SSE 상태 업데이트
+        function updateSSEStatus(connected) {
+            const indicator = document.getElementById('sseIndicator');
+            const statusText = document.getElementById('sseStatusText');
+            
+            if (connected) {
+                indicator.className = 'status-indicator connected';
+                statusText.textContent = '연결됨';
+            } else {
+                indicator.className = 'status-indicator disconnected';
+                statusText.textContent = '연결 끊김';
+            }
+        }
+
+        // 메시지 전송
+        async function sendMessage() {
+            if (!currentUserId || !currentRoomId) {
+                log('메시지 전송 실패: 로그인 또는 채팅방 입장이 필요합니다.', 'error');
+                return;
+            }
+            
+            const messageInput = document.getElementById('messageInput');
+            const content = messageInput.value.trim();
+            
+            if (!content) return;
+
+            try {
+                // 사용자 메시지 표시
+                addMessageToChat(content, 'user');
+                messageInput.value = '';
+                
+                // 응답 상태 초기화 및 로딩 표시
+                resetPendingResponses();
+                showLoadingMessage();
+                
+                const response = await fetch(`/api/chat/chatrooms/${currentRoomId}/messages?userId=${currentUserId}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        content: content,
+                        senderType: 'user',
+                        contentType: 'text'
+                    })
+                });
+
+                if (response.ok) {
+                    const message = await response.json();
+                    log(`메시지 전송 성공: ${content}`, 'success');
+                } else {
+                    log(`메시지 전송 실패: ${response.status}`, 'error');
+                }
+            } catch (error) {
+                log(`메시지 전송 오류: ${error.message}`, 'error');
+            }
+        }
+
+        // 채팅에 메시지 추가
+        function addMessageToChat(content, type, isChunk = false) {
+            const chatMessages = document.getElementById('chatMessages');
+            
+            if (isChunk && type === 'bot') {
+                // 청크 메시지인 경우 기존 봇 메시지에 추가
+                let lastMessage = chatMessages.lastElementChild;
+                if (lastMessage && lastMessage.classList.contains('message') && lastMessage.classList.contains('bot')) {
+                    lastMessage.textContent += content;
+                } else {
+                    // 새로운 봇 메시지 생성
+                    const messageDiv = document.createElement('div');
+                    messageDiv.className = `message ${type}`;
+                    messageDiv.textContent = content;
+                    chatMessages.appendChild(messageDiv);
+                }
+            } else {
+                // 일반 메시지
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${type}`;
+                messageDiv.textContent = content;
+            chatMessages.appendChild(messageDiv);
+            }
+            
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+
+        // 메시지 로드
+        async function loadMessages() {
+            if (!currentRoomId) return;
+
+            try {
+                const response = await fetch(`/api/chat/chatrooms/${currentRoomId}/messages?userId=${currentUserId}`);
+                if (response.ok) {
+                    const data = await response.json();
+                    const messages = data.content || [];
+                    
+                    const chatMessages = document.getElementById('chatMessages');
+                    chatMessages.innerHTML = '';
+                    
+                    messages.forEach(msg => {
+                        addMessageToChat(msg.content, msg.senderType);
+                    });
+                    
+                    log(`메시지 로드: ${messages.length}개`, 'success');
+                }
+            } catch (error) {
+                log(`메시지 로드 오류: ${error.message}`, 'error');
+            }
+        }
+
+        // 키보드 이벤트 처리
+        function handleKeyPress(event) {
+            if (event.key === 'Enter') {
+                sendMessage();
+            }
+        }
+
+        // 챗봇 프롬프트 조회 (개선)
+        async function loadChatbotPrompt() {
+            if (!currentChatbotId) {
+                showStatus('promptDisplay', '채팅방에 입장해주세요.', 'error');
+                document.getElementById('basePromptText').value = '';
+                return;
+            }
+            
+            try {
+                const agentType = document.getElementById('agentType').value;
+                
+                // Conversation과 Intimacy만 Dynamic Directives 표시
+                const showDynamic = (agentType === 'conversation' || agentType === 'intimacy');
+                document.getElementById('dynamicDirectivesSection').style.display = showDynamic ? 'block' : 'none';
+                document.getElementById('fullPromptSection').style.display = showDynamic ? 'block' : 'none';
+                
+                let url = `/api/chat/chatbots/prompt/full?chatbotId=${currentChatbotId}&agentType=${agentType}`;
+                if (currentRoomId) {
+                    url += `&chatroomId=${currentRoomId}`;
+                }
+                
+                const response = await fetch(url);
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    
+                    if (data.type === 'full') {
+                        // 전체 프롬프트 (Base + Dynamic)
+                        document.getElementById('basePromptText').value = data.basePrompt || '';
+                        
+                        // Dynamic Directives 계산 (fullPrompt - basePrompt)
+                        const dynamicPart = data.fullPrompt.replace(data.basePrompt, '').trim();
+                        document.getElementById('dynamicDirectivesText').value = dynamicPart || '(Dynamic Directives 없음)';
+                        document.getElementById('fullPromptText').value = data.fullPrompt || '';
+                        
+                        showStatus('promptDisplay', 
+                            `✅ ${data.message}\n💡 Base Prompt만 수정 가능하며, Dynamic Directives는 자동으로 추가됩니다.`, 
+                            'success');
+                    } else {
+                        // Base만
+                        document.getElementById('basePromptText').value = data.prompt || '';
+                        document.getElementById('dynamicDirectivesText').value = '';
+                        document.getElementById('fullPromptText').value = '';
+                        showStatus('promptDisplay', data.message, 'info');
+                    }
+                    
+                    log(`챗봇 프롬프트 조회: ${agentType}`, 'success');
+                } else {
+                    showStatus('promptDisplay', '프롬프트 조회 실패', 'error');
+                    document.getElementById('basePromptText').value = '';
+                }
+            } catch (error) {
+                showStatus('promptDisplay', '프롬프트 조회 중 오류 발생', 'error');
+                log(`프롬프트 조회 오류: ${error.message}`, 'error');
+                document.getElementById('basePromptText').value = '';
+            }
+        }
+
+        // 챗봇 프롬프트 수정
+        async function updateChatbotPrompt() {
+            if (!currentChatbotId) {
+                showStatus('promptDisplay', '채팅방에 입장해주세요.', 'error');
+                return;
+            }
+
+            const newPrompt = document.getElementById('basePromptText').value.trim();
+            if (!newPrompt) {
+                showStatus('promptDisplay', 'Base Prompt를 입력해주세요.', 'error');
+                return;
+            }
+
+            try {
+                const agentType = document.getElementById('agentType').value;
+                const response = await fetch('/api/chat/chatbots/prompt', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        chatbotId: currentChatbotId,
+                        agentType: agentType,
+                        systemPrompt: newPrompt
+                    })
+                });
+
+                if (response.ok) {
+                    showStatus('promptDisplay', '✅ Base Prompt 수정 성공!\n🔄 다음 메시지부터 새 프롬프트가 적용됩니다.', 'success');
+                    log(`챗봇 프롬프트 수정: ${agentType}`, 'success');
+                    
+                    // 수정 후 자동 재조회
+                    setTimeout(() => loadChatbotPrompt(), 500);
+                } else {
+                    showStatus('promptDisplay', '프롬프트 수정 실패', 'error');
+                }
+            } catch (error) {
+                showStatus('promptDisplay', '프롬프트 수정 중 오류 발생', 'error');
+                log(`프롬프트 수정 오류: ${error.message}`, 'error');
+            }
+        }
+
+        // 챗봇 프롬프트 리셋
+        async function resetChatbotPrompt() {
+            if (!currentChatbotId) {
+                showStatus('promptDisplay', '채팅방에 입장해주세요.', 'error');
+                return;
+            }
+
+            if (!confirm('프롬프트를 기본값으로 리셋하시겠습니까?')) {
+                return;
+            }
+
+            try {
+                const agentType = document.getElementById('agentType').value;
+                const response = await fetch(`/api/chat/chatbots/reset?chatbotId=${currentChatbotId}&agentType=${agentType}`, {
+                    method: 'POST'
+                });
+
+                if (response.ok) {
+                    showStatus('promptDisplay', '프롬프트 리셋 성공', 'success');
+                    log(`챗봇 프롬프트 리셋: ${agentType}`, 'success');
+                    // 리셋 후 자동으로 조회
+                    await loadChatbotPrompt();
+                } else {
+                    showStatus('promptDisplay', '프롬프트 리셋 실패', 'error');
+                }
+            } catch (error) {
+                showStatus('promptDisplay', '프롬프트 리셋 중 오류 발생', 'error');
+                log(`프롬프트 리셋 오류: ${error.message}`, 'error');
+            }
+        }
+
+        // 채팅방 나가기
+        async function leaveChatRoom() {
+            if (!currentRoomId) {
+                log('채팅방에 입장하지 않았습니다.', 'error');
+                return;
+            }
+            
+            if (!confirm('채팅방을 나가시겠습니까?')) {
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/api/chat/chatrooms/${currentRoomId}/leave?userId=${currentUserId}`, {
+                    method: 'POST'
+                });
+                
+                if (response.ok || response.status === 204) {
+                    log('채팅방 나가기 성공', 'success');
+                    
+                    // SSE 연결 해제
+                    if (eventSource) {
+                        disconnectSSE();
+                    }
+                    
+                    // UI 초기화
+                    currentRoomId = null;
+                    currentChatbotId = null;
+                    document.getElementById('chatMessages').innerHTML = '<div class="message system">채팅방에 입장하면 여기에 메시지가 표시됩니다.</div>';
+                    document.getElementById('chatbotManagement').classList.add('hidden');
+                    document.getElementById('chatRoomInfo').classList.add('hidden');
+                    document.getElementById('currentRoomIdDisplay').textContent = '-';
+                    document.getElementById('promptText').value = '';
+                    
+                    // 채팅방 목록 새로고침
+                    loadChatRooms();
+                } else {
+                    log(`채팅방 나가기 실패: ${response.status}`, 'error');
+                }
+            } catch (error) {
+                log(`채팅방 나가기 오류: ${error.message}`, 'error');
+            }
+        }
+
+        // 친밀도 레벨 업데이트 함수
+        async function updateIntimacyLevel() {
+            if (!currentRoomId || !currentUserId) {
+                log('친밀도 변경 실패: 채팅방에 입장해주세요.', 'error');
+                return;
+            }
+            
+            const newLevel = parseInt(document.getElementById('currentIntimacyLevel').value);
+            
+            try {
+                const response = await fetch(`/api/chat/chatrooms/${currentRoomId}/intimacy`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ intimacyLevel: newLevel })
+                });
+                
+                if (response.ok) {
+                    const result = await response.json();
+                    log(`친밀도 변경 성공: 레벨 ${newLevel}`, 'success');
+                    addMessageToChat(`📊 친밀도가 레벨 ${newLevel}로 변경되었습니다.`, 'system');
+                    
+                    // 프롬프트 자동 재조회 (Dynamic Directives 반영)
+                    if (currentChatbotId) {
+                        await loadChatbotPrompt();
+                    }
+                } else {
+                    log(`친밀도 변경 실패: ${response.status}`, 'error');
+                }
+            } catch (error) {
+                log(`친밀도 변경 오류: ${error.message}`, 'error');
+            }
+        }
+
+        // 페이지 로드 시 초기화
+        document.addEventListener('DOMContentLoaded', function() {
+            log('페이지 로드 완료', 'info');
+        });
+    </script>
+</body>
+</html>

@@ -25,6 +25,7 @@ public class ChatbotService {
     
     private final ChatbotRepository chatbotRepository;
     private final JdbcTemplate jdbcTemplate;
+    private final PromptService promptService;
     
     /**
      * 챗봇 프롬프트 업데이트
@@ -251,6 +252,22 @@ public class ChatbotService {
     }
 
     /**
+     * 챗봇 프롬프트 조회 (단일 프롬프트)
+     */
+    public String getChatbotPrompt(String chatbotId, String agentType) {
+        Chatbot chatbot = chatbotRepository.findById(UUID.fromString(chatbotId))
+            .orElseThrow(() -> new RuntimeException("Chatbot not found: " + chatbotId));
+        
+        return switch (agentType.toLowerCase()) {
+            case "conversation" -> chatbot.getSystemPrompt();
+            case "intimacy" -> chatbot.getIntimacySystemPrompt();
+            case "vocabulary" -> chatbot.getVocabularySystemPrompt();
+            case "translation" -> chatbot.getTranslationSystemPrompt();
+            default -> throw new IllegalArgumentException("Unknown agent type: " + agentType);
+        };
+    }
+
+    /**
      * 특정 Agent의 프롬프트 조회
      */
     public Map<String, String> getAgentPrompts(String chatbotId, String agentType) {
@@ -293,5 +310,29 @@ public class ChatbotService {
             log.error("Agent 프롬프트 조회 실패: {}", e.getMessage(), e);
             return Map.of();
         }
+    }
+    
+    /**
+     * 전체 프롬프트 조회 (Base + Dynamic)
+     */
+    public String getFullPromptForAgent(String chatbotId, String agentType, UUID chatroomId) {
+        return switch (agentType.toLowerCase()) {
+            case "conversation" -> promptService.buildFullConversationPrompt(chatroomId);
+            case "intimacy" -> promptService.buildFullIntimacyPrompt(chatroomId);
+            case "vocabulary", "translation" -> getChatbotPrompt(chatbotId, agentType);
+            default -> throw new IllegalArgumentException("Unknown agent type: " + agentType);
+        };
+    }
+
+    /**
+     * Base 프롬프트만 조회 (Dynamic Directives 제외)
+     */
+    public String getBasePromptForAgent(String chatbotId, String agentType, UUID chatroomId) {
+        return switch (agentType.toLowerCase()) {
+            case "conversation" -> promptService.getConversationBasePrompt(chatroomId);
+            case "intimacy" -> promptService.getIntimacyBasePrompt(chatroomId);
+            case "vocabulary", "translation" -> getChatbotPrompt(chatbotId, agentType);
+            default -> throw new IllegalArgumentException("Unknown agent type: " + agentType);
+        };
     }
 }

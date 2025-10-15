@@ -78,18 +78,23 @@ public class User {
     
     // Auth 서비스 내부 연관관계
     @OneToMany(mappedBy = "user", fetch = FetchType.LAZY, cascade = CascadeType.ALL)
+    @Builder.Default
     private List<LoginAttempt> loginAttempts = new ArrayList<>();
     
     @OneToMany(mappedBy = "user", fetch = FetchType.LAZY, cascade = CascadeType.ALL)
+    @Builder.Default
     private List<AuthEvent> authEvents = new ArrayList<>();
     
     @OneToMany(mappedBy = "user", fetch = FetchType.LAZY, cascade = CascadeType.ALL)
+    @Builder.Default
     private List<RefreshToken> refreshTokens = new ArrayList<>();
     
     @OneToMany(mappedBy = "user", fetch = FetchType.LAZY, cascade = CascadeType.ALL)
+    @Builder.Default
     private List<PasswordResetToken> passwordResetTokens = new ArrayList<>();
     
     @OneToMany(mappedBy = "user", fetch = FetchType.LAZY, cascade = CascadeType.ALL)
+    @Builder.Default
     private List<EmailVerification> emailVerifications = new ArrayList<>();
     
     /**

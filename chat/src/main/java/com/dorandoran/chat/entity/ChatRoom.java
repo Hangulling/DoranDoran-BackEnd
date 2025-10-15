@@ -70,10 +70,6 @@ public class ChatRoom {
     @Column(name = "is_deleted")
     private Boolean isDeleted;
     
-    @Version
-    @Column(name = "version")
-    private Long version;
-    
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;

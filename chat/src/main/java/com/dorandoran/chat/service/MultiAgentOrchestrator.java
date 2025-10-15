@@ -61,6 +61,7 @@ public class MultiAgentOrchestrator {
         log.info("=== MultiAgentOrchestrator: VocabularyAgent 호출 시작 ===");
         log.info("=== MultiAgentOrchestrator: VocabularyAgent 파라미터 - content='{}', userLevel={} ===", content, userLevel);
         Mono<VocabularyAgentResponse> vocabularyMono = vocabularyAgent.extractDifficultWords(content, userLevel)
+            .cache()  // ← 추가: 결과를 캐시하여 여러 번 구독 가능
             .doOnSubscribe(subscription -> log.info("=== MultiAgentOrchestrator: VocabularyAgent 스트림 구독 ==="))
             .doOnNext(resp -> {
                 log.info("=== VocabularyAgent 완료: {} ===", resp);

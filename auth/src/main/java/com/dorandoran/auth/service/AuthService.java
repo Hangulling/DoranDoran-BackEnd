@@ -14,6 +14,7 @@ import com.dorandoran.common.exception.ErrorCode;
 import com.dorandoran.shared.dto.UserDto;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import java.util.UUID;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -62,13 +63,13 @@ public class AuthService {
             String refreshToken = jwtService.generateRefreshToken(user.id().toString(), user.email(), user.name());
 
             // 성공 시도 기록
-            recordLoginAttempt(user.id(), user.email(), true);
+            recordLoginAttempt(UUID.fromString(user.id()), user.email(), true);
 
             // 리프레시 토큰 저장(해시)
-            saveRefreshToken(user.id(), refreshToken);
+            saveRefreshToken(UUID.fromString(user.id()), refreshToken);
 
             // 이벤트 로깅
-            recordAuthEvent(user.id(), "LOGIN");
+            recordAuthEvent(UUID.fromString(user.id()), "LOGIN");
             
             log.info("로그인 성공: userId={}, email={}", user.id(), user.email());
             
@@ -77,9 +78,7 @@ public class AuthService {
                     .refreshToken(refreshToken)
                     .tokenType("Bearer")
                     .expiresIn(3600L) // 1시간 (초 단위)
-                    .userId(user.id().toString())
-                    .email(user.email())
-                    .name(user.name())
+                    .user(user)
                     .build();
                     
         } catch (DoranDoranException e) {
@@ -170,7 +169,7 @@ public class AuthService {
             } else {
                 // UserDto를 User 엔티티로 변환
                 com.dorandoran.auth.entity.User userEntity = com.dorandoran.auth.entity.User.builder()
-                        .id(user.id())
+                        .id(UUID.fromString(user.id()))
                         .email(user.email())
                         .firstName(user.firstName())
                         .lastName(user.lastName())
@@ -199,7 +198,7 @@ public class AuthService {
             }
 
             // 이벤트 로깅
-            recordAuthEvent(user.id(), "TOKEN_ROTATE");
+            recordAuthEvent(UUID.fromString(user.id()), "TOKEN_ROTATE");
             
             log.info("토큰 갱신 성공: userId={}", user.id());
             
@@ -208,9 +207,7 @@ public class AuthService {
                     .refreshToken(newRefreshToken)
                     .tokenType("Bearer")
                     .expiresIn(3600L) // 1시간 (초 단위)
-                    .userId(user.id().toString())
-                    .email(user.email())
-                    .name(user.name())
+                    .user(user)
                     .build();
                     
         } catch (DoranDoranException e) {
@@ -270,7 +267,7 @@ public class AuthService {
                     // UserIntegrationService에서 UserDto를 받아서 User 엔티티로 변환
                     com.dorandoran.shared.dto.UserDto userDto = userIntegrationService.getUserById(userId.toString());
                     user = com.dorandoran.auth.entity.User.builder()
-                            .id(userDto.id())
+                            .id(UUID.fromString(userDto.id()))
                             .email(userDto.email())
                             .firstName(userDto.firstName())
                             .lastName(userDto.lastName())
@@ -309,7 +306,7 @@ public class AuthService {
             // UserIntegrationService에서 UserDto를 받아서 User 엔티티로 변환
             com.dorandoran.shared.dto.UserDto userDto = userIntegrationService.getUserById(userId.toString());
             com.dorandoran.auth.entity.User user = com.dorandoran.auth.entity.User.builder()
-                    .id(userDto.id())
+                    .id(UUID.fromString(userDto.id()))
                     .email(userDto.email())
                     .firstName(userDto.firstName())
                     .lastName(userDto.lastName())
@@ -349,7 +346,7 @@ public class AuthService {
                     // UserIntegrationService에서 UserDto를 받아서 User 엔티티로 변환
                     com.dorandoran.shared.dto.UserDto userDto = userIntegrationService.getUserById(userId.toString());
                     user = com.dorandoran.auth.entity.User.builder()
-                            .id(userDto.id())
+                            .id(UUID.fromString(userDto.id()))
                             .email(userDto.email())
                             .firstName(userDto.firstName())
                             .lastName(userDto.lastName())
@@ -393,7 +390,7 @@ public class AuthService {
             
             // UserDto를 User 엔티티로 변환
             com.dorandoran.auth.entity.User userEntity = com.dorandoran.auth.entity.User.builder()
-                    .id(user.id())
+                    .id(UUID.fromString(user.id()))
                     .email(user.email())
                     .firstName(user.firstName())
                     .lastName(user.lastName())
@@ -419,7 +416,7 @@ public class AuthService {
             passwordResetService.issue(userEntity, resetToken, expiresAt);
             
             // 이벤트 로깅
-            recordAuthEvent(user.id(), "PASSWORD_RESET_REQUESTED");
+            recordAuthEvent(UUID.fromString(user.id()), "PASSWORD_RESET_REQUESTED");
             
             log.info("비밀번호 재설정 토큰 생성 완료: userId={}, email={}", user.id(), email);
             

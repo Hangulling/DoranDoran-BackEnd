@@ -25,8 +25,8 @@ public class SecurityConfig {
                 .requestMatchers("/actuator/**").permitAll()
                 // 로그인 관련 엔드포인트는 허용
                 .requestMatchers("/api/auth/login", "/api/auth/refresh", "/api/auth/password/reset/**", "/api/auth/health").permitAll()
-                // 기타 API 엔드포인트는 인증 필요
-                .requestMatchers("/api/**").authenticated()
+                // API 엔드포인트는 MSA 내부 통신이므로 허용 (HmacAuthInterceptor가 인증 담당)
+                .requestMatchers("/api/**").permitAll()
                 // 기타 모든 요청은 허용
                 .anyRequest().permitAll()
             )
