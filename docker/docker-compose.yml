@@ -89,6 +89,7 @@ services:
       - SPRING_REDIS_HOST=redis
       - SPRING_REDIS_PORT=6379
       - OPENAI_API_KEY=${OPENAI_API_KEY}
+<<<<<<< HEAD
     depends_on:
       shared-db:
         condition: service_healthy
@@ -110,6 +111,8 @@ services:
       - SPRING_JPA_HIBERNATE_DEFAULT_SCHEMA=store_schema
       - SPRING_REDIS_HOST=redis
       - SPRING_REDIS_PORT=6379
+=======
+>>>>>>> 537cffb (fix: OpenAI API 키를 환경변수로 변경하여 보안 강화)
     depends_on:
       shared-db:
         condition: service_healthy
