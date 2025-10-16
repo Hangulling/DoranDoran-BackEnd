@@ -106,17 +106,13 @@ public class ChatService {
 
         ChatRoom savedRoom = chatRoomRepository.save(room);
 
+        // 새로 생성된 채팅방 캐싱
+        cacheService.cacheChatRoom(savedRoom);
+
         // IntimacyProgress 초기화
         initializeIntimacyProgress(savedRoom.getId(), userId, intimacyLevel);
 
         return savedRoom;
-
-        ChatRoom saved = chatRoomRepository.save(room);
-
-        // 새로 생성된 채팅방 캐싱
-        cacheService.cacheChatRoom(saved);
-
-        return saved;
     }
 
     /**
@@ -130,7 +126,7 @@ public class ChatService {
     }
 
     /**
-     * 메시지 전송 (Redis Pub/Sub + 캐싱 통합)
+     * 메시지 전송
      */
     @Transactional
     public Message sendMessage(UUID chatroomId, UUID senderId, String senderType, String content, String contentType) {
