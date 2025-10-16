@@ -33,8 +33,39 @@ public class StorageService {
   private final StoreRepository storeRepository;
   private final ChatServiceClient chatServiceClient;  // 채팅방 정보 획득
 
+//  /**
+//   * 표현 보관하기
+//   */
+//  @Transactional
+//  public BookmarkResponse saveBookmark(UUID userId, BookmarkRequest request) {
+//    log.info("표현 보관 시작: userId={}, messageId={}", userId, request.getMessageId());
+//
+//    // 중복 체크
+//    if (storeRepository.existsByUserIdAndMessageIdAndIsDeletedFalse(userId, request.getMessageId())) {
+//      log.warn("중복 저장 시도: userId={}, messageId={}", userId, request.getMessageId());
+//      throw new DuplicateBookmarkException("이미 보관함에 저장된 표현입니다");
+//    }
+//
+//    // Store 엔티티 생성
+//    Store store = Store.builder()
+//        .userId(userId)
+//        .messageId(request.getMessageId())
+//        .chatroomId(request.getChatroomId())
+////        .chatbotId(request.getChatbotId())
+//        .content(request.getContent())
+//        .aiResponse(request.getAiResponse())
+//        .botType(request.getBotType())
+//        .isDeleted(false)
+//        .build();
+//
+//    Store saved = storeRepository.save(store);
+//    log.info("표현 보관 완료: storeId={}", saved.getId());
+//
+//    return BookmarkResponse.from(saved, "표현이 보관함에 저장되었습니다");
+//  }
+
   /**
-   * 표현 보관하기
+   * 표현 보관하기 - redis 적용
    */
   @Transactional
   public BookmarkResponse saveBookmark(UUID userId, BookmarkRequest request) {
@@ -46,12 +77,20 @@ public class StorageService {
       throw new DuplicateBookmarkException("이미 보관함에 저장된 표현입니다");
     }
 
-    // Store 엔티티 생성
+    // 1. Chat Service API 호출: Redis → DB 이동
+    try {
+      chatServiceClient.archiveMessage(request.getChatroomId(), request.getMessageId(), userId);
+      log.info("Chat Service 메시지 보관 완료: messageId={}", request.getMessageId());
+    } catch (Exception e) {
+      log.error("Chat Service 메시지 보관 실패: messageId={}", request.getMessageId(), e);
+      throw new RuntimeException("메시지 보관에 실패했습니다", e);
+    }
+
+    // 2. Store 엔티티 생성
     Store store = Store.builder()
         .userId(userId)
         .messageId(request.getMessageId())
         .chatroomId(request.getChatroomId())
-//        .chatbotId(request.getChatbotId())
         .content(request.getContent())
         .aiResponse(request.getAiResponse())
         .botType(request.getBotType())
@@ -195,10 +234,20 @@ public class StorageService {
       throw new IllegalStateException("이미 삭제된 항목입니다");
     }
 
-    // 소프트 삭제
+    // 1. Store 소프트 삭제
     store.setIsDeleted(true);
     store.setDeletedAt(LocalDateTime.now());
     storeRepository.save(store);
+
+    // 2. Chat Service API 호출: Message 소프트 삭제
+    try {
+      chatServiceClient.deleteMessage(store.getMessageId(), userId);
+      log.info("Chat Service 메시지 삭제 완료: messageId={}", store.getMessageId());
+    } catch (Exception e) {
+      log.error("Chat Service 메시지 삭제 실패: messageId={}", store.getMessageId(), e);
+      // Store는 이미 삭제 처리되었으므로 로그만 남김
+      // 동기화는 별도 배치 작업으로 처리
+    }
 
     log.info("보관함 삭제 완료: bookmarkId={}", bookmarkId);
   }
