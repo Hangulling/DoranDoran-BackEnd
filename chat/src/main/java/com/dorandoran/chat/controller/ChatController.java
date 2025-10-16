@@ -165,7 +165,8 @@ public class ChatController {
         if (senderType == null || !senderType.equalsIgnoreCase("user")) {
             senderType = "user";
         }
-        Message saved = chatService.sendMessage(chatroomId, senderId, senderType, request.getContent(), request.getContentType());
+//        Message saved = chatService.sendMessage(chatroomId, senderId, senderType, request.getContent(), request.getContentType());
+        Message saved = chatService.sendTemporaryMessage(chatroomId, senderId, senderType, request.getContent(), request.getContentType());
         log.info("=== ChatController: 메시지 저장 완료 - messageId={}, senderType={} ===", saved.getId(), senderType);
         
         if ("user".equalsIgnoreCase(senderType)) {
@@ -573,6 +574,57 @@ public class ChatController {
                 "success", false,
                 "error", e.getMessage()
             ));
+        }
+    }
+
+    /**
+     * 특정 메시지를 보관함에 저장 (Redis → DB 이동)
+     * Store 서비스에서 호출
+     */
+    @PostMapping("/messages/archive")
+    public ResponseEntity<Map<String, Object>> archiveMessage(
+        @RequestParam UUID chatroomId,
+        @RequestParam UUID messageId,
+        @RequestHeader("X-User-Id") UUID userId
+    ) {
+        log.info("POST /api/chat/messages/archive - chatroomId: {}, messageId: {}, userId: {}",
+            chatroomId, messageId, userId);
+
+        try {
+            Message savedMessage = chatService.saveMessageToArchive(chatroomId, messageId, userId);
+
+            return ResponseEntity.ok(Map.of(
+                "success", true,
+                "messageId", savedMessage.getId()
+            ));
+        } catch (Exception e) {
+            log.error("보관함 저장 실패: chatroomId={}, messageId={}, userId={}",
+                chatroomId, messageId, userId, e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(Map.of(
+                    "success", false,
+                    "error", e.getMessage()
+                ));
+        }
+    }
+
+    /**
+     * 메시지 소프트 삭제 (보관함 해제)
+     * Store 서비스에서 호출
+     */
+    @DeleteMapping("/messages/{messageId}")
+    public ResponseEntity<Void> deleteMessage(
+        @PathVariable UUID messageId,
+        @RequestHeader("X-User-Id") UUID userId
+    ) {
+        log.info("DELETE /api/chat/messages/{} - userId: {}", messageId, userId);
+
+        try {
+            chatService.deleteMessageFromArchive(messageId, userId);
+            return ResponseEntity.noContent().build();
+        } catch (RuntimeException e) {
+            log.error("메시지 삭제 실패: messageId={}, userId={}", messageId, userId, e);
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
         }
     }
 }

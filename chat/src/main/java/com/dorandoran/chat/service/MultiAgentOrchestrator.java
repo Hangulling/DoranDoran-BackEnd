@@ -149,7 +149,10 @@ public class MultiAgentOrchestrator {
           log.info("=== MultiAgentOrchestrator: collectList 성공, chunks: {} ===", chunks);
           String fullResponse = String.join("", chunks);
           log.info("=== MultiAgentOrchestrator: fullResponse: '{}' ===", fullResponse);
-          Message botMessage = chatService.sendMessage(
+//          Message botMessage = chatService.sendMessage(
+//              chatroomId, null, "bot", fullResponse, "text"
+//          );
+          Message botMessage = chatService.sendTemporaryMessage(
               chatroomId, null, "bot", fullResponse, "text"
           );
 //          sseManager.send(chatroomId, "conversation_complete", Map.of(

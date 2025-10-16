@@ -2,6 +2,7 @@ package com.dorandoran.chat.service;
 
 import com.dorandoran.chat.config.AIConfig;
 import com.dorandoran.chat.entity.Message;
+import com.dorandoran.chat.messaging.RedisMessagePublisher;
 import com.dorandoran.chat.sse.SSEManager;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -23,6 +24,7 @@ public class AIService {
     private final OpenAIClient openAIClient;
     private final PromptService promptService;
     private final BillingService billingService;
+    private final RedisMessagePublisher redisPublisher;
 
     @Async
     @Transactional(propagation = Propagation.REQUIRES_NEW)
@@ -63,12 +65,18 @@ public class AIService {
             .retryWhen(reactor.util.retry.Retry.backoff(3, java.time.Duration.ofSeconds(1)).transientErrors(true))
             .doOnComplete(() -> {
                 try {
-                    Message saved = chatService.sendMessage(chatroomId, null, "bot", "(AI 응답 완료)", "text");
+//                    Message saved = chatService.sendMessage(chatroomId, null, "bot", "(AI 응답 완료)", "text");
+                    Message saved = chatService.sendTemporaryMessage(chatroomId, null, "bot", "(AI ì'ë‹µ ì™„ë£Œ)", "text");
                     sseManager.send(chatroomId, "ai_response_done", saved.getId());
                     double totalCostIn = (inSum[0] / 1000.0) * aiConfig.getPricePer1kInput();
                     double totalCostOut = (outSum[0] / 1000.0) * aiConfig.getPricePer1kOutput();
                     sseManager.send(chatroomId, "ai_usage_total", String.format("tokens_in=%d,tokens_out=%d,cost_in=%.6f,cost_out=%.6f", inSum[0], outSum[0], totalCostIn, totalCostOut));
-                    log.info("AI 응답 완료: chatroomId={}, tokens_in={}, tokens_out={}", chatroomId, inSum[0], outSum[0]);
+
+                    // AI 응답 완료 이벤트 발행 (Redis Pub/Sub)
+                    redisPublisher.publishAIResponseCompleteEvent(chatroomId, saved.getId(), saved.getContent(), inSum[0] + outSum[0]);
+
+                    log.info("AI 응답 완료: chatroomId={}, messageId={}, tokens_in={}, tokens_out={}",
+                        chatroomId, saved.getId(), inSum[0], outSum[0]);
                 } catch (Exception e) {
                     log.error("AI 응답 완료 처리 중 오류: chatroomId={}", chatroomId, e);
                     sseManager.send(chatroomId, "ai_error", "AI 응답 완료 처리 중 오류가 발생했습니다.");

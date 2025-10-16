@@ -18,6 +18,8 @@ public interface MessageRepository extends JpaRepository<Message, UUID> {
     // 채팅방 ID로 메시지 목록을 시퀀스 순으로 정렬하여 찾기
     List<Message> findByChatRoomIdOrderBySequenceNumberAsc(UUID chatroomId);
 
+    List<Message> findByChatRoomIdAndIsDeletedFalseOrderBySequenceNumberAsc(UUID chatroomId);
+
     // 채팅방 ID와 삭제되지 않은 메시지 목록 찾기
     List<Message> findByChatRoomIdAndIsDeletedFalse(UUID chatroomId);
 

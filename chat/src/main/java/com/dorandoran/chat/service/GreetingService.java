@@ -37,12 +37,20 @@ public class GreetingService {
             
             String greetingMessage = buildGreetingMessage(concept, intimacyLevel);
             
-            // AI 인사말 메시지 저장
-            Message greeting = chatService.sendMessage(
-                chatroomId, 
-                null, 
-                "bot", 
-                greetingMessage, 
+//            // AI 인사말 메시지 저장
+//            Message greeting = chatService.sendMessage(
+//                chatroomId,
+//                null,
+//                "bot",
+//                greetingMessage,
+//                "text"
+//            );
+
+            Message greeting = chatService.sendTemporaryMessage(
+                chatroomId,
+                null,
+                "bot",
+                greetingMessage,
                 "text"
             );
             

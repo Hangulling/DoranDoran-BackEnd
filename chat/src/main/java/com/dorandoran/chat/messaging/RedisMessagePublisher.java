@@ -2,6 +2,8 @@ package com.dorandoran.chat.messaging;
 
 import com.dorandoran.chat.event.MessageEvent;
 import com.dorandoran.chat.event.SSEEvent;
+import java.util.HashMap;
+import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.RedisTemplate;
@@ -55,6 +57,44 @@ public class RedisMessagePublisher {
     } catch (Exception e) {
       log.error("SSE 이벤트 발행 실패: channel={}, eventType={}", channel, eventType, e);
     }
+  }
+
+  /**
+   * AI 응답 완료 이벤트 발행
+   *
+   * @param chatroomId 채팅방 ID
+   * @param messageId 메시지 ID
+   * @param content 응답 내용
+   * @param tokenCount 토큰 수
+   */
+  public void publishAIResponseCompleteEvent(UUID chatroomId, UUID messageId, String content, Integer tokenCount) {
+    Map<String, Object> data = new HashMap<>();
+    data.put("messageId", messageId);
+    data.put("content", content);
+    data.put("tokenCount", tokenCount);
+    data.put("timestamp", System.currentTimeMillis());
+
+    publishSSEEvent(chatroomId, "ai_response_complete", data);
+    log.info("AI 응답 완료 이벤트 발행: chatroomId={}, messageId={}", chatroomId, messageId);
+  }
+
+  /**
+   * 채팅방 상태 변경 이벤트 발행
+   *
+   * @param chatroomId 채팅방 ID
+   * @param status 변경된 상태 (archived, deleted, restored 등)
+   * @param metadata 추가 메타데이터
+   */
+  public void publishRoomStatusChangeEvent(UUID chatroomId, String status, Map<String, Object> metadata) {
+    Map<String, Object> data = new HashMap<>();
+    data.put("status", status);
+    data.put("timestamp", System.currentTimeMillis());
+    if (metadata != null) {
+      data.putAll(metadata);
+    }
+
+    publishSSEEvent(chatroomId, "room_status_change", data);
+    log.info("채팅방 상태 변경 이벤트 발행: chatroomId={}, status={}", chatroomId, status);
   }
 
   /**

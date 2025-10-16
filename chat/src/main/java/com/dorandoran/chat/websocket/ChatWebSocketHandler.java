@@ -80,7 +80,8 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
 				return;
 			}
 			
-			var saved = chatService.sendMessage(chatroomId, senderId, senderType, content, "text");
+//			var saved = chatService.sendMessage(chatroomId, senderId, senderType, content, "text");
+			var saved = chatService.sendTemporaryMessage(chatroomId, senderId, senderType, content, "text");
 			aiService.streamAIResponse(saved);
 			log.debug("WebSocket 메시지 처리 완료: chatroomId={}, userId={}", chatroomId, userId);
 		} catch (IllegalArgumentException e) {

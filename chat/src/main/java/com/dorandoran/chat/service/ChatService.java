@@ -16,10 +16,16 @@ import jakarta.transaction.Transactional;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import java.time.Duration;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -44,6 +50,7 @@ public class ChatService {
     // AI 트리거는 컨트롤러에서 수행하여 순환 의존 제거
     private final RedisMessagePublisher redisPublisher;
     private final RedisCacheService cacheService;
+    private final RedisTemplate<String, Object> redisTemplate;
 
     /**
      * 채팅방 조회 또는 생성 (userId + chatbotId 조합)
@@ -125,19 +132,70 @@ public class ChatService {
             .orElse(1L);
     }
 
+//    /**
+//     * 메시지 전송
+//     */
+//    @Transactional
+//    public Message sendMessage(UUID chatroomId, UUID senderId, String senderType, String content, String contentType) {
+//        long seq = nextSequenceNumber(chatroomId);
+//        // ChatRoom 객체 조회
+//        ChatRoom chatRoom = chatRoomRepository.findById(chatroomId)
+//            .orElseThrow(() -> new RuntimeException("ChatRoom not found: " + chatroomId));
+//
+//        Message message = Message.builder()
+//            .id(UUID.randomUUID())
+//            .chatRoom(chatRoom)
+//            .senderType(senderType)
+//            .senderId(senderId)
+//            .content(content)
+//            .contentType(contentType)
+//            .sequenceNumber(seq)
+//            .isDeleted(false)
+//            .isEdited(false)
+//            .build();
+//        Message saved = messageRepository.save(message);
+//
+//        chatRoomRepository.findById(chatroomId).ifPresent(room -> {
+//            room.setLastMessageAt(LocalDateTime.now());
+//            room.setLastMessage(saved);
+//            room.setUpdatedAt(LocalDateTime.now());
+//            chatRoomRepository.save(room);
+//
+//            // 채팅방 캐시 무효화 (lastMessage 변경)
+//            cacheService.invalidateChatRoomCache(chatroomId);
+//        });
+//
+//        // 메시지 캐시에 추가
+//        cacheService.appendMessageToCache(chatroomId, saved);
+//
+//        // Redis Pub/Sub으로 메시지 이벤트 발행
+//        MessageEvent event = new MessageEvent(
+//            saved.getId(),
+//            chatroomId,
+//            senderId,
+//            senderType,
+//            content,
+//            contentType,
+//            System.currentTimeMillis()
+//        );
+//        redisPublisher.publishMessage(event);
+//
+//        log.debug("메시지 저장 및 발행 완료: messageId={}, chatroomId={}", saved.getId(), chatroomId);
+//
+//        return saved;
+//    }
+
     /**
-     * 메시지 전송
+     * 임시 메시지 생성 (Redis 전용, messages 테이블 저장 안 함)
+     * 보관함에 저장하기 전까지는 Redis에만 보관
      */
     @Transactional
-    public Message sendMessage(UUID chatroomId, UUID senderId, String senderType, String content, String contentType) {
-        long seq = nextSequenceNumber(chatroomId);
-        // ChatRoom 객체 조회
-        ChatRoom chatRoom = chatRoomRepository.findById(chatroomId)
-            .orElseThrow(() -> new RuntimeException("ChatRoom not found: " + chatroomId));
+    public Message sendTemporaryMessage(UUID chatroomId, UUID senderId, String senderType, String content, String contentType) {
+        long seq = nextSequenceNumberFromRedis(chatroomId);
 
         Message message = Message.builder()
             .id(UUID.randomUUID())
-            .chatRoom(chatRoom)
+            .chatRoom(ChatRoom.builder().id(chatroomId).build())  // Proxy 객체 (DB 조회 안 함)
             .senderType(senderType)
             .senderId(senderId)
             .content(content)
@@ -145,25 +203,32 @@ public class ChatService {
             .sequenceNumber(seq)
             .isDeleted(false)
             .isEdited(false)
+            .createdAt(LocalDateTime.now())
             .build();
-        Message saved = messageRepository.save(message);
 
+        // Redis에만 저장 (messages 테이블 저장 안 함)
+        cacheService.appendTemporaryMessage(chatroomId, message);
+
+        // 채팅방 lastMessage 업데이트 (DB)
         chatRoomRepository.findById(chatroomId).ifPresent(room -> {
             room.setLastMessageAt(LocalDateTime.now());
-            room.setLastMessage(saved);
+            /**
+             * 임시 메시지는 messages 테이블에 없으므로 외래키 제약 위반
+             * 옵션 1: last_message_id는 NULL로 두고, last_message_at만 업데이트 * 현재 적용
+             * 옵션 2: 외래키 제약 조건 수정 (DEFERRABLE 또는 제거)
+             * 옵션 3: Redis에 last_message 정보 별도 저장
+             */
+            room.setLastMessage(null);  // 임시 메시지는 외래키 제약으로 인해 NULL
             room.setUpdatedAt(LocalDateTime.now());
             chatRoomRepository.save(room);
 
-            // 채팅방 캐시 무효화 (lastMessage 변경)
+            // 채팅방 캐시 무효화
             cacheService.invalidateChatRoomCache(chatroomId);
         });
 
-        // 메시지 캐시에 추가
-        cacheService.appendMessageToCache(chatroomId, saved);
-
-        // Redis Pub/Sub으로 메시지 이벤트 발행
+        // Redis Pub/Sub 발행
         MessageEvent event = new MessageEvent(
-            saved.getId(),
+            message.getId(),
             chatroomId,
             senderId,
             senderType,
@@ -173,9 +238,35 @@ public class ChatService {
         );
         redisPublisher.publishMessage(event);
 
-        log.debug("메시지 저장 및 발행 완료: messageId={}, chatroomId={}", saved.getId(), chatroomId);
+        log.debug("임시 메시지 생성 (Redis only): messageId={}, chatroomId={}", message.getId(), chatroomId);
+        return message;
+    }
 
-        return saved;
+    /**
+     * Redis 기반 시퀀스 번호 생성 (임시 메시지용)
+     */
+    private long nextSequenceNumberFromRedis(UUID chatroomId) {
+        String key = "seq:" + chatroomId;
+        Long seq = redisTemplate.opsForValue().increment(key);
+
+        if (seq == null || seq == 1) {
+            // 초기화: DB에서 최대 시퀀스 번호 조회
+            Long maxSeq = messageRepository.findTopByChatRoomIdOrderBySequenceNumberDesc(chatroomId)
+                .map(Message::getSequenceNumber)
+                .orElse(0L);
+
+            // Redis에 초기값 설정
+            redisTemplate.opsForValue().set(key, maxSeq + 1);
+
+            // TTL 설정 (1일)
+            redisTemplate.expire(key, Duration.ofDays(1));
+
+            log.debug("Redis 시퀀스 초기화: chatroomId={}, startSeq={}", chatroomId, maxSeq + 1);
+            return maxSeq + 1;
+        }
+
+        log.debug("Redis 시퀀스 생성: chatroomId={}, seq={}", chatroomId, seq);
+        return seq;
     }
 
     /**
@@ -202,28 +293,64 @@ public class ChatService {
         return messageRepository.findByChatRoomIdOrderBySequenceNumberAsc(chatroomId, pageable);
     }
 
-    /**
-     * 채팅방 메시지 목록 조회 (시퀀스 오름차순) - 전체
-     */
+//    /**
+//     * 채팅방 메시지 목록 조회 (시퀀스 오름차순) - 전체
+//     */
+//    @Transactional
+//    public List<Message> listMessages(UUID chatroomId) {
+//        // 1. 캐시 확인
+//        List<Message> cached = cacheService.getCachedMessages(chatroomId);
+//        if (!cached.isEmpty()) {
+//            log.debug("메시지 캐시에서 반환: chatroomId={}, count={}", chatroomId, cached.size());
+//            return cached;
+//        }
+//
+//        // 2. DB 조회
+//        log.debug("메시지 DB 조회: chatroomId={}", chatroomId);
+//        List<Message> messages = messageRepository.findByChatRoomIdOrderBySequenceNumberAsc(chatroomId);
+//
+//        // 3. 캐시 저장
+//        if (!messages.isEmpty()) {
+//            cacheService.cacheMessages(chatroomId, messages);
+//        }
+//
+//        return messages;
+//    }
+
     @Transactional
     public List<Message> listMessages(UUID chatroomId) {
-        // 1. 캐시 확인
-        List<Message> cached = cacheService.getCachedMessages(chatroomId);
-        if (!cached.isEmpty()) {
-            log.debug("메시지 캐시에서 반환: chatroomId={}, count={}", chatroomId, cached.size());
-            return cached;
+        List<Message> result = new ArrayList<>();
+
+        // 1. Redis 임시 메시지 조회
+        List<Message> temporaryMessages = cacheService.getTemporaryMessages(chatroomId);
+        log.debug("Redis 임시 메시지 조회: chatroomId={}, count={}", chatroomId, temporaryMessages.size());
+
+        // 2. DB 영구 메시지 조회 (캐시 우선)
+        List<Message> cachedMessages = cacheService.getCachedMessages(chatroomId);
+        if (!cachedMessages.isEmpty()) {
+            log.debug("영구 메시지 캐시 히트: chatroomId={}, count={}", chatroomId, cachedMessages.size());
+            result.addAll(cachedMessages);
+        } else {
+            // isDeleted = false인 메시지만 조회
+            List<Message> savedMessages = messageRepository.findByChatRoomIdAndIsDeletedFalseOrderBySequenceNumberAsc(chatroomId);
+            log.debug("영구 메시지 DB 조회: chatroomId={}, count={}", chatroomId, savedMessages.size());
+            result.addAll(savedMessages);
+
+            if (!savedMessages.isEmpty()) {
+                cacheService.cacheMessages(chatroomId, savedMessages);
+            }
         }
 
-        // 2. DB 조회
-        log.debug("메시지 DB 조회: chatroomId={}", chatroomId);
-        List<Message> messages = messageRepository.findByChatRoomIdOrderBySequenceNumberAsc(chatroomId);
+        // 3. 임시 메시지 추가
+        result.addAll(temporaryMessages);
 
-        // 3. 캐시 저장
-        if (!messages.isEmpty()) {
-            cacheService.cacheMessages(chatroomId, messages);
-        }
+        // 4. 시퀀스 번호로 정렬
+        result.sort(Comparator.comparing(Message::getSequenceNumber));
 
-        return messages;
+        log.debug("전체 메시지 조회 완료: chatroomId={}, total={} (임시={}, 영구={})",
+            chatroomId, result.size(), temporaryMessages.size(), result.size() - temporaryMessages.size());
+
+        return result;
     }
 
     /**
@@ -249,6 +376,28 @@ public class ChatService {
         return chatRoom;
     }
 
+//    /**
+//     * 채팅방 수정 (이름/설명/아카이브)
+//     */
+//    @Transactional
+//    public ChatRoom updateRoom(UUID chatroomId, UUID userId, String name, String description, Boolean archived) {
+//        ChatRoom room = getChatRoomById(chatroomId);
+//        if (!chatRoomRepository.existsByUserIdAndIdAndIsDeletedFalse(userId, chatroomId)) {
+//            throw new RuntimeException("Access denied or room deleted: " + chatroomId);
+//        }
+//        if (name != null && !name.isBlank()) {
+//            room.setName(name);
+//        }
+//        if (description != null) {
+//            room.setDescription(description);
+//        }
+//        if (archived != null) {
+//            room.setIsArchived(archived);
+//        }
+//        room.setUpdatedAt(java.time.LocalDateTime.now());
+//        return chatRoomRepository.save(room);
+//    }
+
     /**
      * 채팅방 수정 (이름/설명/아카이브)
      */
@@ -258,18 +407,51 @@ public class ChatService {
         if (!chatRoomRepository.existsByUserIdAndIdAndIsDeletedFalse(userId, chatroomId)) {
             throw new RuntimeException("Access denied or room deleted: " + chatroomId);
         }
+
+        boolean statusChanged = false;
+        String statusType = null;
+
         if (name != null && !name.isBlank()) {
             room.setName(name);
         }
         if (description != null) {
             room.setDescription(description);
         }
-        if (archived != null) {
+        if (archived != null && !archived.equals(room.getIsArchived())) {
             room.setIsArchived(archived);
+            statusChanged = true;
+            statusType = archived ? "archived" : "unarchived";
         }
         room.setUpdatedAt(java.time.LocalDateTime.now());
-        return chatRoomRepository.save(room);
+        ChatRoom saved = chatRoomRepository.save(room);
+
+        // 캐시 무효화
+        cacheService.invalidateChatRoomCache(chatroomId);
+
+        // 상태 변경 이벤트 발행
+        if (statusChanged) {
+            Map<String, Object> metadata = new HashMap<>();
+            metadata.put("roomName", saved.getName());
+            metadata.put("userId", userId);
+            redisPublisher.publishRoomStatusChangeEvent(chatroomId, statusType, metadata);
+        }
+
+        return saved;
     }
+
+//    /**
+//     * 채팅방 소프트 삭제
+//     */
+//    @Transactional
+//    public void softDeleteRoom(UUID chatroomId, UUID userId) {
+//        ChatRoom room = getChatRoomById(chatroomId);
+//        if (!chatRoomRepository.existsByUserIdAndIdAndIsDeletedFalse(userId, chatroomId)) {
+//            throw new RuntimeException("Access denied or room already deleted: " + chatroomId);
+//        }
+//        room.setIsDeleted(true);
+//        room.setUpdatedAt(java.time.LocalDateTime.now());
+//        chatRoomRepository.save(room);
+//    }
 
     /**
      * 채팅방 소프트 삭제
@@ -280,9 +462,26 @@ public class ChatService {
         if (!chatRoomRepository.existsByUserIdAndIdAndIsDeletedFalse(userId, chatroomId)) {
             throw new RuntimeException("Access denied or room already deleted: " + chatroomId);
         }
+
+        // 보관함에 저장되지 않은 메시지를 캐시로 이동
+        List<Message> messages = listMessages(chatroomId);
+        cacheService.cacheUnsavedMessages(chatroomId, messages);
+
         room.setIsDeleted(true);
         room.setUpdatedAt(java.time.LocalDateTime.now());
         chatRoomRepository.save(room);
+
+        // 캐시 무효화
+        cacheService.invalidateChatRoomCache(chatroomId);
+        cacheService.invalidateMessageCache(chatroomId);
+
+        // 상태 변경 이벤트 발행
+        Map<String, Object> metadata = new HashMap<>();
+        metadata.put("roomName", room.getName());
+        metadata.put("userId", userId);
+        redisPublisher.publishRoomStatusChangeEvent(chatroomId, "deleted", metadata);
+
+        log.info("채팅방 소프트 삭제 완료: chatroomId={}, 메시지 {}개 캐시 보관", chatroomId, messages.size());
     }
 
     /**
@@ -319,6 +518,32 @@ public class ChatService {
         return chatRoomRepository.save(room);
     }
 
+//    /**
+//     * 친밀도 레벨 업데이트
+//     */
+//    @Transactional
+//    public void updateIntimacyLevel(UUID chatroomId, UUID userId, int intimacyLevel) {
+//        if (!chatRoomRepository.existsByUserIdAndIdAndIsDeletedFalse(userId, chatroomId)) {
+//            throw new RuntimeException("Access denied or room deleted: " + chatroomId);
+//        }
+//
+//        IntimacyProgress progress = intimacyProgressRepository.findByChatRoomId(chatroomId)
+//            .orElseGet(() -> {
+//                ChatRoom chatRoom = getChatRoomById(chatroomId);
+//                return IntimacyProgress.builder()
+//                    .id(UUID.randomUUID())
+//                    .chatRoom(chatRoom)
+//                    .userId(userId)
+//                    .intimacyLevel(intimacyLevel)
+//                    .totalCorrections(0)
+//                    .build();
+//            });
+//
+//        progress.setIntimacyLevel(intimacyLevel);
+//        progress.setLastUpdated(LocalDateTime.now());
+//        intimacyProgressRepository.save(progress);
+//    }
+
     /**
      * 친밀도 레벨 업데이트
      */
@@ -343,6 +568,11 @@ public class ChatService {
         progress.setIntimacyLevel(intimacyLevel);
         progress.setLastUpdated(LocalDateTime.now());
         intimacyProgressRepository.save(progress);
+
+        // 친밀도 캐싱
+        cacheService.cacheIntimacyLevel(chatroomId, intimacyLevel);
+
+        log.debug("친밀도 업데이트 및 캐싱 완료: chatroomId={}, level={}", chatroomId, intimacyLevel);
     }
 
     /**
@@ -375,10 +605,34 @@ public class ChatService {
         return "FRIEND"; // 기본값
     }
 
+//    public Integer getIntimacyLevel(UUID chatroomId) {
+//        return intimacyProgressRepository.findByChatRoomId(chatroomId)
+//            .map(IntimacyProgress::getIntimacyLevel)
+//            .orElse(2); // 기본값
+//    }
+
+    /**
+     * 친밀도 정보 확인
+     * @param chatroomId
+     * @return IntimacyLevel
+     */
     public Integer getIntimacyLevel(UUID chatroomId) {
-        return intimacyProgressRepository.findByChatRoomId(chatroomId)
+        // 1. 캐시 확인
+        Integer cached = cacheService.getIntimacyLevel(chatroomId);
+        if (cached != null) {
+            log.debug("친밀도 캐시에서 반환: chatroomId={}, level={}", chatroomId, cached);
+            return cached;
+        }
+
+        // 2. DB 조회
+        Integer level = intimacyProgressRepository.findByChatRoomId(chatroomId)
             .map(IntimacyProgress::getIntimacyLevel)
             .orElse(2); // 기본값
+
+        // 3. 캐싱
+        cacheService.cacheIntimacyLevel(chatroomId, level);
+
+        return level;
     }
 
     /**
@@ -418,5 +672,79 @@ public class ChatService {
             default:
                 return UUID.fromString("22222222-2222-2222-2222-222222222221"); // 기본값: FRIEND
         }
+    }
+
+    /**
+     * 특정 메시지를 보관함에 저장 (Redis → DB 이동)
+     * Store 서비스에서 호출
+     */
+    @Transactional
+    public Message saveMessageToArchive(UUID chatroomId, UUID messageId, UUID userId) {
+        // 1. 권한 확인
+        if (!chatRoomRepository.existsByUserIdAndIdAndIsDeletedFalse(userId, chatroomId)) {
+            throw new RuntimeException("Access denied or room deleted: " + chatroomId);
+        }
+
+        // 2. 이미 DB에 저장되어 있는지 확인
+        Optional<Message> existingMessage = messageRepository.findById(messageId);
+        if (existingMessage.isPresent()) {
+            Message existing = existingMessage.get();
+            log.debug("메시지가 이미 DB에 존재함: messageId={}", messageId);
+            return existing;
+        }
+
+        // 3. Redis에서 임시 메시지 조회
+        Message temporaryMessage = cacheService.getTemporaryMessage(chatroomId, messageId);
+        if (temporaryMessage == null) {
+            throw new RuntimeException("Message not found in Redis: " + messageId);
+        }
+
+        // 4. ChatRoom 엔티티 로드 및 설정
+        ChatRoom chatRoom = getChatRoomById(chatroomId);
+        temporaryMessage.setChatRoom(chatRoom);
+        temporaryMessage.setIsDeleted(false);
+        temporaryMessage.setIsEdited(false);
+
+        // 5. DB에 저장
+        Message savedMessage = messageRepository.save(temporaryMessage);
+
+        // 6. 영구 메시지 캐시에 추가
+        cacheService.appendMessageToCache(chatroomId, savedMessage);
+
+        log.info("메시지 보관함 저장 완료: messageId={}, chatroomId={}", messageId, chatroomId);
+
+        return savedMessage;
+    }
+
+    /**
+     * 메시지 소프트 삭제 - 보관함 해제 시
+     * Store 서비스에서 호출
+     */
+    @Transactional
+    public void deleteMessageFromArchive(UUID messageId, UUID userId) {
+        Message message = messageRepository.findById(messageId)
+            .orElseThrow(() -> new RuntimeException("Message not found: " + messageId));
+
+        // 권한 확인: 메시지가 속한 채팅방의 소유자인지 확인
+        ChatRoom chatRoom = message.getChatRoom();
+        if (!chatRoom.getUser().getId().equals(userId)) {
+            throw new RuntimeException("Access denied: " + messageId);
+        }
+
+        // 이미 삭제됨
+        if (message.getIsDeleted()) {
+            log.warn("이미 삭제된 메시지: messageId={}", messageId);
+            return;
+        }
+
+        // 소프트 삭제
+        message.setIsDeleted(true);
+        message.setDeletedAt(LocalDateTime.now());
+        messageRepository.save(message);
+
+        // 메시지 캐시 무효화
+        cacheService.invalidateMessageCache(chatRoom.getId());
+
+        log.info("메시지 소프트 삭제 완료: messageId={}, userId={}", messageId, userId);
     }
 }
