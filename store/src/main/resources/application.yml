@@ -3,7 +3,7 @@ spring:
     name: store-service
 
   datasource:
-    url: jdbc:postgresql://localhost:5432/dorandoran_db
+    url: jdbc:postgresql://localhost:5432/dorandoran
     username: doran
     password: doran_password
     driver-class-name: org.postgresql.Driver
