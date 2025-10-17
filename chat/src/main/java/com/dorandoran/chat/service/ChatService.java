@@ -18,12 +18,14 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
@@ -285,12 +287,34 @@ public class ChatService {
         return chatRoomRepository.findByUserIdAndIsDeletedFalseOrderByLastMessageAtDesc(userId);
     }
 
+//    /**
+//     * 채팅방 메시지 목록 조회 (시퀀스 오름차순) - 페이징
+//     */
+//    @Transactional
+//    public Page<Message> listMessages(UUID chatroomId, Pageable pageable) {
+//        return messageRepository.findByChatRoomIdOrderBySequenceNumberAsc(chatroomId, pageable);
+//    }
+
     /**
-     * 채팅방 메시지 목록 조회 (시퀀스 오름차순) - 페이징
+     * 채팅방 메시지 목록 조회 (시퀀스 오름차순) - 페이징 redis 적용
      */
     @Transactional
     public Page<Message> listMessages(UUID chatroomId, Pageable pageable) {
-        return messageRepository.findByChatRoomIdOrderBySequenceNumberAsc(chatroomId, pageable);
+        // 1. Redis + DB에서 전체 메시지 조회 (기존 메서드 활용)
+        List<Message> allMessages = listMessages(chatroomId);
+
+        log.debug("페이징 처리: chatroomId={}, total={}, page={}, size={}",
+            chatroomId, allMessages.size(), pageable.getPageNumber(), pageable.getPageSize());
+
+        // 2. Pageable 적용
+        int start = (int) pageable.getOffset();
+        int end = Math.min((start + pageable.getPageSize()), allMessages.size());
+
+        List<Message> pageContent = start >= allMessages.size() ?
+            Collections.emptyList() :
+            allMessages.subList(start, end);
+
+        return new PageImpl<>(pageContent, pageable, allMessages.size());
     }
 
 //    /**
