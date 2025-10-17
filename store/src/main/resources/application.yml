@@ -53,6 +53,7 @@ feign:
         loggerLevel: FULL
   chat-service:
     url: http://chat-service:8083
+#    url: http://localhost:8083  # 로컬 테스트
   circuitbreaker:
     enabled: true
 
