@@ -113,6 +113,7 @@ public class ChatController {
     public ResponseEntity<Page<MessageResponse>> listMessages(
             @PathVariable UUID chatroomId,
             @RequestParam(required = false) UUID userId,
+//TODO:@RequestHeader(value = "X-User-Id", required = false) UUID userId,  // ← @RequestHeader로 변경.....이 필요하다고 하는 데 확인이 좀 더 필요할 것 같습니다...
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "50") int size) {
         UUID uid = extractUserIdFromSecurityContext();
