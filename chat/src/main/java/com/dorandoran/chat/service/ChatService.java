@@ -262,21 +262,27 @@ public class ChatService {
             throw new RuntimeException("Access denied or room deleted: " + chatroomId);
         }
         
-        IntimacyProgress progress = intimacyProgressRepository.findByChatRoomId(chatroomId)
-            .orElseGet(() -> {
-                ChatRoom chatRoom = getChatRoomById(chatroomId);
-                return IntimacyProgress.builder()
-                    .id(UUID.randomUUID())
-                    .chatRoom(chatRoom)
-                    .userId(userId)
-                    .intimacyLevel(intimacyLevel)
-                    .totalCorrections(0)
-                    .build();
-            });
+        // 기존 레코드 찾기
+        Optional<IntimacyProgress> existingProgress = intimacyProgressRepository.findByChatRoomId(chatroomId);
         
-        progress.setIntimacyLevel(intimacyLevel);
-        progress.setLastUpdated(LocalDateTime.now());
-        intimacyProgressRepository.save(progress);
+        if (existingProgress.isPresent()) {
+            // 기존 레코드 업데이트
+            IntimacyProgress progress = existingProgress.get();
+            progress.setIntimacyLevel(intimacyLevel);
+            progress.setLastUpdated(LocalDateTime.now());
+            intimacyProgressRepository.save(progress);
+        } else {
+            // 새 레코드 생성
+            ChatRoom chatRoom = getChatRoomById(chatroomId);
+            IntimacyProgress progress = IntimacyProgress.builder()
+                .id(UUID.randomUUID())
+                .chatRoom(chatRoom)
+                .userId(userId)
+                .intimacyLevel(intimacyLevel)
+                .totalCorrections(0)
+                .build();
+            intimacyProgressRepository.save(progress);
+        }
     }
     
     /**
