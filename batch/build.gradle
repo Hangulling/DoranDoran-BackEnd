@@ -8,6 +8,7 @@ dependencies {
     implementation project(':shared')
     implementation project(':common')
     implementation 'org.springframework.boot:spring-boot-starter-jdbc'
+    implementation 'com.fasterxml.jackson.core:jackson-databind:2.17.1'
 
     // 데이터베이스
     runtimeOnly 'org.postgresql:postgresql:42.7.3'
