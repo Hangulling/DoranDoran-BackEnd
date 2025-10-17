@@ -1,0 +1,30 @@
+INSERT INTO chat_schema.chatbots (
+    id, name, display_name, description, bot_type, model_name, 
+    personality, system_prompt, capabilities, settings, 
+    intimacy_system_prompt, intimacy_user_prompt,
+    vocabulary_system_prompt, vocabulary_user_prompt,
+    translation_system_prompt, translation_user_prompt,
+    intimacy_level, is_active, created_at, updated_at, created_by
+) VALUES (
+    '3fa85f64-5717-4562-b3fc-2c963f66afa7',
+    'korean-tutor',
+    '한국어 튜터',
+    '외국인을 위한 한국어 학습 AI 튜터',
+    'gpt',
+    'gpt-4o-mini',
+    '{"tone": "friendly", "style": "educational"}',
+    '당신은 도란도란의 AI 어시스턴트입니다. 외국인 한국어 학습자를 도와주는 친근한 튜터입니다.',
+    '["conversation", "intimacy_analysis", "vocabulary_extraction", "translation"]',
+    '{"max_tokens": 800, "temperature": 0.7}',
+    '당신은 외국인의 한국어 친밀도를 분석하는 전문가입니다.',
+    '{userMessage}',
+    '외국인이 이해하기 어려운 한국어 단어/표현을 최대 1개 추출하세요.',
+    '{userMessage}',
+    '한국어 단어를 영어로 번역하고 발음기호를 제공하세요.',
+    '다음 한국어 단어들을 번역해주세요:\n{words}',
+    2,
+    true,
+    NOW(),
+    NOW(),
+    '3fa85f64-5717-4562-b3fc-2c963f66afa6'
+);

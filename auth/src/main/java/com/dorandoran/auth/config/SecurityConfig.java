@@ -1,0 +1,44 @@
+package com.dorandoran.auth.config;
+
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.web.SecurityFilterChain;
+
+/**
+ * Spring Security 설정
+ */
+@Configuration
+@EnableWebSecurity
+public class SecurityConfig {
+
+    @Bean
+    public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
+        http
+            .authorizeHttpRequests(authz -> authz
+                // Swagger UI 접근 허용
+                .requestMatchers("/swagger-ui/**", "/swagger-ui.html", "/v3/api-docs/**", "/api-docs/**").permitAll()
+                // Actuator 엔드포인트 허용
+                .requestMatchers("/actuator/**").permitAll()
+                // 로그인 관련 엔드포인트는 허용
+                .requestMatchers("/api/auth/login", "/api/auth/refresh", "/api/auth/password/reset/**", "/api/auth/health").permitAll()
+                // API 엔드포인트는 MSA 내부 통신이므로 허용 (HmacAuthInterceptor가 인증 담당)
+                .requestMatchers("/api/**").permitAll()
+                // 기타 모든 요청은 허용
+                .anyRequest().permitAll()
+            )
+            .csrf(csrf -> csrf.disable())
+            .httpBasic(httpBasic -> httpBasic.disable())
+            .formLogin(formLogin -> formLogin.disable());
+        
+        return http.build();
+    }
+
+    @Bean
+    public PasswordEncoder passwordEncoder() {
+        return new BCryptPasswordEncoder();
+    }
+}

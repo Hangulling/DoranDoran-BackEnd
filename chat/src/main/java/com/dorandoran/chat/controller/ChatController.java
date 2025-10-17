@@ -1,0 +1,607 @@
+package com.dorandoran.chat.controller;
+
+import com.dorandoran.chat.entity.ChatRoom;
+import com.dorandoran.chat.entity.Message;
+import com.dorandoran.chat.enums.ChatRoomConcept;
+import com.dorandoran.chat.service.dto.*;
+import com.dorandoran.chat.service.dto.IntimacyUpdateRequest;
+import com.dorandoran.chat.dto.ChatbotDirectivesRequest;
+import com.dorandoran.chat.repository.ChatRoomRepository;
+import com.dorandoran.chat.repository.MessageRepository;
+import com.dorandoran.chat.service.ChatService;
+import com.dorandoran.chat.service.AIService;
+import com.dorandoran.chat.service.GreetingService;
+import com.dorandoran.chat.service.MultiAgentOrchestrator;
+import com.dorandoran.chat.service.ChatbotService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.http.ResponseEntity;
+import org.springframework.http.HttpStatus;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.web.bind.annotation.*;
+import jakarta.validation.Valid;
+
+import java.util.List;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.UUID;
+import java.util.stream.Collectors;
+
+/**
+ * Chat Service REST API Controller (단순화 스키마 기반)
+ */
+@RestController
+@RequestMapping("/api/chat")
+@RequiredArgsConstructor
+@Slf4j
+@Tag(name = "Chat Management", description = "채팅 서비스 API")
+public class ChatController {
+
+    private final ChatService chatService;
+    private final ChatRoomRepository chatRoomRepository;
+    private final MessageRepository messageRepository;
+    private final AIService aiService;
+    private final GreetingService greetingService;
+    private final MultiAgentOrchestrator multiAgentOrchestrator;
+    private final ChatbotService chatbotService;
+
+    @Operation(summary = "채팅방 생성/조회", description = "새로운 채팅방을 생성하거나 기존 채팅방을 조회합니다.")
+    @ApiResponses(value = {
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "채팅방 생성/조회 성공"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "잘못된 요청 데이터")
+    })
+    @SecurityRequirement(name = "bearerAuth")
+    @PostMapping("/chatrooms")
+    public ResponseEntity<ChatRoomResponse> getOrCreateRoom(@Valid @RequestBody ChatRoomCreateRequest request) {
+        // SecurityContext에서 userId 우선 사용 (없으면 요청 바디)
+        UUID userId = extractUserIdFromSecurityContext();
+        if (userId == null) userId = request.getUserId();
+        // 기존 채팅방이 있는지 확인
+        boolean isNewRoom = !chatRoomRepository.findByUserIdAndChatbotIdAndIsDeletedFalse(userId, request.getChatbotId()).isPresent();
+        
+        ChatRoom room = chatService.getOrCreateRoom(
+            userId, 
+            request.getChatbotId(), 
+            request.getName(),
+            request.getConcept(),
+            request.getIntimacyLevel()
+        );
+        
+        // 새로 생성된 채팅방에만 AI 인사말 발송
+        if (isNewRoom) {
+            ChatRoomConcept concept = ChatRoomConcept.fromString(request.getConcept());
+            greetingService.sendGreeting(room.getId(), userId, concept, request.getIntimacyLevel());
+        }
+        
+        // concept와 intimacyLevel을 포함한 응답 생성
+        return ResponseEntity.ok(toChatRoomResponse(room));
+    }
+
+    @GetMapping("/chatrooms")
+    public ResponseEntity<Page<ChatRoomResponse>> listRooms(
+            @RequestParam(required = false) UUID userId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        UUID uid = extractUserIdFromSecurityContext();
+        if (uid == null && userId != null) {
+            uid = userId;
+        }
+        if (uid == null) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(null);
+        }
+        
+        Pageable pageable = PageRequest.of(page, size);
+        Page<ChatRoom> rooms = chatService.listRooms(uid, pageable);
+        Page<ChatRoomResponse> response = rooms.map(this::toChatRoomResponse);
+        return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/chatrooms/{chatroomId}/messages")
+    public ResponseEntity<Page<MessageResponse>> listMessages(
+            @PathVariable UUID chatroomId,
+            @RequestParam(required = false) UUID userId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "50") int size) {
+        UUID uid = extractUserIdFromSecurityContext();
+        if (uid == null && userId != null) {
+            uid = userId;
+        }
+        if (uid == null) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(null);
+        }
+        if (!chatRoomRepository.existsByUserIdAndIdAndIsDeletedFalse(uid, chatroomId)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+        Pageable pageable = PageRequest.of(page, size);
+        Page<Message> messages = chatService.listMessages(chatroomId, pageable);
+        Page<MessageResponse> response = messages.map(MessageResponse::from);
+        return ResponseEntity.ok(response);
+    }
+
+    @Operation(summary = "메시지 전송", description = "채팅방에 메시지를 전송합니다.")
+    @ApiResponses(value = {
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "메시지 전송 성공"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "인증 실패"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "채팅방 접근 권한 없음")
+    })
+    @SecurityRequirement(name = "bearerAuth")
+    @PostMapping("/chatrooms/{chatroomId}/messages")
+    public ResponseEntity<MessageResponse> send(
+            @Parameter(description = "채팅방 UUID", required = true)
+            @PathVariable UUID chatroomId,
+            @Valid @RequestBody MessageSendRequest request,
+            @Parameter(description = "사용자 ID (선택적 헤더)")
+            @RequestHeader(value = "X-User-Id", required = false) String userIdHeader,
+            @RequestParam(required = false) UUID userId) {
+        // SecurityContext에서 우선 추출, 없으면 요청 파라미터, 마지막으로 헤더
+        UUID senderId = extractUserIdFromSecurityContext();
+        if (senderId == null && userId != null) {
+            senderId = userId;
+        }
+        if (senderId == null && userIdHeader != null && !userIdHeader.isBlank()) {
+            try { senderId = UUID.fromString(userIdHeader); } catch (IllegalArgumentException ignored) {}
+        }
+        if (senderId == null) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(null);
+        }
+        if (!chatRoomRepository.existsByUserIdAndIdAndIsDeletedFalse(senderId, chatroomId)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+        // senderType 검증: API 호출은 사용자 발신만 허용
+        String senderType = request.getSenderType();
+        if (senderType == null || !senderType.equalsIgnoreCase("user")) {
+            senderType = "user";
+        }
+        Message saved = chatService.sendMessage(chatroomId, senderId, senderType, request.getContent(), request.getContentType());
+        log.info("=== ChatController: 메시지 저장 완료 - messageId={}, senderType={} ===", saved.getId(), senderType);
+        
+        if ("user".equalsIgnoreCase(senderType)) {
+            log.info("=== ChatController: Multi-Agent 처리 시작 - chatroomId={}, senderId={} ===", chatroomId, senderId);
+            // Multi-Agent 처리로 변경
+            multiAgentOrchestrator.processUserMessage(chatroomId, senderId, saved);
+            log.info("=== ChatController: Multi-Agent 처리 호출 완료 ===");
+        } else {
+            log.info("=== ChatController: Multi-Agent 처리 건너뜀 - senderType={} ===", senderType);
+        }
+        return ResponseEntity.ok(MessageResponse.from(saved));
+    }
+
+    @Operation(summary = "이메일로 사용자 조회", description = "이메일로 사용자 정보를 조회합니다.")
+    @ApiResponses(value = {
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "사용자 조회 성공"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "사용자를 찾을 수 없음")
+    })
+    @GetMapping("/users/by-email")
+    public ResponseEntity<Map<String, Object>> getUserByEmail(@RequestParam String email) {
+        log.info("=== 이메일로 사용자 조회: {} ===", email);
+        
+        try {
+            // user_schema에서 사용자 조회
+            var user = chatService.findUserByEmail(email);
+            if (user == null) {
+                return ResponseEntity.notFound().build();
+            }
+            
+            Map<String, Object> response = new HashMap<>();
+            response.put("id", user.getId());
+            response.put("email", user.getEmail());
+            response.put("name", user.getName());
+            response.put("first_name", user.getFirstName());
+            response.put("last_name", user.getLastName());
+            
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            log.error("사용자 조회 실패: {}", e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
+
+    @Operation(summary = "챗봇 프롬프트 조회", description = "챗봇의 특정 에이전트 프롬프트를 조회합니다.")
+    @ApiResponses(value = {
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "프롬프트 조회 성공"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "챗봇을 찾을 수 없음")
+    })
+    @GetMapping("/chatbots/prompt")
+    public ResponseEntity<?> getChatbotPrompt(
+            @RequestParam String chatbotId,
+            @RequestParam String agentType) {
+        log.info("=== 챗봇 프롬프트 조회 요청: chatbotId={}, agentType={} ===", chatbotId, agentType);
+        
+        try {
+            String prompt = chatbotService.getChatbotPrompt(chatbotId, agentType);
+            
+            if (prompt != null) {
+                return ResponseEntity.ok(Map.of(
+                    "success", true,
+                    "chatbotId", chatbotId,
+                    "agentType", agentType,
+                    "prompt", prompt
+                ));
+            } else {
+                return ResponseEntity.notFound().build();
+            }
+        } catch (Exception e) {
+            log.error("프롬프트 조회 오류: {}", e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of(
+                "success", false,
+                "message", "프롬프트 조회 중 오류가 발생했습니다."
+            ));
+        }
+    }
+
+    @Operation(summary = "챗봇 프롬프트 수정", description = "챗봇의 프롬프트를 수정합니다.")
+    @ApiResponses(value = {
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "프롬프트 수정 성공"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "잘못된 요청 데이터"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "챗봇을 찾을 수 없음")
+    })
+    @PostMapping("/chatbots/prompt")
+    public ResponseEntity<?> updateChatbotPrompt(@Valid @RequestBody ChatbotUpdateRequest request) {
+        log.info("=== 챗봇 프롬프트 수정 요청: {} ===", request);
+        
+        boolean success = chatbotService.updateChatbotPrompt(request);
+        
+        if (success) {
+            return ResponseEntity.ok(Map.of(
+                "success", true,
+                "message", "챗봇 프롬프트가 성공적으로 업데이트되었습니다.",
+                "chatbotId", request.getChatbotId(),
+                "agentType", request.getAgentType()
+            ));
+        } else {
+            return ResponseEntity.badRequest().body(Map.of(
+                "success", false,
+                "message", "챗봇 프롬프트 업데이트에 실패했습니다.",
+                "chatbotId", request.getChatbotId()
+            ));
+        }
+    }
+
+    @Operation(summary = "챗봇 프롬프트 리셋", description = "챗봇의 프롬프트를 기본값으로 리셋합니다.")
+    @ApiResponses(value = {
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "프롬프트 리셋 성공"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "잘못된 요청 데이터"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "챗봇을 찾을 수 없음")
+    })
+    @PostMapping("/chatbots/reset")
+    public ResponseEntity<?> resetChatbotPrompt(
+            @RequestParam String chatbotId,
+            @RequestParam String agentType) {
+        log.info("=== 챗봇 프롬프트 리셋 요청: chatbotId={}, agentType={} ===", chatbotId, agentType);
+        
+        boolean success = chatbotService.resetChatbotPrompt(chatbotId, agentType);
+        
+        if (success) {
+            return ResponseEntity.ok(Map.of(
+                "success", true,
+                "message", "챗봇 프롬프트가 기본값으로 리셋되었습니다.",
+                "chatbotId", chatbotId,
+                "agentType", agentType
+            ));
+        } else {
+            return ResponseEntity.badRequest().body(Map.of(
+                "success", false,
+                "message", "챗봇 프롬프트 리셋에 실패했습니다.",
+                "chatbotId", chatbotId
+            ));
+        }
+    }
+
+    @Operation(summary = "전체 프롬프트 조회 (Concept 반영)", 
+        description = "Base Prompt + Dynamic Directives를 합친 전체 프롬프트를 조회합니다.")
+    @GetMapping("/chatbots/prompt/full")
+    public ResponseEntity<?> getFullChatbotPrompt(
+            @RequestParam String chatbotId,
+            @RequestParam String agentType,
+            @RequestParam(required = false) String chatroomId) {
+        log.info("=== 전체 프롬프트 조회: chatbotId={}, agentType={}, chatroomId={} ===", 
+            chatbotId, agentType, chatroomId);
+        
+        try {
+            if (chatroomId == null || chatroomId.isBlank()) {
+                // chatroomId 없으면 Base Prompt만 반환
+                String basePrompt = chatbotService.getChatbotPrompt(chatbotId, agentType);
+                return ResponseEntity.ok(Map.of(
+                    "success", true,
+                    "type", "base",
+                    "prompt", basePrompt,
+                    "message", "Base Prompt만 조회되었습니다. 채팅방 입장 후 전체 프롬프트를 확인하세요."
+                ));
+            }
+            
+            UUID roomId = UUID.fromString(chatroomId);
+            String fullPrompt = chatbotService.getFullPromptForAgent(chatbotId, agentType, roomId);
+            String basePrompt = chatbotService.getBasePromptForAgent(chatbotId, agentType, roomId);
+            
+            return ResponseEntity.ok(Map.of(
+                "success", true,
+                "type", "full",
+                "fullPrompt", fullPrompt,
+                "basePrompt", basePrompt,
+                "message", "Concept와 Intimacy Level이 반영된 전체 프롬프트입니다."
+            ));
+        } catch (Exception e) {
+            log.error("전체 프롬프트 조회 오류: {}", e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of(
+                "success", false,
+                "message", "프롬프트 조회 중 오류가 발생했습니다."
+            ));
+        }
+    }
+
+    @Operation(summary = "챗봇 조회", description = "챗봇 정보를 조회합니다.")
+    @ApiResponses(value = {
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "챗봇 조회 성공"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "챗봇을 찾을 수 없음")
+    })
+    @GetMapping("/chatbots/{chatbotId}")
+    public ResponseEntity<?> getChatbot(@PathVariable String chatbotId) {
+        log.info("=== 챗봇 조회 요청: {} ===", chatbotId);
+        
+        return chatbotService.getChatbot(chatbotId)
+            .map(chatbot -> {
+                Map<String, Object> chatbotData = new HashMap<>();
+                chatbotData.put("id", chatbot.getId());
+                chatbotData.put("name", chatbot.getName());
+                chatbotData.put("displayName", chatbot.getDisplayName());
+                chatbotData.put("description", chatbot.getDescription());
+                chatbotData.put("systemPrompt", chatbot.getSystemPrompt());
+                chatbotData.put("intimacySystemPrompt", chatbot.getIntimacySystemPrompt());
+                chatbotData.put("intimacyUserPrompt", chatbot.getIntimacyUserPrompt());
+                chatbotData.put("vocabularySystemPrompt", chatbot.getVocabularySystemPrompt());
+                chatbotData.put("vocabularyUserPrompt", chatbot.getVocabularyUserPrompt());
+                chatbotData.put("translationSystemPrompt", chatbot.getTranslationSystemPrompt());
+                chatbotData.put("translationUserPrompt", chatbot.getTranslationUserPrompt());
+                chatbotData.put("intimacyLevel", chatbot.getIntimacyLevel());
+                chatbotData.put("isActive", chatbot.getIsActive());
+                
+                return ResponseEntity.ok(Map.of(
+                    "success", true,
+                    "chatbot", chatbotData
+                ));
+            })
+            .orElse(ResponseEntity.notFound().build());
+    }
+
+    @Operation(summary = "Agent 프롬프트 조회", description = "특정 Agent의 프롬프트를 조회합니다.")
+    @ApiResponses(value = {
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Agent 프롬프트 조회 성공"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "챗봇을 찾을 수 없음")
+    })
+    @GetMapping("/chatbots/{chatbotId}/agents/{agentType}")
+    public ResponseEntity<?> getAgentPrompts(
+            @PathVariable String chatbotId,
+            @PathVariable String agentType) {
+        log.info("=== Agent 프롬프트 조회 요청: chatbotId={}, agentType={} ===", chatbotId, agentType);
+        
+        Map<String, String> prompts = chatbotService.getAgentPrompts(chatbotId, agentType);
+        
+        if (prompts.isEmpty()) {
+            return ResponseEntity.notFound().build();
+        }
+        
+        return ResponseEntity.ok(Map.of(
+            "success", true,
+            "chatbotId", chatbotId,
+            "agentType", agentType,
+            "prompts", prompts
+        ));
+    }
+
+    private UUID extractUserIdFromSecurityContext() {
+        try {
+            Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+            if (auth != null && auth.isAuthenticated() && auth.getPrincipal() instanceof UUID u) {
+                return u;
+            }
+        } catch (Exception ignored) {}
+        return null;
+    }
+
+    /**
+     * ChatRoom을 ChatRoomResponse로 변환하는 헬퍼 메서드
+     * N+1 쿼리 문제 해결을 위한 중앙화된 변환 로직
+     */
+    private ChatRoomResponse toChatRoomResponse(ChatRoom room) {
+        String concept = chatService.getConcept(room.getId());
+        Integer intimacyLevel = chatService.getIntimacyLevel(room.getId());
+        return ChatRoomResponse.from(room, concept, intimacyLevel);
+    }
+
+    /**
+     * 채팅방 단 건 조회
+     * (보관함 사용)
+     */
+    @GetMapping("/chatrooms/{chatroomId}")
+    @Operation(summary = "채팅방 조회", description = "채팅방 ID로 채팅방 정보 조회")
+    public ResponseEntity<ChatRoomResponse> getChatRoom(
+        @Parameter(description = "채팅방 ID", required = true)
+        @PathVariable UUID chatroomId,
+
+        @Parameter(description = "사용자 ID (선택)")
+        @RequestParam(required = false) UUID userId) {
+
+        // SecurityContext에서 우선 추출
+        UUID uid = extractUserIdFromSecurityContext();
+        if (uid == null && userId != null) {
+            uid = userId;
+        }
+
+        // 권한 확인 (요청한 사용자의 채팅방인지)
+        if (uid != null && !chatRoomRepository.existsByUserIdAndIdAndIsDeletedFalse(uid, chatroomId)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+
+        ChatRoom room = chatService.getChatRoomById(chatroomId);
+        return ResponseEntity.ok(toChatRoomResponse(room));
+    }
+
+    // --- rooms 경로 동시 제공 (CRUD) ---
+    @Operation(summary = "채팅방 생성/조회", description = "사용자-챗봇 1:1 기준 방을 생성하거나 기존 방을 반환합니다.")
+    @PostMapping("/rooms")
+    public ResponseEntity<ChatRoomResponse> createOrGetRoom(@Valid @RequestBody ChatRoomCreateRequest request) {
+        UUID uid = extractUserIdFromSecurityContext();
+        if (uid == null) uid = request.getUserId();
+        if (uid == null) return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
+        boolean isNewRoom = !chatRoomRepository.findByUserIdAndChatbotIdAndIsDeletedFalse(uid, request.getChatbotId()).isPresent();
+        ChatRoom room = chatService.getOrCreateRoom(uid, request.getChatbotId(), request.getName(), request.getConcept(), request.getIntimacyLevel());
+        if (isNewRoom) {
+            ChatRoomConcept concept = ChatRoomConcept.fromString(request.getConcept());
+            greetingService.sendGreeting(room.getId(), uid, concept, request.getIntimacyLevel());
+        }
+        return ResponseEntity.ok(toChatRoomResponse(room));
+    }
+
+    @Operation(summary = "채팅방 목록", description = "내 채팅방 목록을 조회합니다.")
+    @GetMapping("/rooms")
+    public ResponseEntity<Page<ChatRoomResponse>> getRooms(@RequestParam(defaultValue = "0") int page,
+                                                           @RequestParam(defaultValue = "20") int size,
+                                                           @RequestParam(required = false) UUID userId) {
+        UUID uid = extractUserIdFromSecurityContext();
+        if (uid == null && userId != null) uid = userId;
+        if (uid == null) return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
+        Pageable pageable = PageRequest.of(page, size);
+        Page<ChatRoom> rooms = chatService.listRooms(uid, pageable);
+        return ResponseEntity.ok(rooms.map(this::toChatRoomResponse));
+    }
+
+    @Operation(summary = "채팅방 목록(최대 4개)", description = "삭제되지 않은 채팅방을 최대 4개까지 반환합니다. 페이지네이션 없이 사용합니다.")
+    @GetMapping("/chatrooms/all")
+    public ResponseEntity<List<ChatRoomResponse>> getAllRooms(@RequestParam(required = false) UUID userId) {
+        UUID uid = extractUserIdFromSecurityContext();
+        if (uid == null && userId != null) uid = userId;
+        if (uid == null) return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
+        List<ChatRoom> rooms = chatService.listRooms(uid);
+        List<ChatRoomResponse> response = rooms.stream()
+            .limit(4)
+            .map(this::toChatRoomResponse)
+            .collect(Collectors.toList());
+        return ResponseEntity.ok(response);
+    }
+
+
+    @Operation(summary = "채팅방 수정", description = "채팅방의 이름/설명/아카이브를 수정합니다.")
+    @PatchMapping("/rooms/{roomId}")
+    public ResponseEntity<ChatRoomResponse> updateRoom(@PathVariable("roomId") UUID roomId,
+                                                       @Valid @RequestBody ChatRoomUpdateRequest request,
+                                                       @RequestParam(required = false) UUID userId) {
+        UUID uid = extractUserIdFromSecurityContext();
+        if (uid == null && userId != null) uid = userId;
+        if (uid == null) return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
+        ChatRoom room = chatService.updateRoom(roomId, uid, request.getName(), request.getDescription(), request.getArchived());
+        return ResponseEntity.ok(toChatRoomResponse(room));
+    }
+
+    @Operation(summary = "채팅방 나가기", description = "채팅방을 소프트 삭제합니다.")
+    @PostMapping("/chatrooms/{chatroomId}/leave")
+    public ResponseEntity<Void> leaveChatRoom(@PathVariable("chatroomId") UUID chatroomId,
+                                             @RequestParam(required = false) UUID userId) {
+        UUID uid = extractUserIdFromSecurityContext();
+        if (uid == null && userId != null) uid = userId;
+        if (uid == null) return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
+        chatService.softDeleteRoom(chatroomId, uid);
+        return ResponseEntity.noContent().build();
+    }
+
+    // --- 코치마크 ---
+    @Operation(summary = "코치마크 상태 조회", description = "채팅방의 코치마크 표시 여부를 반환합니다.")
+    @GetMapping("/rooms/{roomId}/coachmark")
+    public ResponseEntity<String> getCoachmark(@PathVariable("roomId") UUID roomId,
+                                               @RequestParam(required = false) UUID userId) {
+        UUID uid = extractUserIdFromSecurityContext();
+        if (uid == null && userId != null) uid = userId;
+        if (uid == null) return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
+        boolean shown = chatService.isCoachmarkShown(roomId, uid);
+        return ResponseEntity.ok(Boolean.toString(shown));
+    }
+
+    @Operation(summary = "코치마크 완료 설정", description = "코치마크를 완료(표시됨) 상태로 설정합니다.")
+    @PostMapping("/rooms/{roomId}/coachmark")
+    public ResponseEntity<ChatRoomResponse> setCoachmark(@PathVariable("roomId") UUID roomId,
+                                                         @RequestParam(defaultValue = "true") boolean shown,
+                                                         @RequestParam(required = false) UUID userId) {
+        UUID uid = extractUserIdFromSecurityContext();
+        if (uid == null && userId != null) uid = userId;
+        if (uid == null) return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
+        ChatRoom room = chatService.setCoachmarkShown(roomId, uid, shown);
+        return ResponseEntity.ok(toChatRoomResponse(room));
+    }
+    
+    @Operation(summary = "친밀도 레벨 변경", description = "채팅방의 친밀도 레벨을 변경합니다.")
+    @ApiResponses(value = {
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "친밀도 변경 성공"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "잘못된 요청 데이터"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "채팅방을 찾을 수 없음")
+    })
+    @SecurityRequirement(name = "bearerAuth")
+    @PatchMapping("/chatrooms/{chatroomId}/intimacy")
+    public ResponseEntity<?> updateIntimacy(
+            @PathVariable UUID chatroomId, 
+            @Valid @RequestBody IntimacyUpdateRequest request) {
+        UUID userId = extractUserIdFromSecurityContext();
+        if (userId == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("error", "사용자 인증이 필요합니다"));
+        }
+        
+        try {
+            chatService.updateIntimacyLevel(chatroomId, userId, request.getIntimacyLevel());
+            return ResponseEntity.ok(Map.of(
+                "success", true,
+                "message", "친밀도가 변경되었습니다",
+                "intimacyLevel", request.getIntimacyLevel()
+            ));
+        } catch (RuntimeException e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of(
+                "success", false,
+                "error", e.getMessage()
+            ));
+        }
+    }
+
+    @Operation(summary = "챗봇 Dynamic Directives 설정", 
+               description = "챗봇의 dynamic directives 설정을 업데이트합니다.")
+    @PostMapping("/chatbots/{chatbotId}/directives")
+    public ResponseEntity<?> updateChatbotDirectives(
+        @PathVariable String chatbotId,
+        @Valid @RequestBody ChatbotDirectivesRequest request) {
+        
+        log.info("=== 챗봇 Directives 설정 요청: chatbotId={}, request={} ===", chatbotId, request);
+        
+        boolean success = chatbotService.updateChatbotDirectives(chatbotId, request);
+        
+        if (success) {
+            return ResponseEntity.ok(Map.of(
+                "success", true,
+                "message", "Directives 설정이 업데이트되었습니다.",
+                "chatbotId", chatbotId
+            ));
+        } else {
+            return ResponseEntity.badRequest().body(Map.of(
+                "success", false,
+                "message", "Directives 업데이트에 실패했습니다."
+            ));
+        }
+    }
+
+    @Operation(summary = "챗봇 Dynamic Directives 조회", 
+               description = "챗봇의 dynamic directives 설정을 조회합니다.")
+    @GetMapping("/chatbots/{chatbotId}/directives")
+    public ResponseEntity<?> getChatbotDirectives(@PathVariable String chatbotId) {
+        log.info("=== 챗봇 Directives 조회 요청: chatbotId={} ===", chatbotId);
+        
+        Map<String, Object> directives = chatbotService.getChatbotDirectives(chatbotId);
+        return ResponseEntity.ok(Map.of(
+            "success", true,
+            "directives", directives
+        ));
+    }
+}

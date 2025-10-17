@@ -1,0 +1,27 @@
+<<<<<<< HEAD
+Manifest-Version: 1.0
+Main-Class: org.springframework.boot.loader.launch.JarLauncher
+Start-Class: com.dorandoran.auth.AuthApplication
+Spring-Boot-Version: 3.3.4
+Spring-Boot-Classes: BOOT-INF/classes/
+Spring-Boot-Lib: BOOT-INF/lib/
+Spring-Boot-Classpath-Index: BOOT-INF/classpath.idx
+Spring-Boot-Layers-Index: BOOT-INF/layers.idx
+Build-Jdk-Spec: 21
+Implementation-Title: auth
+Implementation-Version: 0.1.0-SNAPSHOT
+
+=======
+Manifest-Version: 1.0
+Main-Class: org.springframework.boot.loader.launch.JarLauncher
+Start-Class: com.dorandoran.auth.AuthApplication
+Spring-Boot-Version: 3.3.4
+Spring-Boot-Classes: BOOT-INF/classes/
+Spring-Boot-Lib: BOOT-INF/lib/
+Spring-Boot-Classpath-Index: BOOT-INF/classpath.idx
+Spring-Boot-Layers-Index: BOOT-INF/layers.idx
+Build-Jdk-Spec: 21
+Implementation-Title: auth
+Implementation-Version: 0.1.0-SNAPSHOT
+
+>>>>>>> 91f6845e120ebd3cb5653d5d8eb3c712b3afdc16

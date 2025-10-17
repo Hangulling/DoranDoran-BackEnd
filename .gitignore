@@ -1,0 +1,103 @@
+# ==============================
+# 🧱 Local Environment
+# ==============================
+.env
+.env.*
+!.env.sample
+
+# ==============================
+# 🧩 Build Artifacts (모든 모듈 공통)
+# ==============================
+/build/
+/*/build/
+/**/build/
+/out/
+/target/
+**/out/
+**/target/
+!gradle/wrapper/gradle-wrapper.jar
+
+# ==============================
+# ⚙️ Gradle
+# ==============================
+.gradle/
+.gradle-cache/
+.gradle/**
+build/
+!gradle/wrapper/gradle-wrapper.jar
+
+# ==============================
+# 🧰 IDE & Editor Config
+# ==============================
+.idea/
+*.iml
+.project
+.classpath
+.settings/
+.vscode/
+*.swp
+*.swo
+
+# ==============================
+# 🪣 OS / System Files
+# ==============================
+.DS_Store
+Thumbs.db
+ehthumbs.db
+Icon?
+Desktop.ini
+
+# ==============================
+# 🪵 Logs & Reports
+# ==============================
+*.log
+logs/
+*.pid
+*.seed
+*.out
+*.err
+
+# ==============================
+# 🐳 Docker & Compose
+# ==============================
+/docker-compose.override.yml
+*.pid
+*.tar
+*.img
+*.tmp
+docker-compose.backup.yml
+
+# ==============================
+# 🪶 CI/CD or Deployment
+# ==============================
+render_deployment/
+problem_solved/
+.deploy/
+tmp/
+temp/
+
+# ==============================
+# 🪄 Node / Front-End (optional)
+# ==============================
+node_modules/
+npm-debug.log
+yarn-error.log
+dist/
+build/
+
+# ==============================
+# 🧾 IntelliJ & Build Cache
+# ==============================
+/out/
+/*/out/
+/**/out/
+*.ipr
+*.iws
+
+# ==============================
+# 🧳 Local Files
+# ==============================
+*.local
+*.backup
+*.bak
+*.old
