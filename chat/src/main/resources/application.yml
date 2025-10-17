@@ -10,7 +10,7 @@ spring:
     baseline-on-migrate: true
     schemas: chat_schema, user_schema, auth_schema, billing
   
-  # 정적 리소스 설정
+  # 정적 리소스 설
   web:
     resources:
       static-locations: classpath:/static/

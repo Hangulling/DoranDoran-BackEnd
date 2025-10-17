@@ -7,7 +7,10 @@ plugins {
 dependencies {
     implementation project(':shared')
     implementation project(':common')
-    
+
+    // Github Actions 관련
+    implementation 'org.springframework.boot:spring-boot-starter-actuator'
+
     // Web / WebSocket
     implementation 'org.springframework.boot:spring-boot-starter-web'
     implementation 'org.springframework.boot:spring-boot-starter-websocket'
