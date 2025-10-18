@@ -9,7 +9,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        module: [ "auth", "user", "chat", "gateway" ]
+        module: [ "auth", "user", "chat", "gateway", "store", "batch" ]
     env:
       DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
       IMAGE_PREFIX: ${{ secrets.DOCKERHUB_USERNAME }}/dorandoran-
@@ -73,6 +73,8 @@ jobs:
             sed -i "s/^USER_TAG=.*/USER_TAG=${{ env.SHA_TAG }}/" .env
             sed -i "s/^CHAT_TAG=.*/CHAT_TAG=${{ env.SHA_TAG }}/" .env
             sed -i "s/^GATEWAY_TAG=.*/GATEWAY_TAG=${{ env.SHA_TAG }}/" .env
+            sed -i "s/^STORE_TAG=.*/STORE_TAG=${{ env.SHA_TAG }}/" .env
+            sed -i "s/^BATCH_TAG=.*/BATCH_TAG=${{ env.SHA_TAG }}/" .env
             
             # Pull latest images
             docker compose pull
@@ -94,3 +96,5 @@ jobs:
             curl -f http://localhost:8082/actuator/health || echo "User service health check failed"
             curl -f http://localhost:8083/actuator/health || echo "Chat service health check failed"
             curl -f http://localhost:8080/actuator/health || echo "Gateway health check failed"
+            curl -f http://localhost:8084/actuator/health || echo "Store service health check failed"
+            curl -f http://localhost:8085/actuator/health || echo "Batch service health check failed"

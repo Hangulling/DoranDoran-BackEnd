@@ -53,12 +53,28 @@ spring:
             - Path=/api/chat/**
           filters: []
         
+        # Store 서비스 라우팅
+        - id: store-service
+          uri: http://dorandoran-store:8084
+          predicates:
+            - Path=/api/store/**
+          filters: []
+        
         # Batch 서비스 라우팅
         - id: batch-service
           uri: http://dorandoran-batch:8085
           predicates:
             - Path=/api/batch/**
           filters: []
+      
+      # 글로벌 CORS 설정
+      globalcors:
+        cors-configurations:
+          '[/**]':
+            allowedOriginPatterns: "*"
+            allowedMethods: "*"
+            allowedHeaders: "*"
+            allowCredentials: true
       
 
 # 로깅 설정
@@ -72,7 +88,7 @@ logging:
 # Gateway 설정
 gateway:
   auth:
-    base-url: http://auth-service:8081  # Docker 서비스명 사용
+    base-url: http://dorandoran-auth:8081  # EC2와 동일한 컨테이너 이름 사용
     validate-path: /api/auth/validate
   jwt:
     hmac-secret: 404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970
