@@ -136,17 +136,17 @@ public class PromptService {
                         prompt.append("- 답변 길이 선호: ").append(s.get("length").asText()).append("\n");
                     }
                 }
-                // guardrails
-                if (p.has("guardrails")) {
-                    JsonNode g = p.get("guardrails");
-                    if (g.has("refuseTopics")) {
-                        prompt.append("- 아래 주제는 답변을 정중히 거부하세요: ");
-                        prompt.append(joinArray(g.get("refuseTopics"))).append("\n");
-                    }
-                    if (g.has("escalationHint")) {
-                        prompt.append("- 필요 시 다음 안내를 덧붙이세요: ").append(g.get("escalationHint").asText()).append("\n");
-                    }
-                }
+                // Guardrails disabled
+                // if (p.has("guardrails")) {
+                //     JsonNode g = p.get("guardrails");
+                //     if (g.has("refuseTopics")) {
+                //         prompt.append("- 아래 주제는 답변을 정중히 거부하세요: ");
+                //         prompt.append(joinArray(g.get("refuseTopics"))).append("\n");
+                //     }
+                //     if (g.has("escalationHint")) {
+                //         prompt.append("- 필요 시 다음 안내를 덧붙이세요: ").append(g.get("escalationHint").asText()).append("\n");
+                //     }
+                // }
                 // domainKnowledge
                 if (p.has("domainKnowledge")) {
                     prompt.append("- 선호/전문 도메인: ");
@@ -183,15 +183,16 @@ public class PromptService {
                         prompt.append("- 최대 길이: ").append(rs.get("maxLength").asInt()).append("\n");
                     }
                 }
-                if (c.has("safety")) {
-                    JsonNode s = c.get("safety");
-                    if (s.has("profanityFilter") && s.get("profanityFilter").asBoolean()) {
-                        prompt.append("- 욕설/비속어는 완곡하게 표현을 바꾸세요.\n");
-                    }
-                    if (s.has("piiRedaction") && s.get("piiRedaction").asBoolean()) {
-                        prompt.append("- 개인정보는 식별 불가하게 마스킹하세요.\n");
-                    }
-                }
+                // Safety filtering disabled
+                // if (c.has("safety")) {
+                //     JsonNode s = c.get("safety");
+                //     if (s.has("profanityFilter") && s.get("profanityFilter").asBoolean()) {
+                //         prompt.append("- 욕설/비속어는 완곡하게 표현을 바꾸세요.\n");
+                //     }
+                //     if (s.has("piiRedaction") && s.get("piiRedaction").asBoolean()) {
+                //         prompt.append("- 개인정보는 식별 불가하게 마스킹하세요.\n");
+                //     }
+                // }
             }
         } catch (Exception ignored) {}
     }

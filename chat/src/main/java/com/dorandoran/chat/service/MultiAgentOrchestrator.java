@@ -44,6 +44,16 @@ public class MultiAgentOrchestrator {
     public void processUserMessage(UUID chatroomId, UUID userId, Message userMessage) {
         log.info("=== MultiAgentOrchestrator.processUserMessage() 호출됨 ===");
         String content = userMessage.getContent();
+        
+        // 기존 Multi-Agent 로직 실행
+        processWithAgents(chatroomId, userId, userMessage, content);
+    }
+    
+    
+    /**
+     * 기존 Multi-Agent 처리 로직
+     */
+    private void processWithAgents(UUID chatroomId, UUID userId, Message userMessage, String content) {
         int userLevel = getCurrentIntimacyLevel(chatroomId);
         
         log.info("Multi-Agent 처리 시작: chatroomId={}, userId={}, userLevel={}", chatroomId, userId, userLevel);
@@ -70,31 +80,6 @@ public class MultiAgentOrchestrator {
         // 즉시 구독
         intimacyMono.subscribe();
         
-        log.debug("=== VocabularyAgent 호출 시작 ===");
-        log.debug("VocabularyAgent 파라미터 - content='{}', userLevel={}", content, userLevel);
-        Mono<VocabularyAgentResponse> vocabularyMono = vocabularyAgent.extractDifficultWords(content, userLevel)
-            .doOnSubscribe(subscription -> log.debug("VocabularyAgent 스트림 구독"))
-            .doOnNext(resp -> {
-                log.debug("VocabularyAgent 완료: wordsCount={}", resp.words().size());
-                sseManager.send(chatroomId, "vocabulary_extracted", Map.of(
-                    "words", resp.words().stream().map(w -> Map.of(
-                        "word", w.word(),
-                        "difficulty", w.difficulty(),
-                        "context", Map.of(
-                            "roma", w.context().roma(),
-                            "ko", w.context().ko(),
-                            "en", w.context().en()
-                        )
-                    )).toList()
-                ));
-            })
-            .doOnError(ex -> log.error("VocabularyAgent 오류", ex))
-            .doOnSuccess(resp -> log.debug("VocabularyAgent 스트림 완료"))
-            .cache(); // 결과 캐싱
-
-        // 즉시 구독
-        vocabularyMono.subscribe();
-        
         // Phase 2: Translation 제거됨 - VocabularyAgent가 모든 기능을 담당
         
         // Phase 3: Conversation (독립적 스트림)
@@ -102,21 +87,48 @@ public class MultiAgentOrchestrator {
         log.debug("ConversationAgent 파라미터 - chatroomId={}, content='{}'", chatroomId, content);
         conversationAgent.generateResponse(chatroomId, content)
             .doOnSubscribe(subscription -> log.debug("ConversationAgent 스트림 구독"))
-            .doOnNext(chunk -> sseManager.send(chatroomId, "conversation_chunk", chunk))
             .doOnError(error -> log.error("ConversationAgent 스트림 오류", error))
             .collectList()
             .doOnSuccess(chunks -> {
                 log.debug("collectList 성공, chunks: {}", chunks);
                 String fullResponse = String.join("", chunks);
                 log.debug("fullResponse: '{}'", fullResponse);
+                
+                // JSON 응답에서 실제 content만 추출
+                String actualContent = extractContentFromJson(fullResponse);
+                log.debug("extracted content: '{}'", actualContent);
+                
                 Message botMessage = chatService.sendMessage(
-                    chatroomId, null, "bot", fullResponse, "text"
+                    chatroomId, null, "bot", actualContent, "text"
                 );
                 sseManager.send(chatroomId, "conversation_complete", Map.of(
                     "messageId", botMessage.getId(),
-                    "content", fullResponse
+                    "content", actualContent
                 ));
                 log.info("ConversationAgent 완료: messageId={}", botMessage.getId());
+
+                // === VocabularyAgent 호출 (챗봇 응답에서 어려운 단어 추출) ===
+                log.debug("=== VocabularyAgent 호출 시작 (챗봇 응답 분석) ===");
+                log.debug("VocabularyAgent 파라미터 - botResponse='{}', userLevel={}", actualContent, userLevel);
+                vocabularyAgent.extractDifficultWords(actualContent, userLevel)
+                    .doOnSubscribe(subscription -> log.debug("VocabularyAgent 스트림 구독"))
+                    .doOnNext(resp -> {
+                        log.debug("VocabularyAgent 완료: wordsCount={}", resp.words().size());
+                        sseManager.send(chatroomId, "vocabulary_extracted", Map.of(
+                            "words", resp.words().stream().map(w -> Map.of(
+                                "word", w.word(),
+                                "difficulty", w.difficulty(),
+                                "context", Map.of(
+                                    "roma", w.context().roma(),
+                                    "ko", w.context().ko(),
+                                    "en", w.context().en()
+                                )
+                            )).toList()
+                        ));
+                    })
+                    .doOnError(ex -> log.error("VocabularyAgent 오류", ex))
+                    .doOnSuccess(resp -> log.debug("VocabularyAgent 스트림 완료"))
+                    .subscribe();
 
                 // === 후처리: 요약/키워드 생성 및 progress_data 병합 저장 ===
                 try {
@@ -247,28 +259,13 @@ public class MultiAgentOrchestrator {
                 error -> log.error("ConversationAgent 구독 오류", error)
             );
         
-        // Phase 4: 병렬 실행 완료 대기 및 통합 결과 전송
-        log.debug("=== Phase 4: Parallel execution completion waiting ===");
-        Mono.zip(intimacyMono, vocabularyMono)
+        // Phase 4: IntimacyAgent 완료 대기 (VocabularyAgent는 챗봇 응답 후 별도 처리)
+        log.debug("=== Phase 4: IntimacyAgent completion waiting ===");
+        intimacyMono
             .doOnSubscribe(subscription -> log.debug("Phase 4 스트림 구독"))
-            .doOnSuccess(tuple -> {
-                log.debug("Phase 4 성공 - tuple 받음");
-                IntimacyAgentResponse intimacyResp = tuple.getT1();
-                VocabularyAgentResponse vocabResp = tuple.getT2();
-                
-                Map<String, Object> aggregatedResult = new HashMap<>();
-                aggregatedResult.put("intimacy", Map.of(
-                    "detectedLevel", intimacyResp.detectedLevel(),
-                    "correctedSentence", intimacyResp.correctedSentence(),
-                    "feedback", intimacyResp.feedback()
-                ));
-                aggregatedResult.put("vocabulary", Map.of(
-                    "words", vocabResp.words().size()
-                ));
-                
-                sseManager.send(chatroomId, "aggregated_complete", aggregatedResult);
-                log.info("Multi-Agent 처리 완료: chatroomId={}, intimacyLevel={}, vocabCount={}", 
-                    chatroomId, intimacyResp.detectedLevel(), vocabResp.words().size());
+            .doOnSuccess(intimacyResp -> {
+                log.debug("Phase 4 성공 - intimacyResp 받음: {}", intimacyResp);
+                log.info("Phase 4 완료 - IntimacyAgent 결과 처리됨");
             })
             .doOnError(ex -> {
                 log.error("Multi-Agent 처리 중 오류", ex);
@@ -338,6 +335,33 @@ public class MultiAgentOrchestrator {
                 chatroomId, resp.detectedLevel(), progress.getTotalCorrections());
         } catch (Exception e) {
             log.error("친밀도 진척 업데이트 실패: chatroomId={}", chatroomId, e);
+        }
+    }
+    
+    /**
+     * JSON 응답에서 실제 content만 추출
+     */
+    private String extractContentFromJson(String jsonResponse) {
+        try {
+            if (jsonResponse == null || jsonResponse.trim().isEmpty()) {
+                return "";
+            }
+            
+            // JSON 파싱 시도
+            com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+            com.fasterxml.jackson.databind.JsonNode root = mapper.readTree(jsonResponse);
+            
+            if (root.has("content")) {
+                String content = root.get("content").asText();
+                log.debug("JSON에서 content 추출 성공: '{}'", content);
+                return content;
+            } else {
+                log.warn("JSON에 content 필드가 없음: {}", jsonResponse);
+                return jsonResponse; // JSON이 아니면 원본 반환
+            }
+        } catch (Exception e) {
+            log.debug("JSON 파싱 실패, 원본 텍스트 반환: {}", e.getMessage());
+            return jsonResponse; // JSON 파싱 실패시 원본 반환
         }
     }
 }
