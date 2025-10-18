@@ -23,6 +23,7 @@ public class BookmarkResponse {
   private UUID messageId;
   private UUID chatroomId;
   private String content;
+  private String correctedContent;
   private AiResponse aiResponse;
   private String botType;
   private LocalDateTime createdAt;
@@ -35,6 +36,7 @@ public class BookmarkResponse {
         .messageId(store.getMessageId())
         .chatroomId(store.getChatroomId())
         .content(store.getContent())
+        .correctedContent(store.getCorrectedContent())
         .aiResponse(store.getAiResponse())
         .botType(store.getBotType())
         .createdAt(store.getCreatedAt())

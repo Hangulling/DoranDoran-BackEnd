@@ -55,6 +55,7 @@ public class StorageService {
         .chatroomId(request.getChatroomId())
 //        .chatbotId(request.getChatbotId())
         .content(request.getContent())
+        .correctedContent(request.getCorrectedContent())
         .aiResponse(request.getAiResponse())
         .botType(request.getBotType())
         .isDeleted(false)
