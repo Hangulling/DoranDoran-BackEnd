@@ -21,7 +21,7 @@ CREATE SCHEMA IF NOT EXISTS chat_schema;
 CREATE SCHEMA IF NOT EXISTS batch_schema;
 
 -- Store 스키마 (저장소 관련)
-CREATE SCHEMA IF NOT EXISTS store;
+CREATE SCHEMA IF NOT EXISTS store_schema;
 
 -- ========================================
 -- 2. 테이블 생성
