@@ -67,7 +67,10 @@ public class TranslationAgent {
         StringBuilder prompt = new StringBuilder("다음 한국어 단어들을 번역해주세요:\n");
         for (VocabularyAgentResponse.VocabularyWord word : words) {
             prompt.append("- ").append(word.word());
-            if (!word.context().isEmpty()) {
+            if (word.context() != null && 
+                (word.context().roma() != null && !word.context().roma().isEmpty() ||
+                 word.context().ko() != null && !word.context().ko().isEmpty() ||
+                 word.context().en() != null && !word.context().en().isEmpty())) {
                 prompt.append(" (문맥: ").append(word.context()).append(")");
             }
             prompt.append("\n");

@@ -34,7 +34,7 @@ services:
     build:
       context: ..
       dockerfile: docker/Dockerfile.auth
-    container_name: dd-auth-service
+    container_name: dorandoran-auth
     ports: ["8081:8081"]
     environment:
       - SPRING_PROFILES_ACTIVE=docker
@@ -55,7 +55,7 @@ services:
     build:
       context: ..
       dockerfile: docker/Dockerfile.user
-    container_name: dd-user-service
+    container_name: dorandoran-user
     ports: ["8082:8082"]
     environment:
       - SPRING_PROFILES_ACTIVE=docker
@@ -76,7 +76,7 @@ services:
     build:
       context: ..
       dockerfile: docker/Dockerfile.chat
-    container_name: dd-chat-service
+    container_name: dorandoran-chat
     ports: ["8083:8083"]
     env_file:
       - ../.env
@@ -100,15 +100,15 @@ services:
     build:
       context: ..
       dockerfile: docker/Dockerfile.store
-    container_name: dd-store-service
-    ports: [ "8084:8084" ]
+    container_name: dorandoran-store
+    ports: ["8084:8084"]
     environment:
       - SPRING_PROFILES_ACTIVE=docker
       - SPRING_DATASOURCE_URL=jdbc:postgresql://shared-db:5432/dorandoran
       - SPRING_DATASOURCE_USERNAME=doran
       - SPRING_DATASOURCE_PASSWORD=doran
       - SPRING_JPA_HIBERNATE_DEFAULT_SCHEMA=store_schema
-      - FEIGN_CHAT_SERVICE_URL=http://chat-service:8083
+      - FEIGN_CHAT_SERVICE_URL=http://dorandoran-chat:8083
     depends_on:
       shared-db:
         condition: service_healthy
@@ -120,7 +120,7 @@ services:
     build:
       context: ..
       dockerfile: docker/Dockerfile.batch
-    container_name: dd-batch-service
+    container_name: dorandoran-batch
     ports: ["8085:8085"]
     environment:
       - SPRING_PROFILES_ACTIVE=docker
@@ -137,7 +137,7 @@ services:
     build:
       context: ..
       dockerfile: docker/Dockerfile.gateway
-    container_name: dd-api-gateway
+    container_name: dorandoran-gateway
     ports: ["8080:8080"]
     environment:
       - SPRING_PROFILES_ACTIVE=docker
@@ -147,6 +147,7 @@ services:
       - user-service
       - auth-service
       - chat-service
+      - store-service
       - batch-service
       - redis
 
@@ -170,6 +171,8 @@ services:
       - auth-service
       - user-service
       - chat-service
+      - store-service
+      - batch-service
 
   # Grafana 대시보드
   grafana:

@@ -47,7 +47,7 @@ application:
 # 서비스 간 통신 설정
 user:
   service:
-    url: http://localhost:8081
+    url: http://dorandoran-user:8082
 
 # Circuit Breaker 설정
 resilience4j:
@@ -114,11 +114,10 @@ management:
         enabled: true
 
 # Redis 설정 (토큰 블랙리스트용)
-spring:
   data:
     redis:
-      host: localhost
-      port: 6379
+      host: ${SPRING_REDIS_HOST:localhost}
+      port: ${SPRING_REDIS_PORT:6379}
       password: 
       timeout: 2000ms
       lettuce:

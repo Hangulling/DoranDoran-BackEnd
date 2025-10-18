@@ -59,7 +59,7 @@ application:
 # 서비스 간 통신 설정
 user:
   service:
-    url: ${USER_SERVICE_URL:http://user-service:8082}
+    url: ${USER_SERVICE_URL:http://dorandoran-user:8082}
 
 # Circuit Breaker 설정
 resilience4j:
