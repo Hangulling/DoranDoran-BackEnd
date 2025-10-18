@@ -8,17 +8,18 @@ import java.util.UUID;
 
 /**
  * Chat Service Feign Client Fallback
- * Chat Service 호출 실패 시 대체 응답
+ * Circuit Breaker 패턴
  */
 @Component
 @Slf4j
 public class ChatServiceClientFallback implements ChatServiceClient {
 
   @Override
-  public ChatRoomDto getChatRoom(UUID chatroomId) {
-    log.warn("Chat Service 호출 실패 - Fallback 실행: chatroomId={}", chatroomId);
+  public ChatRoomDto getChatRoom(UUID chatroomId, UUID userId) {
+    log.warn("Chat Service 호출 실패 - Fallback 실행: chatroomId={}, userId={}",
+        chatroomId, userId);
 
-    // Fallback: 채팅방 이름을 "Unknown"으로 반환
+    // Fallback 응답: name = "Unknown"
     return ChatRoomDto.builder()
         .id(chatroomId)
         .name("Unknown")
