@@ -4,10 +4,8 @@ import com.dorandoran.shared.security.HmacVerifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.HandlerInterceptor;
-import lombok.extern.slf4j.Slf4j;
 
 @Component
-@Slf4j
 public class HmacAuthInterceptor implements HandlerInterceptor {
 
     @Value("${gateway.jwt.hmac-secret:}")
@@ -27,14 +25,8 @@ public class HmacAuthInterceptor implements HandlerInterceptor {
         String ts = request.getHeader("X-Auth-Ts");
         String sign = request.getHeader("X-Auth-Sign");
 
-        if (userId == null || ts == null || sign == null) {
+        if (userId == null || ts == null || sign == null || hmacSecret == null || hmacSecret.isEmpty()) {
             response.setStatus(401);
-            return false;
-        }
-        
-        if (hmacSecret == null || hmacSecret.isEmpty()) {
-            log.error("HMAC secret이 설정되지 않았습니다. gateway.jwt.hmac-secret 설정을 확인하세요.");
-            response.setStatus(500);
             return false;
         }
 

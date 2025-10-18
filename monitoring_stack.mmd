@@ -1,0 +1,54 @@
+graph TB
+    subgraph "Application Layer"
+        Auth[Auth Service]
+        User[User Service]
+        Chat[Chat Service]
+        Batch[Batch Service]
+        Gateway[API Gateway]
+    end
+
+    subgraph "Metrics Collection"
+        Actuator[Spring Actuator]
+        Micrometer[Micrometer]
+        Prometheus[Prometheus]
+    end
+
+    subgraph "Logging"
+        Logback[Logback]
+        ELK[ELK Stack]
+        Fluentd[Fluentd]
+    end
+
+    subgraph "Visualization"
+        Grafana[Grafana]
+        Kibana[Kibana]
+    end
+
+    subgraph "Alerting"
+        AlertManager[Alert Manager]
+        Slack[Slack Notifications]
+        Email[Email Alerts]
+    end
+
+    Auth --> Actuator
+    User --> Actuator
+    Chat --> Actuator
+    Batch --> Actuator
+    Gateway --> Actuator
+
+    Actuator --> Micrometer
+    Micrometer --> Prometheus
+
+    Auth --> Logback
+    User --> Logback
+    Chat --> Logback
+    Batch --> Logback
+    Gateway --> Logback
+
+    Logback --> ELK
+    ELK --> Kibana
+
+    Prometheus --> Grafana
+    Prometheus --> AlertManager
+    AlertManager --> Slack
+    AlertManager --> Email

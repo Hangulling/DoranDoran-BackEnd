@@ -31,22 +31,14 @@ spring:
             - Path=/api/auth/**
           filters:
             - RewritePath=/api/auth/(?<segment>.*), /api/auth/$\{segment}
-            - name: AddResponseHeader
+            - name: RequestRateLimiter
               args:
-                name: Access-Control-Allow-Origin
-                value: "*"
-            - name: AddResponseHeader
-              args:
-                name: Access-Control-Allow-Methods
-                value: "GET,POST,PUT,DELETE,PATCH,OPTIONS"
-            - name: AddResponseHeader
-              args:
-                name: Access-Control-Allow-Headers
-                value: "*"
+                redis-rate-limiter.replenishRate: 10
+                redis-rate-limiter.burstCapacity: 20
         
         # User 서비스 라우팅
         - id: user-service
-          uri: http://localhost:8081
+          uri: http://localhost:8082
           predicates:
             - Path=/api/users/**
           filters:
@@ -54,18 +46,6 @@ spring:
               args:
                 redis-rate-limiter.replenishRate: 20
                 redis-rate-limiter.burstCapacity: 40
-            - name: AddResponseHeader
-              args:
-                name: Access-Control-Allow-Origin
-                value: "*"
-            - name: AddResponseHeader
-              args:
-                name: Access-Control-Allow-Methods
-                value: "GET,POST,PUT,DELETE,PATCH,OPTIONS"
-            - name: AddResponseHeader
-              args:
-                name: Access-Control-Allow-Headers
-                value: "*"
         
         # Chat 서비스 라우팅
         - id: chat-service
@@ -77,18 +57,17 @@ spring:
               args:
                 redis-rate-limiter.replenishRate: 30
                 redis-rate-limiter.burstCapacity: 60
-            - name: AddResponseHeader
+        
+        # Store 서비스 라우팅
+        - id: store-service
+          uri: http://localhost:8084
+          predicates:
+            - Path=/api/store/**
+          filters:
+            - name: RequestRateLimiter
               args:
-                name: Access-Control-Allow-Origin
-                value: "*"
-            - name: AddResponseHeader
-              args:
-                name: Access-Control-Allow-Methods
-                value: "GET,POST,PUT,DELETE,PATCH,OPTIONS"
-            - name: AddResponseHeader
-              args:
-                name: Access-Control-Allow-Headers
-                value: "*"
+                redis-rate-limiter.replenishRate: 15
+                redis-rate-limiter.burstCapacity: 30
         
         # Batch 서비스 라우팅
         - id: batch-service
@@ -100,35 +79,16 @@ spring:
               args:
                 redis-rate-limiter.replenishRate: 5
                 redis-rate-limiter.burstCapacity: 10
-            - name: AddResponseHeader
-              args:
-                name: Access-Control-Allow-Origin
-                value: "*"
-            - name: AddResponseHeader
-              args:
-                name: Access-Control-Allow-Methods
-                value: "GET,POST,PUT,DELETE,PATCH,OPTIONS"
-            - name: AddResponseHeader
-              args:
-                name: Access-Control-Allow-Headers
-                value: "*"
       
       # 글로벌 CORS 설정
       globalcors:
         cors-configurations:
           '[/**]':
             allowedOriginPatterns: "*"
-            allowedMethods: 
-              - GET
-              - POST
-              - PUT
-              - DELETE
-              - PATCH
-              - OPTIONS
-            allowedHeaders: 
-              - "*"
+            allowedMethods: "*"
+            allowedHeaders: "*"
             allowCredentials: true
-            maxAge: 3600
+      
 
 # SpringDoc OpenAPI 설정 (Reactive)
 springdoc:
@@ -185,5 +145,5 @@ gateway:
       - /api/users/health
       - /api/users
   jwt:
-    hmac-secret: 404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970
+    hmac-secret: change-me-hmac-secret
     skew-ms: 60000
