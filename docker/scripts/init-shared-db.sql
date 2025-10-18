@@ -423,6 +423,7 @@ CREATE TABLE store_schema.stores (
     message_id UUID NOT NULL,
     chatroom_id UUID NOT NULL,
     content TEXT NOT NULL,
+    corrected_content TEXT,
     ai_response JSONB NOT NULL,
     bot_type VARCHAR(20),
     is_deleted BOOLEAN NOT NULL DEFAULT FALSE,
@@ -435,6 +436,7 @@ COMMENT ON TABLE store_schema.stores IS ''보관함 - 사용자가 저장한 표
 COMMENT ON COLUMN store_schema.stores.content IS ''표현 원본'';
 COMMENT ON COLUMN store_schema.stores.ai_response IS ''Multi-Agent AI 응답 (JSONB)'';
 COMMENT ON COLUMN store_schema.stores.bot_type IS ''챗봇 역할 (Honey, Coworker, Senior, Client)'';
+COMMENT ON COLUMN store_schema.stores.corrected_content IS '친밀도 Agent가 교정한 문장 (교정 없으면 NULL)';
 
 -- 인덱스
 CREATE UNIQUE INDEX idx_store_user_message
