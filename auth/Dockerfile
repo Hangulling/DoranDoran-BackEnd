@@ -27,10 +27,10 @@ WORKDIR /app
 COPY --from=build /workspace/auth/build/libs/*.jar ./app.jar
 
 # 서비스 포트
-EXPOSE 8082
+EXPOSE 8081
 
 # 헬스체크: Spring Actuator health
 HEALTHCHECK --interval=30s --timeout=3s --start-period=40s --retries=3 \
-  CMD wget -qO- http://localhost:8082/actuator/health | grep -q '"status":"UP"' || exit 1
+  CMD wget -qO- http://localhost:8081/actuator/health | grep -q '"status":"UP"' || exit 1
 
 ENTRYPOINT ["java","-jar","/app/app.jar"]

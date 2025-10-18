@@ -1,0 +1,104 @@
+server:
+  port: 8081
+
+spring:
+  application:
+    name: auth-service
+  
+  # Spring Security 완전 비활성화
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration
+      - org.springframework.boot.autoconfigure.security.servlet.UserDetailsServiceAutoConfiguration
+      - org.springframework.boot.autoconfigure.security.servlet.SecurityFilterAutoConfiguration
+      - org.springframework.boot.autoconfigure.security.servlet.ManagementWebSecurityAutoConfiguration
+  
+  # Auth 서비스 공유 데이터베이스 설정
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://shared-db:5432/dorandoran}
+    username: ${SPRING_DATASOURCE_USERNAME:doran}
+    password: ${SPRING_DATASOURCE_PASSWORD:doran}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 20
+      minimum-idle: 5
+      connection-timeout: 20000
+      idle-timeout: 300000
+      max-lifetime: 600000
+      leak-detection-threshold: 10000
+      connection-test-query: SELECT 1
+      validation-timeout: 5000
+  
+  # JPA 설정
+  jpa:
+    hibernate:
+      ddl-auto: update
+      default_schema: auth_schema
+    show-sql: false
+    open-in-view: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
+        connection:
+          characterEncoding: UTF-8
+          useUnicode: true
+        jdbc:
+          time_zone: UTC
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
+
+  # Redis 설정 (Docker 프로필)
+  data:
+    redis:
+      host: ${SPRING_REDIS_HOST:dorandoran-redis}
+      port: ${SPRING_REDIS_PORT:6379}
+      timeout: 2000ms
+      lettuce:
+        pool:
+          max-active: 8
+          max-idle: 8
+          min-idle: 0
+
+# 로깅 설정
+logging:
+  level:
+    com.dorandoran.auth: INFO
+    org.springframework.web: WARN
+    org.hibernate.SQL: WARN
+    org.hibernate.type.descriptor.sql.BasicBinder: WARN
+    org.hibernate.type.descriptor.sql.BasicExtractor: WARN
+    org.hibernate.engine.jdbc.binding.internal.BasicBinder: WARN
+    reactor.netty: WARN
+    io.netty: WARN
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} - %msg%n"
+
+# Actuator 설정
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+      base-path: /actuator
+  endpoint:
+    health:
+      show-details: always
+    prometheus:
+      enabled: true
+  security:
+    enabled: false
+  prometheus:
+    metrics:
+      export:
+        enabled: true
+
+# 서비스 간 통신 설정
+user:
+  service:
+    url: http://dorandoran-user:8082
+
+# Gateway HMAC 설정
+gateway:
+  jwt:
+    hmac-secret: 404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970
+    skew-ms: 60000
