@@ -81,11 +81,11 @@ ai:
   openai:
     api-key: ${OPENAI_API_KEY}
     base-url: ${OPENAI_BASE_URL:https://api.openai.com}
-    model: ${OPENAI_MODEL:gpt-4o-mini}
+    model: ${OPENAI_MODEL:gpt-5-mini}
     max-prompt-chars: ${OPENAI_MAX_PROMPT_CHARS:8000}
     max-output-tokens: ${OPENAI_MAX_OUTPUT_TOKENS:800}
-    price-per1k-input: ${OPENAI_PRICE_IN_PER1K:0}
-    price-per1k-output: ${OPENAI_PRICE_OUT_PER1K:0}
+    price-per1k-input: ${OPENAI_PRICE_IN_PER1K:0.25}
+    price-per1k-output: ${OPENAI_PRICE_OUT_PER1K:2.00}
 
 # SpringDoc OpenAPI 설정
 springdoc:

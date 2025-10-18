@@ -7,9 +7,8 @@ ENV TZ=Asia/Seoul
 # 작업 디렉토리
 WORKDIR /app
 
-# 빌드된 jar 파일 복사 (각 모듈의 build/libs/*.jar)
-ARG JAR_FILE=build/libs/*.jar
-COPY ${JAR_FILE} app.jar
+# 빌드된 jar 파일 복사 (fat jar만 복사)
+COPY chat/build/libs/chat-0.1.0-SNAPSHOT.jar app.jar
 
 # (선택) 모듈별 포트 문서용
 EXPOSE 8083
