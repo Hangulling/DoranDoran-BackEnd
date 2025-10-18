@@ -546,14 +546,23 @@ public class ChatController {
     @PatchMapping("/chatrooms/{chatroomId}/intimacy")
     public ResponseEntity<?> updateIntimacy(
             @PathVariable UUID chatroomId, 
-            @Valid @RequestBody IntimacyUpdateRequest request) {
-        UUID userId = extractUserIdFromSecurityContext();
-        if (userId == null) {
+            @Valid @RequestBody IntimacyUpdateRequest request,
+            @RequestParam(required = false) UUID userId,
+            @RequestHeader(value = "X-User-Id", required = false) String userIdHeader) {
+        // SecurityContext → userId 파라미터 → X-User-Id 헤더 순으로 폴백
+        UUID uid = extractUserIdFromSecurityContext();
+        if (uid == null && userId != null) {
+            uid = userId;
+        }
+        if (uid == null && userIdHeader != null && !userIdHeader.isBlank()) {
+            try { uid = UUID.fromString(userIdHeader); } catch (IllegalArgumentException ignored) {}
+        }
+        if (uid == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("error", "사용자 인증이 필요합니다"));
         }
         
         try {
-            chatService.updateIntimacyLevel(chatroomId, userId, request.getIntimacyLevel());
+            chatService.updateIntimacyLevel(chatroomId, uid, request.getIntimacyLevel());
             return ResponseEntity.ok(Map.of(
                 "success", true,
                 "message", "친밀도가 변경되었습니다",
