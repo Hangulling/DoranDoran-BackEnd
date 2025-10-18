@@ -41,10 +41,16 @@ public class StorageController {
   @Operation(summary = "표현 보관", description = "사용자가 표현과 AI 응답을 보관함에 저장")
   public ResponseEntity<BookmarkResponse> saveBookmark(
       @Parameter(description = "사용자 ID", required = true)
-      @RequestHeader("X-User-Id") UUID userId,
+      @RequestHeader(value = "X-User-Id", required = false) String userIdHeader,
 
       @Parameter(description = "보관 요청 데이터", required = true)
       @Valid @RequestBody BookmarkRequest request) {
+
+    UUID userId = parseUserIdHeader(userIdHeader);
+    if (userId == null) {
+      log.warn("X-User-Id header is missing or invalid");
+      return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
+    }
 
     log.info("POST /api/store/bookmarks - userId: {}", userId);
 
@@ -60,7 +66,13 @@ public class StorageController {
   @Operation(summary = "보관함 전체 조회", description = "사용자의 보관함 전체 목록 조회")
   public ResponseEntity<List<StorageListResponse>> getBookmarks(
       @Parameter(description = "사용자 ID", required = true)
-      @RequestHeader("X-User-Id") UUID userId) {
+      @RequestHeader(value = "X-User-Id", required = false) String userIdHeader) {
+
+    UUID userId = parseUserIdHeader(userIdHeader);
+    if (userId == null) {
+      log.warn("X-User-Id header is missing or invalid");
+      return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
+    }
 
     log.info("GET /api/store/bookmarks - userId: {}", userId);
 
@@ -69,6 +81,7 @@ public class StorageController {
     return ResponseEntity.ok(response);
   }
 
+
   /**
    * 보관함 전체 조회 (페이징)
    */
@@ -76,10 +89,16 @@ public class StorageController {
   @Operation(summary = "보관함 조회 (페이징)", description = "페이징된 보관함 목록 조회")
   public ResponseEntity<Page<StorageListResponse>> getBookmarksPage(
       @Parameter(description = "사용자 ID", required = true)
-      @RequestHeader("X-User-Id") UUID userId,
+      @RequestHeader(value = "X-User-Id", required = false) String userIdHeader,
 
       @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC)
       Pageable pageable) {
+
+    UUID userId = parseUserIdHeader(userIdHeader);
+    if (userId == null) {
+      log.warn("X-User-Id header is missing or invalid");
+      return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
+    }
 
     log.info("GET /api/store/bookmarks/page - userId: {}", userId);
 
@@ -114,10 +133,16 @@ public class StorageController {
   @Operation(summary = "챗봇 타입별 보관함 조회", description = "특정 챗봇 타입의 모든 보관함 조회")
   public ResponseEntity<List<StorageListResponse>> getBookmarksByBotType(
       @Parameter(description = "사용자 ID", required = true)
-      @RequestHeader("X-User-Id") UUID userId,
+      @RequestHeader(value = "X-User-Id", required = false) String userIdHeader,
 
       @Parameter(description = "챗봇 타입 (friend, honey, coworker, senior)", required = true)
       @PathVariable String botType) {
+
+    UUID userId = parseUserIdHeader(userIdHeader);
+    if (userId == null) {
+      log.warn("X-User-Id header is missing or invalid");
+      return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
+    }
 
     log.info("GET /api/store/bookmarks/bot-type/{} - userId: {}", botType, userId);
 
@@ -139,10 +164,16 @@ public class StorageController {
   @Operation(summary = "보관함 삭제", description = "보관함 항목 삭제 (소프트 삭제)")
   public ResponseEntity<Void> deleteBookmark(
       @Parameter(description = "사용자 ID", required = true)
-      @RequestHeader("X-User-Id") UUID userId,
+      @RequestHeader(value = "X-User-Id", required = false) String userIdHeader,
 
       @Parameter(description = "보관함 ID", required = true)
       @PathVariable UUID bookmarkId) {
+
+    UUID userId = parseUserIdHeader(userIdHeader);
+    if (userId == null) {
+      log.warn("X-User-Id header is missing or invalid");
+      return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
+    }
 
     log.info("DELETE /api/store/bookmarks/{} - userId: {}", bookmarkId, userId);
 
@@ -151,6 +182,7 @@ public class StorageController {
     return ResponseEntity.noContent().build();
   }
 
+
   /**
    * 보관함 일괄 삭제
    */
@@ -158,10 +190,16 @@ public class StorageController {
   @Operation(summary = "보관함 일괄 삭제", description = "여러 보관함 항목 한 번에 삭제")
   public ResponseEntity<Void> deleteBookmarks(
       @Parameter(description = "사용자 ID", required = true)
-      @RequestHeader("X-User-Id") UUID userId,
+      @RequestHeader(value = "X-User-Id", required = false) String userIdHeader,
 
       @Parameter(description = "삭제할 보관함 ID 리스트", required = true)
       @RequestBody List<UUID> bookmarkIds) {
+
+    UUID userId = parseUserIdHeader(userIdHeader);
+    if (userId == null) {
+      log.warn("X-User-Id header is missing or invalid");
+      return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
+    }
 
     log.info("DELETE /api/store/bookmarks - userId: {}, count: {}", userId, bookmarkIds.size());
 
@@ -177,7 +215,13 @@ public class StorageController {
   @Operation(summary = "보관함 개수", description = "사용자의 보관함 항목 개수 조회")
   public ResponseEntity<Long> countBookmarks(
       @Parameter(description = "사용자 ID", required = true)
-      @RequestHeader("X-User-Id") UUID userId) {
+      @RequestHeader(value = "X-User-Id", required = false) String userIdHeader) {
+
+    UUID userId = parseUserIdHeader(userIdHeader);
+    if (userId == null) {
+      log.warn("X-User-Id header is missing or invalid");
+      return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
+    }
 
     log.info("GET /api/store/bookmarks/count - userId: {}", userId);
 
@@ -212,7 +256,7 @@ public class StorageController {
   @Operation(summary = "보관함 조회 (Cursor 페이징)", description = "Cursor 기반 무한 스크롤용 페이징 조회")
   public ResponseEntity<Page<StorageListResponse>> getBookmarksWithCursor(
       @Parameter(description = "사용자 ID", required = true)
-      @RequestHeader("X-User-Id") UUID userId,
+      @RequestHeader(value = "X-User-Id", required = false) String userIdHeader,
 
       @Parameter(description = "마지막 조회 ID (null이면 처음부터)")
       @RequestParam(required = false) UUID lastId,
@@ -220,10 +264,33 @@ public class StorageController {
       @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC)
       Pageable pageable) {
 
+    UUID userId = parseUserIdHeader(userIdHeader);
+    if (userId == null) {
+      log.warn("X-User-Id header is missing or invalid");
+      return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
+    }
+
     log.info("GET /api/store/bookmarks/cursor - userId: {}, lastId: {}", userId, lastId);
 
     Page<StorageListResponse> response = storageService.getBookmarksWithCursor(userId, lastId, pageable);
 
     return ResponseEntity.ok(response);
+  }
+
+  /**
+   * X-User-Id 헤더 파싱
+   * @param userIdHeader X-User-Id 헤더 값
+   * @return UUID 또는 null
+   */
+  private UUID parseUserIdHeader(String userIdHeader) {
+    if (userIdHeader == null || userIdHeader.isBlank()) {
+      return null;
+    }
+    try {
+      return UUID.fromString(userIdHeader);
+    } catch (IllegalArgumentException e) {
+      log.warn("Invalid X-User-Id header format: {}", userIdHeader);
+      return null;
+    }
   }
 }
