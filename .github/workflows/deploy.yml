@@ -68,6 +68,13 @@ jobs:
             set -e
             cd ~/dorandoran
             
+            # Stop and remove existing containers
+            echo "Stopping existing containers..."
+            docker compose down --remove-orphans || true
+            
+            # Remove any dangling containers with same names
+            docker rm -f dorandoran-redis dorandoran-auth dorandoran-user dorandoran-chat dorandoran-gateway dorandoran-store dorandoran-batch 2>/dev/null || true
+            
             # Update image tags in .env
             sed -i "s/^AUTH_TAG=.*/AUTH_TAG=${{ env.SHA_TAG }}/" .env
             sed -i "s/^USER_TAG=.*/USER_TAG=${{ env.SHA_TAG }}/" .env
@@ -77,9 +84,11 @@ jobs:
             sed -i "s/^BATCH_TAG=.*/BATCH_TAG=${{ env.SHA_TAG }}/" .env
             
             # Pull latest images
+            echo "Pulling latest images..."
             docker compose pull
             
-            # Restart services with new images
+            # Start services with new images
+            echo "Starting services..."
             docker compose up -d
             
             # Remove dangling images
