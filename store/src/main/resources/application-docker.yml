@@ -1,8 +1,46 @@
 spring:
+  application:
+    name: store-service
+
+  # 데이터베이스 연결
   datasource:
-    url: jdbc:postgresql://postgres:5432/dorandoran_db
-    username: ${POSTGRES_USER:doran}
-    password: ${POSTGRES_PASSWORD:doran_password}
+    url: ${SPRING_DATASOURCE_URL}
+    username: ${SPRING_DATASOURCE_USERNAME}
+    password: ${SPRING_DATASOURCE_PASSWORD}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 20
+      minimum-idle: 5
+      connection-timeout: 20000
+      idle-timeout: 300000
+      max-lifetime: 600000
+      leak-detection-threshold: 10000
+      connection-test-query: SELECT 1
+      validation-timeout: 5000
+
+  # JPA 설정
+  jpa:
+    hibernate:
+      ddl-auto: update
+      default_schema: store_schema
+    show-sql: true
+    open-in-view: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
+        jdbc:
+          time_zone: UTC
+        connection:
+          characterEncoding: UTF-8
+          useUnicode: true
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
 
 server:
   port: 8084
+  address: 0.0.0.0
+
+# 로깅
+logging:
+  level:
+    com.dorandoran.store: DEBUG
