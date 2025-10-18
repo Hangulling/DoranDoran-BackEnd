@@ -58,10 +58,10 @@ WHY:
   "temperature": 0.7,                        // 창의성 (0.0-2.0)
   "topP": 1.0,                              // 토큰 선택 다양성 (0.0-1.0)
   "maxTokens": 800,                          // 최대 응답 토큰 수
-  "safety": {                                // 안전 필터 설정
-    "profanityFilter": true,                 // 욕설 필터
-    "piiRedaction": true,                    // 개인정보 마스킹
-    "harmfulContent": "block"                // 유해 콘텐츠 차단
+  "safety": {                                // 안전 필터 설정 (DISABLED)
+    "profanityFilter": false,                // 욕설 필터 (비활성화)
+    "piiRedaction": false,                   // 개인정보 마스킹 (비활성화)
+    "harmfulContent": "allow"                // 유해 콘텐츠 허용
   },
   "responseStyle": {                         // 응답 스타일 제어
     "format": "markdown",                    // 마크다운 포맷
