@@ -10,7 +10,7 @@ spring:
     baseline-on-migrate: true
     schemas: chat_schema, user_schema, auth_schema, billing
   
-  # 정적 리소스 설정
+  # 정적 리소스 설
   web:
     resources:
       static-locations: classpath:/static/
@@ -65,12 +65,14 @@ spring:
 # 로깅 설정
 logging:
   level:
-    com.dorandoran.chat: DEBUG
-    org.springframework.web: DEBUG
-    org.hibernate.SQL: DEBUG
-    org.hibernate.type.descriptor.sql.BasicBinder: TRACE
-    org.hibernate.type.descriptor.sql.BasicExtractor: TRACE
-    org.hibernate.engine.jdbc.binding.internal.BasicBinder: TRACE
+    com.dorandoran.chat: INFO
+    org.springframework.web: WARN
+    org.hibernate.SQL: WARN
+    org.hibernate.type.descriptor.sql.BasicBinder: WARN
+    org.hibernate.type.descriptor.sql.BasicExtractor: WARN
+    org.hibernate.engine.jdbc.binding.internal.BasicBinder: WARN
+    reactor.netty: WARN
+    io.netty: WARN
   pattern:
     console: "%d{yyyy-MM-dd HH:mm:ss} - %msg%n"
 
@@ -98,5 +100,11 @@ springdoc:
     displayRequestDuration: true
     showExtensions: true
     showCommonExtensions: true
+
+# Gateway HMAC 설정
+gateway:
+  jwt:
+    hmac-secret: 404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970
+    skew-ms: 60000
 
 # Actuator 설정은 application-docker.yml에서 관리

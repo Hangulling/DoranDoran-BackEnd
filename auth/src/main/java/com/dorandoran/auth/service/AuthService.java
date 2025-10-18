@@ -12,12 +12,14 @@ import com.dorandoran.auth.dto.LoginResponse;
 import com.dorandoran.common.exception.DoranDoranException;
 import com.dorandoran.common.exception.ErrorCode;
 import com.dorandoran.shared.dto.UserDto;
+import com.dorandoran.shared.dto.UserWithPasswordDto;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import java.util.UUID;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.annotation.Propagation;
 
 import java.time.Duration;
 import java.util.Date;
@@ -43,16 +45,20 @@ public class AuthService {
     /**
      * 로그인 (User 서비스 중심 구조)
      */
-    @Transactional(readOnly = true)
+    @Transactional
     public LoginResponse login(LoginRequest request) {
         log.info("사용자 로그인 요청: email={}", request.getEmail());
         
         try {
-            // User 서비스에서 사용자 정보 조회 (단일 소스)
-            UserDto user = userIntegrationService.getUserByEmail(request.getEmail());
+            // User 서비스에서 사용자 정보 조회 (Auth 서비스용 - passwordHash 포함)
+            UserWithPasswordDto user = userIntegrationService.getUserByEmailForAuth(request.getEmail());
             
             // 비밀번호 검증 (User 서비스의 데이터 사용)
-            if (!passwordEncoder.matches(request.getPassword(), user.passwordHash())) {
+            log.info("비밀번호 검증: 입력된 비밀번호={}, 저장된 해시={}", request.getPassword(), user.passwordHash());
+            boolean passwordMatches = passwordEncoder.matches(request.getPassword(), user.passwordHash());
+            log.info("비밀번호 일치 여부: {}", passwordMatches);
+            
+            if (!passwordMatches) {
                 // 실패 시도 기록
                 recordLoginAttempt(null, request.getEmail(), false);
                 throw new DoranDoranException(ErrorCode.INVALID_PASSWORD);
@@ -62,23 +68,60 @@ public class AuthService {
             String accessToken = jwtService.generateAccessToken(user.id().toString(), user.email(), user.name());
             String refreshToken = jwtService.generateRefreshToken(user.id().toString(), user.email(), user.name());
 
+            // User 엔티티 생성 (한 번만)
+            com.dorandoran.auth.entity.User userEntity = com.dorandoran.auth.entity.User.builder()
+                    .id(UUID.fromString(user.id()))
+                    .email(user.email())
+                    .firstName(user.firstName())
+                    .lastName(user.lastName())
+                    .name(user.name())
+                    .passwordHash(user.passwordHash())
+                    .picture(user.picture())
+                    .info(user.info())
+                    .lastConnTime(user.lastConnTime())
+                    .status(com.dorandoran.auth.entity.User.UserStatus.valueOf(user.status().name()))
+                    .role(com.dorandoran.auth.entity.User.RoleName.valueOf(user.role().name()))
+                    .coachCheck(user.coachCheck())
+                    .createdAt(user.createdAt())
+                    .updatedAt(user.updatedAt())
+                    .build();
+
             // 성공 시도 기록
-            recordLoginAttempt(UUID.fromString(user.id()), user.email(), true);
+            recordLoginAttemptWithUser(userEntity, user.email(), true);
 
             // 리프레시 토큰 저장(해시)
-            saveRefreshToken(UUID.fromString(user.id()), refreshToken);
+            saveRefreshTokenWithUser(userEntity, refreshToken);
 
             // 이벤트 로깅
-            recordAuthEvent(UUID.fromString(user.id()), "LOGIN");
+            recordAuthEventWithUser(userEntity, "LOGIN");
             
             log.info("로그인 성공: userId={}, email={}", user.id(), user.email());
+            
+            // UserWithPasswordDto를 UserDto로 변환 (passwordHash 제외)
+            UserDto userDto = new UserDto(
+                user.id(),
+                user.email(),
+                user.firstName(),
+                user.lastName(),
+                user.name(),
+                null, // passwordHash는 제외
+                user.picture(),
+                user.info(),
+                user.preferences(),
+                user.lastConnTime(),
+                user.status(),
+                user.role(),
+                user.coachCheck(),
+                user.createdAt(),
+                user.updatedAt()
+            );
             
             return LoginResponse.builder()
                     .accessToken(accessToken)
                     .refreshToken(refreshToken)
                     .tokenType("Bearer")
                     .expiresIn(3600L) // 1시간 (초 단위)
-                    .user(user)
+                    .user(userDto)
                     .build();
                     
         } catch (DoranDoranException e) {
@@ -188,11 +231,11 @@ public class AuthService {
                 // 과거 미추적 토큰인 경우, 현재 토큰을 기록하고 새 토큰 발급 기록 추가
                 java.util.Date currentExp = jwtService.extractExpiration(refreshToken);
                 if (currentExp != null) {
-                    refreshTokenService.issue(userEntity, oldHash,
+                    refreshTokenService.issue(userEntity.getId(), oldHash,
                             java.time.LocalDateTime.ofInstant(currentExp.toInstant(), java.time.ZoneId.systemDefault()),
                             null, null, null);
                 }
-                refreshTokenService.issue(userEntity, newHash,
+                refreshTokenService.issue(userEntity.getId(), newHash,
                         java.time.LocalDateTime.ofInstant(newRefreshExp.toInstant(), java.time.ZoneId.systemDefault()),
                         null, null, null);
             }
@@ -256,8 +299,25 @@ public class AuthService {
     // ===== 헬퍼 메서드들 =====
     
     /**
+     * 로그인 시도 기록 (User ID 직접 사용)
+     */
+    private void recordLoginAttemptWithUser(com.dorandoran.auth.entity.User user, String email, boolean succeeded) {
+        try {
+            loginAttemptRepository.save(LoginAttempt.builder()
+                    .userId(user.getId())
+                    .email(email)
+                    .succeeded(succeeded)
+                    .createdAt(java.time.LocalDateTime.now())
+                    .build());
+        } catch (Exception e) {
+            log.warn("로그인 시도 기록 실패: {}", e.getMessage());
+        }
+    }
+
+    /**
      * 로그인 시도 기록
      */
+    @Transactional(propagation = Propagation.REQUIRED)
     private void recordLoginAttempt(java.util.UUID userId, String email, boolean succeeded) {
         try {
             // User 객체를 조회하여 연관관계 설정
@@ -288,7 +348,7 @@ public class AuthService {
             }
             
             loginAttemptRepository.save(LoginAttempt.builder()
-                    .user(user)
+                    .userId(userId)
                     .email(email)
                     .succeeded(succeeded)
                     .createdAt(java.time.LocalDateTime.now())
@@ -299,8 +359,21 @@ public class AuthService {
     }
     
     /**
+     * 리프레시 토큰 저장 (User ID 직접 사용)
+     */
+    private void saveRefreshTokenWithUser(com.dorandoran.auth.entity.User user, String refreshToken) {
+        try {
+            refreshTokenService.issue(user.getId(), refreshToken, java.time.LocalDateTime.now().plusDays(30), 
+                    "web", "web-browser", "127.0.0.1");
+        } catch (Exception e) {
+            log.warn("리프레시 토큰 저장 실패: {}", e.getMessage());
+        }
+    }
+
+    /**
      * 리프레시 토큰 저장
      */
+    @Transactional(propagation = Propagation.REQUIRED)
     private void saveRefreshToken(java.util.UUID userId, String refreshToken) {
         try {
             // UserIntegrationService에서 UserDto를 받아서 User 엔티티로 변환
@@ -325,7 +398,7 @@ public class AuthService {
             String refreshHash = tokenBlacklistService.hashToken(refreshToken);
             java.util.Date refreshExp = jwtService.extractExpiration(refreshToken);
             if (refreshExp != null) {
-                refreshTokenService.issue(user, refreshHash,
+                refreshTokenService.issue(user.getId(), refreshHash,
                         java.time.LocalDateTime.ofInstant(refreshExp.toInstant(), java.time.ZoneId.systemDefault()),
                         null, null, null);
             }
@@ -335,8 +408,24 @@ public class AuthService {
     }
     
     /**
+     * 인증 이벤트 기록 (User ID 직접 사용)
+     */
+    private void recordAuthEventWithUser(com.dorandoran.auth.entity.User user, String eventType) {
+        try {
+            authEventRepository.save(AuthEvent.builder()
+                    .userId(user.getId())
+                    .eventType(eventType)
+                    .createdAt(java.time.LocalDateTime.now())
+                    .build());
+        } catch (Exception e) {
+            log.warn("인증 이벤트 기록 실패: {}", e.getMessage());
+        }
+    }
+
+    /**
      * 인증 이벤트 기록
      */
+    @Transactional(propagation = Propagation.REQUIRED)
     private void recordAuthEvent(java.util.UUID userId, String eventType) {
         try {
             // User 객체를 조회하여 연관관계 설정
@@ -367,7 +456,7 @@ public class AuthService {
             }
             
             authEventRepository.save(AuthEvent.builder()
-                    .user(user)
+                    .userId(user.getId())
                     .eventType(eventType)
                     .metadata(null)
                     .createdAt(java.time.LocalDateTime.now())

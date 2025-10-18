@@ -1,6 +1,7 @@
 package com.dorandoran.store.service;
 
 import com.dorandoran.store.client.ChatServiceClient;
+import com.dorandoran.store.client.dto.ChatRoomDto;
 import com.dorandoran.store.dto.request.BookmarkRequest;
 import com.dorandoran.store.dto.response.BookmarkResponse;
 import com.dorandoran.store.dto.response.StorageListResponse;
@@ -9,6 +10,7 @@ import com.dorandoran.store.exception.BookmarkNotFoundException;
 import com.dorandoran.store.exception.DuplicateBookmarkException;
 import com.dorandoran.store.exception.UnauthorizedAccessException;
 import com.dorandoran.store.repository.StoreRepository;
+import feign.FeignException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -53,6 +55,7 @@ public class StorageService {
         .chatroomId(request.getChatroomId())
 //        .chatbotId(request.getChatbotId())
         .content(request.getContent())
+        .correctedContent(request.getCorrectedContent())
         .aiResponse(request.getAiResponse())
         .botType(request.getBotType())
         .isDeleted(false)
@@ -78,17 +81,7 @@ public class StorageService {
     }
 
     return stores.stream()
-        .map(store -> {
-          StorageListResponse response = StorageListResponse.from(store);
-          try {
-            String chatroomName = chatServiceClient.getChatRoom(store.getChatroomId()).getName();
-            response.setChatroomNameFromClient(chatroomName);
-          } catch (Exception e) {
-            log.warn("채팅방 이름 조회 실패: chatroomId={}", store.getChatroomId(), e);
-            response.setChatroomNameFromClient("Unknown");
-          }
-          return response;
-        })
+        .map(store -> enrichWithChatroomName(store))
         .collect(Collectors.toList());
   }
 
@@ -102,17 +95,7 @@ public class StorageService {
 
     Page<Store> stores = storeRepository.findByUserIdAndIsDeletedFalseOrderByCreatedAtDesc(userId, pageable);
 
-    return stores.map(store -> {
-      StorageListResponse response = StorageListResponse.from(store);
-      try {
-        String chatroomName = chatServiceClient.getChatRoom(store.getChatroomId()).getName();
-        response.setChatroomNameFromClient(chatroomName);
-      } catch (Exception e) {
-        log.warn("채팅방 이름 조회 실패: chatroomId={}", store.getChatroomId(), e);
-        response.setChatroomNameFromClient("Unknown");
-      }
-      return response;
-    });
+    return stores.map(store -> enrichWithChatroomName(store));
   }
 
 //  /**
@@ -174,6 +157,38 @@ public class StorageService {
 //  }
 
   /**
+   * botType별 조회
+   */
+  @Transactional(readOnly = true)
+  public List<StorageListResponse> getBookmarksByBotType(UUID userId, String botType) {
+    log.info("챗봇 타입별 보관함 조회: userId={}, botType={}", userId, botType);
+
+    List<Store> stores = storeRepository
+        .findByUserIdAndBotTypeAndIsDeletedFalseOrderByCreatedAtDesc(userId, botType);
+
+    if (stores.isEmpty()) {
+      log.info("해당 챗봇 타입의 보관함이 비어있음: botType={}", botType);
+    }
+
+    return stores.stream()
+        .map(store -> enrichWithChatroomName(store))
+        .collect(Collectors.toList());
+  }
+
+  /**
+   * Cursor 기반 페이징 조회
+   */
+  @Transactional(readOnly = true)
+  public Page<StorageListResponse> getBookmarksWithCursor(UUID userId, UUID lastId, Pageable pageable) {
+    log.info("Cursor 기반 보관함 조회: userId={}, lastId={}, size={}",
+        userId, lastId, pageable.getPageSize());
+
+    Page<Store> stores = storeRepository.findByUserIdWithCursor(userId, lastId, pageable);
+
+    return stores.map(store -> enrichWithChatroomName(store));
+  }
+
+  /**
    * 보관함 삭제 (소프트 삭제)
    */
   @Transactional
@@ -214,13 +229,14 @@ public class StorageService {
       try {
         deleteBookmark(userId, bookmarkId);
       } catch (Exception e) {
-        log.error("삭제 실패: bookmarkId={}", bookmarkId, e);
+        log.error("삭제 실패 - 계속 진행합니다: bookmarkId={}", bookmarkId, e);
         // 실패해도 계속 진행
       }
     }
 
     log.info("보관함 일괄 삭제 완료: userId={}", userId);
   }
+
 
   /**
    * 보관함 개수 조회
@@ -230,87 +246,52 @@ public class StorageService {
     return storeRepository.countByUserIdAndIsDeletedFalse(userId);
   }
 
-//  /**
-//   * 챗봇별 보관함 조회
-//   */
-//  @Transactional(readOnly = true)
-//  public List<StorageListResponse> getBookmarksByChatbot(UUID userId, UUID chatbotId) {
-//    log.info("챗봇별 보관함 조회: userId={}, chatbotId={}", userId, chatbotId);
-//
-//    List<Store> stores = storeRepository
-//        .findByUserIdAndChatbotIdAndIsDeletedFalseOrderByCreatedAtDesc(userId, chatbotId);
-//
-//    if (stores.isEmpty()) {
-//      log.info("해당 챗봇의 보관함이 비어있음: chatbotId={}", chatbotId);
-//    }
-//
-//    return stores.stream()
-//        .map(store -> {
-//          StorageListResponse response = StorageListResponse.from(store);
-//          try {
-//            String chatroomName = chatServiceClient.getChatRoom(store.getChatroomId()).getName();
-//            response.setChatroomNameFromClient(chatroomName);
-//          } catch (Exception e) {
-//            log.warn("채팅방 이름 조회 실패: chatroomId={}", store.getChatroomId(), e);
-//            response.setChatroomNameFromClient("Unknown");
-//          }
-//          return response;
-//        })
-//        .collect(Collectors.toList());
-//  }
 
   /**
-   * botType별 조회
-   * @param userId
-   * @param botType
-   * @return
+   * 채팅방 이름을 조회하여 StorageListResponse에 추가
+   * Feign Client 예외 처리 포함
    */
-  @Transactional(readOnly = true)
-  public List<StorageListResponse> getBookmarksByBotType(UUID userId, String botType) {
-    log.info("챗봇 타입별 보관함 조회: userId={}, botType={}", userId, botType);
+  private StorageListResponse enrichWithChatroomName(Store store) {
+    StorageListResponse response = StorageListResponse.from(store);
 
-    List<Store> stores = storeRepository
-        .findByUserIdAndBotTypeAndIsDeletedFalseOrderByCreatedAtDesc(userId, botType);
+    try {
+      // userId를 함께 전달하여 권한 체크
+      ChatRoomDto chatRoom = chatServiceClient.getChatRoom(
+          store.getChatroomId(),
+          store.getUserId()  // ← 추가
+      );
 
-    if (stores.isEmpty()) {
-      log.info("해당 챗봇 타입의 보관함이 비어있음: botType={}", botType);
-    }
-
-    return stores.stream()
-        .map(store -> {
-          StorageListResponse response = StorageListResponse.from(store);
-          try {
-            String chatroomName = chatServiceClient.getChatRoom(store.getChatroomId()).getName();
-            response.setChatroomNameFromClient(chatroomName);
-          } catch (Exception e) {
-            log.warn("채팅방 이름 조회 실패: chatroomId={}", store.getChatroomId(), e);
-            response.setChatroomNameFromClient("Unknown");
-          }
-          return response;
-        })
-        .collect(Collectors.toList());
-  }
-
-  /**
-   * Cursor 기반 페이징 조회
-   */
-  @Transactional(readOnly = true)
-  public Page<StorageListResponse> getBookmarksWithCursor(UUID userId, UUID lastId, Pageable pageable) {
-    log.info("Cursor 기반 보관함 조회: userId={}, lastId={}, size={}",
-        userId, lastId, pageable.getPageSize());
-
-    Page<Store> stores = storeRepository.findByUserIdWithCursor(userId, lastId, pageable);
-
-    return stores.map(store -> {
-      StorageListResponse response = StorageListResponse.from(store);
-      try {
-        String chatroomName = chatServiceClient.getChatRoom(store.getChatroomId()).getName();
-        response.setChatroomNameFromClient(chatroomName);
-      } catch (Exception e) {
-        log.warn("채팅방 이름 조회 실패: chatroomId={}", store.getChatroomId(), e);
+      if (chatRoom != null && chatRoom.getName() != null) {
+        response.setChatroomNameFromClient(chatRoom.getName());
+      } else {
+        log.warn("채팅방 정보가 null: chatroomId={}", store.getChatroomId());
         response.setChatroomNameFromClient("Unknown");
       }
-      return response;
-    });
+
+    } catch (FeignException.NotFound e) {
+      log.warn("채팅방을 찾을 수 없음: chatroomId={}", store.getChatroomId());
+      response.setChatroomNameFromClient("Deleted Room");
+
+    } catch (FeignException.Forbidden e) {
+      // 403 Forbidden 처리 추가
+      log.warn("채팅방 접근 권한 없음: chatroomId={}, userId={}",
+          store.getChatroomId(), store.getUserId());
+      response.setChatroomNameFromClient("Forbidden");
+
+    } catch (FeignException.ServiceUnavailable e) {
+      log.warn("Chat Service 일시적 장애: chatroomId={}", store.getChatroomId());
+      response.setChatroomNameFromClient("Unavailable");
+
+    } catch (FeignException e) {
+      log.warn("Feign 통신 오류: chatroomId={}, status={}, message={}",
+          store.getChatroomId(), e.status(), e.getMessage());
+      response.setChatroomNameFromClient("Unknown");
+
+    } catch (Exception e) {
+      log.error("채팅방 이름 조회 중 예상치 못한 오류: chatroomId={}", store.getChatroomId(), e);
+      response.setChatroomNameFromClient("Unknown");
+    }
+
+    return response;
   }
 }

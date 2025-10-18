@@ -28,65 +28,43 @@ public class ConversationAgent {
         
         log.info("=== OpenAI API 호출 시작 ===");
         return openAIClient.streamRawCompletion(systemPrompt, userMessage)
-            .doOnSubscribe(subscription -> log.info("=== ConversationAgent 스트림 구독 시작 ==="))
-            .doOnNext(raw -> log.info("=== ConversationAgent 원시 응답 받음: {} ===", raw))
-            .doOnError(error -> log.error("=== ConversationAgent 원시 응답 오류: {} ===", error.getMessage(), error))
+            .doOnError(error -> log.error("ConversationAgent 원시 응답 오류: {}", error.getMessage(), error))
             .map(raw -> {
-                log.info("=== ConversationAgent map() 함수 호출됨: {} ===", raw);
-                // 각 원시 응답에서 텍스트 추출
                 try {
                     String jsonData = raw.startsWith("data: ") ? raw.substring(6) : raw;
-                    log.info("=== JSON 데이터: {} ===", jsonData);
                     
                     if ("[DONE]".equals(jsonData.trim())) {
-                        log.info("=== OpenAI 스트림 완료 [DONE] ===");
                         return "";
                     }
                     
                     com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
-                    com.fasterxml.jackson.databind.JsonNode node = mapper.readTree(jsonData);
-                    log.info("=== JSON 파싱 성공: {} ===", node);
+                    com.fasterxml.jackson.databind.JsonNode node;
+                    try {
+                        node = mapper.readTree(jsonData);
+                    } catch (Exception e) {
+                        log.debug("JSON 파싱 실패 (무시): {}", e.getMessage());
+                        return "";
+                    }
                     
-                    if (node.has("choices")) {
-                        log.info("=== choices 발견: {} ===", node.get("choices"));
-                        for (com.fasterxml.jackson.databind.JsonNode choice : node.get("choices")) {
-                            log.info("=== choice 처리: {} ===", choice);
-                            com.fasterxml.jackson.databind.JsonNode delta = choice.get("delta");
-                            log.info("=== delta: {} ===", delta);
+                    if (node.has("choices") && node.get("choices").isArray() && node.get("choices").size() > 0) {
+                        com.fasterxml.jackson.databind.JsonNode choice = node.get("choices").get(0);
+                        com.fasterxml.jackson.databind.JsonNode delta = choice.get("delta");
+                        
+                        if (delta != null && delta.has("content")) {
+                            String content = delta.get("content").asText();
                             
-                            if (delta != null && delta.has("content")) {
-                                String content = delta.get("content").asText();
-                                log.info("=== content 추출: '{}' ===", content);
-                                
-                                if (content != null && !content.isEmpty()) {
-                                    log.info("=== 텍스트 청크 추출 성공: '{}' ===", content);
-                                    return content;
-                                } else {
-                                    log.info("=== content가 비어있음 ===");
-                                }
-                            } else {
-                                log.info("=== delta가 null이거나 content가 없음 ===");
+                            if (content != null && !content.isEmpty()) {
+                                return content;
                             }
                         }
-                    } else {
-                        log.info("=== choices가 없음 ===");
                     }
-                    log.info("=== 빈 문자열 반환 ===");
                     return "";
                 } catch (Exception e) {
-                    log.error("=== 텍스트 추출 오류: {} ===", e.getMessage(), e);
+                    log.error("텍스트 추출 오류: {}", e.getMessage(), e);
                     return "";
                 }
             })
-            .doOnNext(content -> log.info("=== map() 결과: '{}' ===", content))
-            .filter(content -> {
-                boolean isValid = content != null && !content.isEmpty();
-                log.info("=== 필터링: '{}' -> {} ===", content, isValid);
-                return isValid;
-            })
-            .doOnNext(chunk -> log.info("=== 최종 텍스트 청크: '{}' ===", chunk))
-            .doOnComplete(() -> log.info("=== ConversationAgent 스트림 완료 ==="))
-            .doOnError(error -> log.error("=== ConversationAgent 스트림 오류 ===", error))
-            .doOnCancel(() -> log.info("=== ConversationAgent 스트림 취소 ==="));
+            .filter(content -> content != null && !content.isEmpty())
+            .doOnError(error -> log.error("ConversationAgent 스트림 오류", error));
     }
 }

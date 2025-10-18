@@ -3,6 +3,9 @@ package com.dorandoran.chat.service;
 import com.dorandoran.chat.entity.Chatbot;
 import com.dorandoran.chat.repository.ChatbotRepository;
 import com.dorandoran.chat.service.dto.ChatbotUpdateRequest;
+import com.dorandoran.chat.dto.ChatbotDirectivesRequest;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -10,6 +13,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
@@ -133,9 +137,9 @@ public class ChatbotService {
                 sql = "UPDATE chat_schema.chatbots SET vocabulary_system_prompt = ?, vocabulary_user_prompt = ?, updated_at = ? WHERE id = ?";
                 params = new Object[]{defaultPrompts[0], defaultPrompts[1], LocalDateTime.now(), id};
             } else if ("translation".equals(agentType)) {
-                String[] defaultPrompts = getDefaultTranslationPrompts();
-                sql = "UPDATE chat_schema.chatbots SET translation_system_prompt = ?, translation_user_prompt = ?, updated_at = ? WHERE id = ?";
-                params = new Object[]{defaultPrompts[0], defaultPrompts[1], LocalDateTime.now(), id};
+                // TranslationAgent 제거됨 - VocabularyAgent가 모든 기능을 담당
+                log.warn("TranslationAgent는 더 이상 지원되지 않습니다. VocabularyAgent를 사용하세요.");
+                return false;
             }
             
             if (sql != null && params != null) {
@@ -219,24 +223,7 @@ public class ChatbotService {
         return new String[]{systemPrompt, userPrompt};
     }
 
-    /**
-     * 기본 TranslationAgent 프롬프트
-     */
-    private String[] getDefaultTranslationPrompts() {
-        String systemPrompt = "한국어 단어를 영어로 번역하고 발음기호를 제공하세요. 단어가 아닐 경우 빈 배열을 반환하세요.\n\n" +
-                "번역 기준:\n" +
-                "- 정확한 영어 번역\n" +
-                "- 발음기호 (IPA 또는 한글 발음)\n" +
-                "- 간단한 설명이나 예시\n\n" +
-                "JSON 형식:\n" +
-                "{\n" +
-                "  \"translations\": [\n" +
-                "    {\"original\": \"한국어\", \"english\": \"English\", \"pronunciation\": \"[발음기호]\"}\n" +
-                "  ]\n" +
-                "}";
-        String userPrompt = "다음 텍스트를 번역해주세요: {input}";
-        return new String[]{systemPrompt, userPrompt};
-    }
+    // TranslationAgent 제거됨 - VocabularyAgent가 모든 기능을 담당
     
     /**
      * 챗봇 조회
@@ -334,5 +321,119 @@ public class ChatbotService {
             case "vocabulary", "translation" -> getChatbotPrompt(chatbotId, agentType);
             default -> throw new IllegalArgumentException("Unknown agent type: " + agentType);
         };
+    }
+
+    /**
+     * 챗봇 Directives 설정 업데이트
+     */
+    @Transactional
+    public boolean updateChatbotDirectives(String chatbotId, ChatbotDirectivesRequest request) {
+        try {
+            UUID id = UUID.fromString(chatbotId);
+            Optional<Chatbot> chatbotOpt = chatbotRepository.findById(id);
+            
+            if (chatbotOpt.isEmpty()) {
+                log.error("챗봇을 찾을 수 없습니다: {}", chatbotId);
+                return false;
+            }
+            
+            Chatbot chatbot = chatbotOpt.get();
+            ObjectMapper mapper = new ObjectMapper();
+            
+            // 기존 settings 파싱
+            ObjectNode settings;
+            if (chatbot.getSettings() != null && !chatbot.getSettings().isBlank()) {
+                settings = (ObjectNode) mapper.readTree(chatbot.getSettings());
+            } else {
+                settings = mapper.createObjectNode();
+            }
+            
+            // directives 노드 생성/업데이트
+            ObjectNode directives = settings.has("directives") 
+                ? (ObjectNode) settings.get("directives") 
+                : settings.putObject("directives");
+            
+            // concept
+            if (request.getConcept() != null) {
+                ObjectNode concept = directives.putObject("concept");
+                if (request.getConcept().getEnabled() != null) {
+                    concept.put("enabled", request.getConcept().getEnabled());
+                }
+                if (request.getConcept().getCustom() != null) {
+                    concept.put("custom", request.getConcept().getCustom());
+                }
+            }
+            
+            // intimacy
+            if (request.getIntimacy() != null) {
+                ObjectNode intimacy = directives.putObject("intimacy");
+                if (request.getIntimacy().getEnabled() != null) {
+                    intimacy.put("enabled", request.getIntimacy().getEnabled());
+                }
+                if (request.getIntimacy().getCustom() != null) {
+                    intimacy.put("custom", request.getIntimacy().getCustom());
+                }
+            }
+            
+            // language
+            if (request.getLanguage() != null) {
+                ObjectNode language = directives.putObject("language");
+                if (request.getLanguage().getEnabled() != null) {
+                    language.put("enabled", request.getLanguage().getEnabled());
+                }
+                if (request.getLanguage().getDefaultLang() != null) {
+                    language.put("default", request.getLanguage().getDefaultLang());
+                }
+                if (request.getLanguage().getAllowUserOverride() != null) {
+                    language.put("allowUserOverride", request.getLanguage().getAllowUserOverride());
+                }
+            }
+            
+            // 저장
+            chatbot.setSettings(settings.toString());
+            chatbotRepository.save(chatbot);
+            
+            log.info("Directives 업데이트 성공: chatbotId={}", chatbotId);
+            return true;
+        } catch (Exception e) {
+            log.error("Directives 업데이트 실패: chatbotId={}", chatbotId, e);
+            return false;
+        }
+    }
+
+    /**
+     * 챗봇 Directives 설정 조회
+     */
+    public Map<String, Object> getChatbotDirectives(String chatbotId) {
+        try {
+            UUID id = UUID.fromString(chatbotId);
+            Optional<Chatbot> chatbotOpt = chatbotRepository.findById(id);
+            
+            if (chatbotOpt.isEmpty()) {
+                log.warn("챗봇을 찾을 수 없습니다: {}", chatbotId);
+                return Collections.emptyMap();
+            }
+            
+            Chatbot chatbot = chatbotOpt.get();
+            if (chatbot.getSettings() == null || chatbot.getSettings().isBlank()) {
+                log.info("챗봇 settings가 비어있습니다: {}", chatbotId);
+                return Collections.emptyMap();
+            }
+            
+            ObjectMapper mapper = new ObjectMapper();
+            var settings = mapper.readTree(chatbot.getSettings());
+            
+            if (settings.has("directives")) {
+                @SuppressWarnings("unchecked")
+                Map<String, Object> result = mapper.convertValue(settings.get("directives"), Map.class);
+                return result;
+            }
+            
+            log.info("Directives 설정이 없습니다: {}", chatbotId);
+            return Collections.emptyMap();
+        } catch (Exception e) {
+            log.error("Directives 조회 실패: chatbotId={}", chatbotId, e);
+            return Collections.emptyMap();
+        }
     }
 }

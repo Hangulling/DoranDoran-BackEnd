@@ -55,6 +55,12 @@ logging:
   pattern:
     console: "%d{yyyy-MM-dd HH:mm:ss} - %msg%n"
 
+# Gateway HMAC 검증 설정
+gateway:
+  jwt:
+    hmac-secret: 404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970
+    skew-ms: 60000
+
 # Actuator 설정
 management:
   endpoints:

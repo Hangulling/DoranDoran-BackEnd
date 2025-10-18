@@ -6,7 +6,6 @@ package com.dorandoran.chat.service.agent;
 public sealed interface AgentResponse permits 
     IntimacyAgentResponse, 
     VocabularyAgentResponse, 
-    TranslationAgentResponse, 
     ConversationAgentResponse {
     String agentType();
 }

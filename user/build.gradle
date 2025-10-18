@@ -7,7 +7,10 @@ plugins {
 dependencies {
     implementation project(':shared')
     implementation project(':common')
-    
+
+    // Github Actions 관련
+    implementation 'org.springframework.boot:spring-boot-starter-actuator'
+
     // Prometheus 메트릭
     implementation 'io.micrometer:micrometer-registry-prometheus'
     

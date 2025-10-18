@@ -56,6 +56,9 @@ public class Store {
   @Column(name = "content", columnDefinition = "text", nullable = false)
   private String content;
 
+  @Column(name = "corrected_content", columnDefinition = "text")
+  private String correctedContent;  // IntimacyAgent가 교정한 문장
+
   // Multi-Agent AI 응답 (JSONB)
   @Column(name = "ai_response", columnDefinition = "jsonb", nullable = false)
   @JdbcTypeCode(SqlTypes.JSON)

@@ -1,6 +1,7 @@
 package com.dorandoran.auth.client;
 
 import com.dorandoran.shared.dto.UserDto;
+import com.dorandoran.shared.dto.UserWithPasswordDto;
 import com.dorandoran.shared.dto.ResetPasswordRequest;
 import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -12,7 +13,8 @@ import org.springframework.web.bind.annotation.PathVariable;
 @FeignClient(
     name = "user-service",
     url = "${user.service.url}",
-    fallback = UserServiceClientFallback.class
+    fallback = UserServiceClientFallback.class,
+    configuration = com.dorandoran.auth.config.FeignConfig.class
 )
 public interface UserServiceClient {
     
@@ -27,6 +29,12 @@ public interface UserServiceClient {
      */
     @GetMapping("/api/users/email/{email}")
     UserDto getUserByEmail(@PathVariable("email") String email);
+    
+    /**
+     * 이메일로 사용자 조회 (Auth 서비스용 - passwordHash 포함)
+     */
+    @GetMapping("/api/users/auth/email/{email}")
+    UserWithPasswordDto getUserByEmailForAuth(@PathVariable("email") String email);
     
     /**
      * 사용자 서비스 헬스체크

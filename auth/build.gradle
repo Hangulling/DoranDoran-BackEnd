@@ -12,7 +12,10 @@ dependencies {
     implementation 'io.jsonwebtoken:jjwt-api:0.12.3'
     implementation 'io.jsonwebtoken:jjwt-impl:0.12.3'
     implementation 'io.jsonwebtoken:jjwt-jackson:0.12.3'
-    
+
+    // Github Actions 관련
+    implementation 'org.springframework.boot:spring-boot-starter-actuator'
+
     // Feign 클라이언트 (서비스 간 통신)
     implementation 'org.springframework.cloud:spring-cloud-starter-openfeign'
     implementation 'org.springframework.cloud:spring-cloud-starter-loadbalancer'

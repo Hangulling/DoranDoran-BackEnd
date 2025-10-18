@@ -557,6 +557,79 @@
                     <div id="promptDisplay" class="status hidden"></div>
             </div>
 
+                <!-- Directives 설정 패널 (개발자용) -->
+                <div class="section">
+                    <h3>⚙️ Directives 설정 (개발자용)</h3>
+                    
+                    <div style="margin-bottom: 15px;">
+                        <label>현재 챗봇 ID:</label>
+                        <input type="text" id="directiveChatbotId" 
+                               placeholder="챗봇 ID 입력 또는 자동" 
+                               style="width: 100%; padding: 8px; margin-top: 5px;">
+                        <button onclick="loadDirectives()" 
+                                style="width: 100%; margin-top: 5px; padding: 10px; background: #4facfe; color: white; border: none; border-radius: 5px; cursor: pointer;">
+                            현재 설정 불러오기
+                        </button>
+                    </div>
+                    
+                    <!-- Concept Directive -->
+                    <div style="background: white; padding: 15px; border-radius: 5px; margin-bottom: 10px;">
+                        <h4 style="margin-bottom: 10px;">Concept Directive</h4>
+                        <label>
+                            <input type="checkbox" id="conceptEnabled" checked>
+                            활성화
+                        </label>
+                        <textarea id="conceptCustom" 
+                                  placeholder="커스텀 컨셉 지침 (비어있으면 기본 하드코딩 사용)"
+                                  style="width: 100%; margin-top: 10px; padding: 8px; min-height: 60px; border-radius: 5px; border: 1px solid #ddd;"></textarea>
+                    </div>
+                    
+                    <!-- Intimacy Directive -->
+                    <div style="background: white; padding: 15px; border-radius: 5px; margin-bottom: 10px;">
+                        <h4 style="margin-bottom: 10px;">Intimacy Directive</h4>
+                        <label>
+                            <input type="checkbox" id="intimacyEnabled" checked>
+                            활성화
+                        </label>
+                        <textarea id="intimacyCustom" 
+                                  placeholder="커스텀 친밀도 지침 (비어있으면 기본 하드코딩 사용)"
+                                  style="width: 100%; margin-top: 10px; padding: 8px; min-height: 60px; border-radius: 5px; border: 1px solid #ddd;"></textarea>
+                    </div>
+                    
+                    <!-- Language Directive -->
+                    <div style="background: white; padding: 15px; border-radius: 5px; margin-bottom: 10px;">
+                        <h4 style="margin-bottom: 10px;">Language Directive</h4>
+                        <label>
+                            <input type="checkbox" id="languageEnabled" checked>
+                            활성화
+                        </label>
+                        <div style="margin-top: 10px;">
+                            <label>기본 언어:</label>
+                            <select id="defaultLanguage" 
+                                    style="width: 100%; padding: 8px; margin-top: 5px; border-radius: 5px;">
+                                <option value="ko">한국어</option>
+                                <option value="en">영어</option>
+                                <option value="ja">일본어</option>
+                                <option value="zh">중국어</option>
+                                <option value="fr">프랑스어</option>
+                                <option value="de">독일어</option>
+                                <option value="es">스페인어</option>
+                            </select>
+                        </div>
+                        <label style="margin-top: 10px; display: block;">
+                            <input type="checkbox" id="allowUserOverride" checked>
+                            사용자 언어 오버라이드 허용
+                        </label>
+                    </div>
+                    
+                    <button onclick="updateDirectives()" 
+                            style="width: 100%; padding: 12px; background: #43a047; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 1em; font-weight: bold;">
+                        Directives 적용
+                    </button>
+                    
+                    <div id="directiveStatus" class="status hidden" style="margin-top: 10px;"></div>
+                </div>
+
         <!-- 로그 섹션 -->
                 <div class="section">
                     <h3>📊 로그</h3>
@@ -1332,6 +1405,110 @@
                 }
             } catch (error) {
                 log(`친밀도 변경 오류: ${error.message}`, 'error');
+            }
+        }
+
+        // Directives 불러오기
+        async function loadDirectives() {
+            let chatbotId = document.getElementById('directiveChatbotId').value.trim();
+            
+            // 챗봇 ID가 비어있으면 현재 채팅방의 챗봇 사용
+            if (!chatbotId && currentChatbotId) {
+                chatbotId = currentChatbotId;
+                document.getElementById('directiveChatbotId').value = chatbotId;
+            }
+            
+            if (!chatbotId) {
+                showStatus('directiveStatus', '챗봇 ID를 입력하거나 채팅방을 선택해주세요', 'error');
+                return;
+            }
+            
+            try {
+                log(`Directives 로드 시도: ${chatbotId}`);
+                const response = await fetch(`/api/chat/chatbots/${chatbotId}/directives`);
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    const directives = data.directives;
+                    
+                    // Concept
+                    if (directives.concept) {
+                        document.getElementById('conceptEnabled').checked = directives.concept.enabled !== false;
+                        document.getElementById('conceptCustom').value = directives.concept.custom || '';
+                    }
+                    
+                    // Intimacy
+                    if (directives.intimacy) {
+                        document.getElementById('intimacyEnabled').checked = directives.intimacy.enabled !== false;
+                        document.getElementById('intimacyCustom').value = directives.intimacy.custom || '';
+                    }
+                    
+                    // Language
+                    if (directives.language) {
+                        document.getElementById('languageEnabled').checked = directives.language.enabled !== false;
+                        document.getElementById('defaultLanguage').value = directives.language.default || 'ko';
+                        document.getElementById('allowUserOverride').checked = directives.language.allowUserOverride !== false;
+                    }
+                    
+                    showStatus('directiveStatus', 'Directives 로드 완료', 'success');
+                    log('Directives 로드 성공', 'success');
+                } else {
+                    showStatus('directiveStatus', 'Directives 로드 실패', 'error');
+                    log(`Directives 로드 실패: ${response.status}`, 'error');
+                }
+            } catch (error) {
+                showStatus('directiveStatus', '오류 발생', 'error');
+                log(`Directives 로드 오류: ${error.message}`, 'error');
+            }
+        }
+
+        // Directives 업데이트
+        async function updateDirectives() {
+            const chatbotId = document.getElementById('directiveChatbotId').value.trim();
+            
+            if (!chatbotId) {
+                showStatus('directiveStatus', '챗봇 ID를 입력해주세요', 'error');
+                return;
+            }
+            
+            const request = {
+                concept: {
+                    enabled: document.getElementById('conceptEnabled').checked,
+                    custom: document.getElementById('conceptCustom').value.trim() || null
+                },
+                intimacy: {
+                    enabled: document.getElementById('intimacyEnabled').checked,
+                    custom: document.getElementById('intimacyCustom').value.trim() || null
+                },
+                language: {
+                    enabled: document.getElementById('languageEnabled').checked,
+                    defaultLang: document.getElementById('defaultLanguage').value,
+                    allowUserOverride: document.getElementById('allowUserOverride').checked
+                }
+            };
+            
+            try {
+                log(`Directives 업데이트 시도: ${chatbotId}`, 'info');
+                const response = await fetch(`/api/chat/chatbots/${chatbotId}/directives`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(request)
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    showStatus('directiveStatus', 'Directives 업데이트 성공!', 'success');
+                    log('Directives 업데이트 완료', 'success');
+                    log(`설정 내용: ${JSON.stringify(request, null, 2)}`, 'info');
+                } else {
+                    showStatus('directiveStatus', 'Directives 업데이트 실패', 'error');
+                    log(`Directives 업데이트 실패: ${response.status}`, 'error');
+                }
+            } catch (error) {
+                showStatus('directiveStatus', '오류 발생', 'error');
+                log(`Directives 업데이트 오류: ${error.message}`, 'error');
             }
         }
 

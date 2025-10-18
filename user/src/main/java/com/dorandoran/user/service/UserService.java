@@ -7,6 +7,7 @@ import com.dorandoran.user.repository.UserRepository;
 import com.dorandoran.shared.dto.CreateUserRequest;
 import com.dorandoran.shared.dto.UpdateUserRequest;
 import com.dorandoran.shared.dto.UserDto;
+import com.dorandoran.shared.dto.UserWithPasswordDto;
 import com.dorandoran.shared.event.UserCreatedEvent;
 import com.dorandoran.shared.event.UserStatusChangedEvent;
 import com.dorandoran.shared.event.UserUpdatedEvent;
@@ -117,6 +118,40 @@ public class UserService {
             .orElseThrow(() -> new DoranDoranException(ErrorCode.USER_NOT_FOUND));
         
         return convertToDto(user);
+    }
+    
+    /**
+     * 사용자 조회 (이메일) - Auth 서비스용 (passwordHash 포함)
+     */
+    public UserWithPasswordDto findByEmailForAuth(String email) {
+        System.out.println("Auth 서비스용 사용자 조회: email=" + email);
+        
+        User user = userRepository.findByEmail(email)
+            .orElseThrow(() -> new DoranDoranException(ErrorCode.USER_NOT_FOUND));
+        
+        return convertToDtoWithPassword(user);
+    }
+    
+    /**
+     * 이메일 중복확인
+     */
+    public boolean isEmailDuplicate(String email) {
+        log.info("이메일 중복확인: email={}", email);
+        
+        // 이메일 형식 검증
+        if (email == null || email.trim().isEmpty()) {
+            throw new DoranDoranException(ErrorCode.INVALID_REQUEST, "이메일을 입력해주세요.");
+        }
+        
+        // 기본적인 이메일 형식 검증
+        if (!email.matches("^[A-Za-z0-9+_.-]+@([A-Za-z0-9.-]+\\.[A-Za-z]{2,})$")) {
+            throw new DoranDoranException(ErrorCode.INVALID_REQUEST, "올바른 이메일 형식이 아닙니다.");
+        }
+        
+        boolean exists = userRepository.existsByEmail(email);
+        log.info("이메일 중복확인 결과: email={}, exists={}", email, exists);
+        
+        return exists;
     }
     
     /**
@@ -298,6 +333,32 @@ public class UserService {
         System.out.println("DEBUG - User role type: " + (user.getRole() != null ? user.getRole().getClass() : "NULL"));
         
         return new UserDto(
+            user.getId(),
+            user.getEmail(),
+            user.getFirstName(),
+            user.getLastName(),
+            user.getName(),
+            user.getPasswordHash(),
+            user.getPicture(),
+            user.getInfo(),
+            null, // preferences - User 엔티티에 해당 필드가 없으므로 null로 설정
+            user.getLastConnTime(),
+            convertToDtoStatus(user.getStatus()),
+            convertToDtoRole(user.getRole()),
+            user.isCoachCheck(),
+            user.getCreatedAt(),
+            user.getUpdatedAt()
+        );
+    }
+    
+    /**
+     * Entity를 DTO로 변환 (Auth 서비스용 - passwordHash 포함)
+     */
+    private UserWithPasswordDto convertToDtoWithPassword(User user) {
+        System.out.println("DEBUG - User role: " + user.getRole());
+        System.out.println("DEBUG - User role type: " + (user.getRole() != null ? user.getRole().getClass() : "NULL"));
+        
+        return new UserWithPasswordDto(
             user.getId(),
             user.getEmail(),
             user.getFirstName(),

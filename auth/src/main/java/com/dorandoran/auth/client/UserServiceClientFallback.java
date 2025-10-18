@@ -1,6 +1,7 @@
 package com.dorandoran.auth.client;
 
 import com.dorandoran.shared.dto.UserDto;
+import com.dorandoran.shared.dto.UserWithPasswordDto;
 import com.dorandoran.shared.dto.ResetPasswordRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -22,6 +23,13 @@ public class UserServiceClientFallback implements UserServiceClient {
     @Override
     public UserDto getUserByEmail(String email) {
         log.warn("User Service 호출 실패 - getUserByEmail: email={}", email);
+        // Fallback 로직: 기본 사용자 정보 반환 또는 예외 처리
+        return null;
+    }
+    
+    @Override
+    public UserWithPasswordDto getUserByEmailForAuth(String email) {
+        log.warn("User Service 호출 실패 - getUserByEmailForAuth: email={}", email);
         // Fallback 로직: 기본 사용자 정보 반환 또는 예외 처리
         return null;
     }

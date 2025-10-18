@@ -13,5 +13,15 @@ public record VocabularyAgentResponse(
         if (agentType == null) agentType = "vocabulary";
     }
     
-    public record VocabularyWord(String word, int difficulty, String context) {}
+    public record VocabularyWord(
+        String word, 
+        int difficulty, 
+        Context context
+    ) {}
+    
+    public record Context(
+        String roma,
+        String ko,
+        String en
+    ) {}
 }

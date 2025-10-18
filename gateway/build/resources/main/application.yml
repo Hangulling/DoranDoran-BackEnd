@@ -1,0 +1,189 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: api-gateway
+  
+  # 웹 애플리케이션 타입을 reactive로 설정 (Gateway용)
+  main:
+    web-application-type: reactive
+  
+  # Redis 설정
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      timeout: 2000ms
+      lettuce:
+        pool:
+          max-active: 8
+          max-idle: 8
+          min-idle: 0
+  
+  cloud:
+    gateway:
+      routes:
+        # Auth 서비스 라우팅
+        - id: auth-service
+          uri: http://localhost:8081
+          predicates:
+            - Path=/api/auth/**
+          filters:
+            - RewritePath=/api/auth/(?<segment>.*), /api/auth/$\{segment}
+            - name: AddResponseHeader
+              args:
+                name: Access-Control-Allow-Origin
+                value: "*"
+            - name: AddResponseHeader
+              args:
+                name: Access-Control-Allow-Methods
+                value: "GET,POST,PUT,DELETE,PATCH,OPTIONS"
+            - name: AddResponseHeader
+              args:
+                name: Access-Control-Allow-Headers
+                value: "*"
+        
+        # User 서비스 라우팅
+        - id: user-service
+          uri: http://localhost:8081
+          predicates:
+            - Path=/api/users/**
+          filters:
+            - name: RequestRateLimiter
+              args:
+                redis-rate-limiter.replenishRate: 20
+                redis-rate-limiter.burstCapacity: 40
+            - name: AddResponseHeader
+              args:
+                name: Access-Control-Allow-Origin
+                value: "*"
+            - name: AddResponseHeader
+              args:
+                name: Access-Control-Allow-Methods
+                value: "GET,POST,PUT,DELETE,PATCH,OPTIONS"
+            - name: AddResponseHeader
+              args:
+                name: Access-Control-Allow-Headers
+                value: "*"
+        
+        # Chat 서비스 라우팅
+        - id: chat-service
+          uri: http://localhost:8083
+          predicates:
+            - Path=/api/chat/**
+          filters:
+            - name: RequestRateLimiter
+              args:
+                redis-rate-limiter.replenishRate: 30
+                redis-rate-limiter.burstCapacity: 60
+            - name: AddResponseHeader
+              args:
+                name: Access-Control-Allow-Origin
+                value: "*"
+            - name: AddResponseHeader
+              args:
+                name: Access-Control-Allow-Methods
+                value: "GET,POST,PUT,DELETE,PATCH,OPTIONS"
+            - name: AddResponseHeader
+              args:
+                name: Access-Control-Allow-Headers
+                value: "*"
+        
+        # Batch 서비스 라우팅
+        - id: batch-service
+          uri: http://localhost:8085
+          predicates:
+            - Path=/api/batch/**
+          filters:
+            - name: RequestRateLimiter
+              args:
+                redis-rate-limiter.replenishRate: 5
+                redis-rate-limiter.burstCapacity: 10
+            - name: AddResponseHeader
+              args:
+                name: Access-Control-Allow-Origin
+                value: "*"
+            - name: AddResponseHeader
+              args:
+                name: Access-Control-Allow-Methods
+                value: "GET,POST,PUT,DELETE,PATCH,OPTIONS"
+            - name: AddResponseHeader
+              args:
+                name: Access-Control-Allow-Headers
+                value: "*"
+      
+      # 글로벌 CORS 설정
+      globalcors:
+        cors-configurations:
+          '[/**]':
+            allowedOriginPatterns: "*"
+            allowedMethods: 
+              - GET
+              - POST
+              - PUT
+              - DELETE
+              - PATCH
+              - OPTIONS
+            allowedHeaders: 
+              - "*"
+            allowCredentials: true
+            maxAge: 3600
+
+# SpringDoc OpenAPI 설정 (Reactive)
+springdoc:
+  api-docs:
+    path: /api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    enabled: true
+    operationsSorter: method
+    tagsSorter: alpha
+    tryItOutEnabled: true
+    displayRequestDuration: true
+    showExtensions: true
+    showCommonExtensions: true
+
+# 로깅 설정
+logging:
+  level:
+    com.dorandoran.gateway: DEBUG
+    org.springframework.cloud.gateway: DEBUG
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} - %msg%n"
+
+# Actuator 설정
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,gateway,prometheus
+      base-path: /actuator
+  endpoint:
+    health:
+      show-details: always
+    prometheus:
+      enabled: true
+  security:
+    enabled: false
+  prometheus:
+    metrics:
+      export:
+        enabled: true
+
+gateway:
+  auth:
+    base-url: http://localhost:8081
+    validate-path: /api/auth/validate
+    exclusions:
+      - /actuator
+      - /
+      - /api/auth/login
+      - /api/auth/refresh
+      - /api/auth/password/reset
+      - /api/auth/health
+      - /api/users/health
+      - /api/users
+  jwt:
+    hmac-secret: 404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970
+    skew-ms: 60000

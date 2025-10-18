@@ -40,14 +40,14 @@ spring:
 application:
   security:
     jwt:
-      secret-key: MTIzNDU2Nzg5MDEyMzQ1Njc4OTAxMjM0NTY3ODkwMTI=
+      secret-key: 404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970
       access-token-expiration: 3600000  # 1시간
       refresh-token-expiration: 604800000  # 7일
 
 # 서비스 간 통신 설정
 user:
   service:
-    url: http://localhost:8082
+    url: http://dorandoran-user:8082
 
 # Circuit Breaker 설정
 resilience4j:
@@ -80,7 +80,7 @@ logging:
 
 gateway:
   jwt:
-    hmac-secret: change-me-hmac-secret
+    hmac-secret: 404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970
     skew-ms: 60000
 
 # SpringDoc OpenAPI 설정
@@ -113,11 +113,11 @@ management:
       prometheus:
         enabled: true
 
-  # Redis 설정 (토큰 블랙리스트용)
+# Redis 설정 (토큰 블랙리스트용)
   data:
     redis:
-      host: localhost
-      port: 6379
+      host: ${SPRING_REDIS_HOST:localhost}
+      port: ${SPRING_REDIS_PORT:6379}
       password: 
       timeout: 2000ms
       lettuce:

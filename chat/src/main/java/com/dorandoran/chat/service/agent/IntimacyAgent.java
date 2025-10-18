@@ -1,7 +1,6 @@
 package com.dorandoran.chat.service.agent;
 
 import com.dorandoran.chat.entity.IntimacyProgress;
-import com.dorandoran.chat.entity.ChatRoom;
 import com.dorandoran.chat.entity.Chatbot;
 import com.dorandoran.chat.repository.IntimacyProgressRepository;
 import com.dorandoran.chat.repository.ChatRoomRepository;
@@ -14,7 +13,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Mono;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -48,16 +46,12 @@ public class IntimacyAgent {
         
         log.info("=== IntimacyAgent OpenAI API 호출 시작 ===");
         return openAIClient.streamRawCompletion(systemPrompt, userMessage)
-            .doOnSubscribe(subscription -> log.info("=== IntimacyAgent 스트림 구독 시작 ==="))
-            .doOnNext(chunk -> log.info("=== IntimacyAgent 원시 청크 받음: '{}' ===", chunk))
-            .doOnError(error -> log.error("=== IntimacyAgent 스트림 오류 ===", error))
-            .doOnComplete(() -> log.info("=== IntimacyAgent 스트림 완료 ==="))
+            .doOnError(error -> log.error("IntimacyAgent 스트림 오류", error))
             .collectList()
-            .doOnSuccess(chunks -> log.info("=== IntimacyAgent collectList 성공, chunks 수: {} ===", chunks.size()))
-            .doOnError(error -> log.error("=== IntimacyAgent collectList 오류 ===", error))
+            .doOnError(error -> log.error("IntimacyAgent collectList 오류", error))
             .map(this::parseIntimacyResponse)
-            .doOnSuccess(response -> log.info("=== IntimacyAgent 파싱 성공: {} ===", response))
-            .doOnError(error -> log.error("=== IntimacyAgent 파싱 오류 ===", error));
+            .doOnSuccess(response -> log.info("IntimacyAgent 파싱 완료: 레벨={}", response.detectedLevel()))
+            .doOnError(error -> log.error("IntimacyAgent 파싱 오류", error));
     }
     
     private String getConceptFromChatRoom(UUID chatroomId) {
@@ -128,19 +122,17 @@ public class IntimacyAgent {
     }
     
     private IntimacyAgentResponse parseIntimacyResponse(List<String> chunks) {
-        log.info("=== IntimacyAgent 파싱 시작 ===");
         try {
             // OpenAI 스트림에서 실제 content만 추출
             StringBuilder contentBuilder = new StringBuilder();
             for (String chunk : chunks) {
                 try {
                     JsonNode chunkJson = objectMapper.readTree(chunk);
-                    if (chunkJson.has("choices") && chunkJson.get("choices").isArray()) {
-                        for (JsonNode choice : chunkJson.get("choices")) {
-                            if (choice.has("delta") && choice.get("delta").has("content")) {
-                                String content = choice.get("delta").get("content").asText();
-                                contentBuilder.append(content);
-                            }
+                    if (chunkJson.has("choices") && chunkJson.get("choices").isArray() && chunkJson.get("choices").size() > 0) {
+                        JsonNode choice = chunkJson.get("choices").get(0);
+                        if (choice.has("delta") && choice.get("delta").has("content")) {
+                            String content = choice.get("delta").get("content").asText();
+                            contentBuilder.append(content);
                         }
                     }
                 } catch (Exception e) {
@@ -149,33 +141,36 @@ public class IntimacyAgent {
             }
             
             String fullResponse = contentBuilder.toString();
-            log.info("=== IntimacyAgent 추출된 content: '{}' ===", fullResponse);
             
             if (fullResponse.trim().isEmpty()) {
-                log.info("=== IntimacyAgent content가 비어있음 - 기본값 반환 ===");
-                return new IntimacyAgentResponse("intimacy", 1, "", "", List.of());
+                return new IntimacyAgentResponse("intimacy", 0, "", new FeedbackText("", ""), "");
             }
             
-            JsonNode json = objectMapper.readTree(fullResponse);
-            log.info("=== IntimacyAgent JSON 파싱 성공: {} ===", json);
+            JsonNode json;
+            try {
+                json = objectMapper.readTree(fullResponse);
+            } catch (Exception e) {
+                log.warn("IntimacyAgent JSON 파싱 실패: {}", e.getMessage());
+                return new IntimacyAgentResponse(
+                    "intimacy",
+                    0,
+                    "",
+                    new FeedbackText("분석 중 오류가 발생했습니다.", "An error occurred during analysis."),
+                    ""
+                );
+            }
             
-            int detectedLevel = json.has("detectedLevel") ? json.get("detectedLevel").asInt() : 1;
+            int detectedLevel = json.has("detectedLevel") ? json.get("detectedLevel").asInt() : 0;
             String correctedSentence = json.has("correctedSentence") ? json.get("correctedSentence").asText() : "";
-            String feedback = json.has("feedback") ? json.get("feedback").asText() : "";
+            String corrections = json.has("corrections") ? json.get("corrections").asText() : "";
             
-            log.info("=== IntimacyAgent 필드 추출: detectedLevel={}, correctedSentence='{}', feedback='{}' ===", 
-                    detectedLevel, correctedSentence, feedback);
-            
-            List<String> corrections = new ArrayList<>();
-            if (json.has("corrections") && json.get("corrections").isArray()) {
-                log.info("=== IntimacyAgent corrections 배열 발견: {} ===", json.get("corrections"));
-                for (JsonNode correction : json.get("corrections")) {
-                    String correctionText = correction.asText();
-                    corrections.add(correctionText);
-                    log.info("=== IntimacyAgent correction 추가: '{}' ===", correctionText);
-                }
-            } else {
-                log.info("=== IntimacyAgent corrections 배열이 없거나 배열이 아님 ===");
+            // feedback 파싱 (ko/en 구조)
+            FeedbackText feedback = new FeedbackText("", "");
+            if (json.has("feedback") && json.get("feedback").isObject()) {
+                JsonNode feedbackNode = json.get("feedback");
+                String ko = feedbackNode.has("ko") ? feedbackNode.get("ko").asText() : "";
+                String en = feedbackNode.has("en") ? feedbackNode.get("en").asText() : "";
+                feedback = new FeedbackText(ko, en);
             }
             
             return new IntimacyAgentResponse(
@@ -189,10 +184,10 @@ public class IntimacyAgent {
             log.error("IntimacyAgent 응답 파싱 실패", e);
             return new IntimacyAgentResponse(
                 "intimacy",
-                1,
+                0,
                 "",
-                "분석 중 오류가 발생했습니다.",
-                List.of()
+                new FeedbackText("분석 중 오류가 발생했습니다.", "An error occurred during analysis."),
+                ""
             );
         }
     }
@@ -203,6 +198,7 @@ public class IntimacyAgent {
             case "HONEY" -> "연인과의 대화 상황을 고려하여 애정 어린 표현을 교정하세요.";
             case "COWORKER" -> "직장 동료와의 대화 상황을 고려하여 예의 바르고 전문적인 표현을 교정하세요.";
             case "SENIOR" -> "선배와의 대화 상황을 고려하여 공손하고 정중한 표현을 교정하세요.";
+            case "BOSS" -> "직장 상사와의 대화 상황을 고려하여 존경하고 정중한 표현을 교정하세요.";
             default -> "일반적인 상황에 맞는 적절한 표현을 교정하세요.";
         };
     }

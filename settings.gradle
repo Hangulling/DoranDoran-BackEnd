@@ -7,6 +7,5 @@ include(
   'user',
   'chat',
   'batch',
-  'gateway',
-  'store'
+  'gateway'
 )

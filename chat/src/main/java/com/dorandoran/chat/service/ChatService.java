@@ -52,17 +52,10 @@ public class ChatService {
      */
     @Transactional
     public ChatRoom getOrCreateRoom(UUID userId, UUID chatbotId, String name, String concept, Integer intimacyLevel) {
-        // 먼저 삭제 여부 무관하게 채팅방 조회
-        Optional<ChatRoom> existing = chatRoomRepository.findByUserIdAndChatbotId(userId, chatbotId);
+        // 삭제되지 않은 활성 채팅방만 조회
+        Optional<ChatRoom> existing = chatRoomRepository.findByUserIdAndChatbotIdAndIsDeletedFalse(userId, chatbotId);
         if (existing.isPresent()) {
             ChatRoom room = existing.get();
-            
-            // 삭제된 채팅방인 경우 복구
-            if (room.getIsDeleted()) {
-                room.setIsDeleted(false);
-                room.setUpdatedAt(LocalDateTime.now());
-                chatRoomRepository.save(room);
-            }
             
             // 기존 채팅방의 concept과 intimacyLevel 업데이트
             updateRoomSettings(room, concept);
@@ -269,21 +262,27 @@ public class ChatService {
             throw new RuntimeException("Access denied or room deleted: " + chatroomId);
         }
         
-        IntimacyProgress progress = intimacyProgressRepository.findByChatRoomId(chatroomId)
-            .orElseGet(() -> {
-                ChatRoom chatRoom = getChatRoomById(chatroomId);
-                return IntimacyProgress.builder()
-                    .id(UUID.randomUUID())
-                    .chatRoom(chatRoom)
-                    .userId(userId)
-                    .intimacyLevel(intimacyLevel)
-                    .totalCorrections(0)
-                    .build();
-            });
+        // 기존 레코드 찾기
+        Optional<IntimacyProgress> existingProgress = intimacyProgressRepository.findByChatRoomId(chatroomId);
         
-        progress.setIntimacyLevel(intimacyLevel);
-        progress.setLastUpdated(LocalDateTime.now());
-        intimacyProgressRepository.save(progress);
+        if (existingProgress.isPresent()) {
+            // 기존 레코드 업데이트
+            IntimacyProgress progress = existingProgress.get();
+            progress.setIntimacyLevel(intimacyLevel);
+            progress.setLastUpdated(LocalDateTime.now());
+            intimacyProgressRepository.save(progress);
+        } else {
+            // 새 레코드 생성
+            ChatRoom chatRoom = getChatRoomById(chatroomId);
+            IntimacyProgress progress = IntimacyProgress.builder()
+                .id(UUID.randomUUID())
+                .chatRoom(chatRoom)
+                .userId(userId)
+                .intimacyLevel(intimacyLevel)
+                .totalCorrections(0)
+                .build();
+            intimacyProgressRepository.save(progress);
+        }
     }
     
     /**
@@ -356,6 +355,8 @@ public class ChatService {
                 return UUID.fromString("22222222-2222-2222-2222-222222222223");
             case "SENIOR":
                 return UUID.fromString("22222222-2222-2222-2222-222222222224");
+            case "BOSS":
+                return UUID.fromString("22222222-2222-2222-2222-222222222225");
             default:
                 return UUID.fromString("22222222-2222-2222-2222-222222222221"); // 기본값: FRIEND
         }

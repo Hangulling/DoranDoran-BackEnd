@@ -76,26 +76,8 @@ public class User {
     @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt;
     
-    // Auth 서비스 내부 연관관계
-    @OneToMany(mappedBy = "user", fetch = FetchType.LAZY, cascade = CascadeType.ALL)
-    @Builder.Default
-    private List<LoginAttempt> loginAttempts = new ArrayList<>();
-    
-    @OneToMany(mappedBy = "user", fetch = FetchType.LAZY, cascade = CascadeType.ALL)
-    @Builder.Default
-    private List<AuthEvent> authEvents = new ArrayList<>();
-    
-    @OneToMany(mappedBy = "user", fetch = FetchType.LAZY, cascade = CascadeType.ALL)
-    @Builder.Default
-    private List<RefreshToken> refreshTokens = new ArrayList<>();
-    
-    @OneToMany(mappedBy = "user", fetch = FetchType.LAZY, cascade = CascadeType.ALL)
-    @Builder.Default
-    private List<PasswordResetToken> passwordResetTokens = new ArrayList<>();
-    
-    @OneToMany(mappedBy = "user", fetch = FetchType.LAZY, cascade = CascadeType.ALL)
-    @Builder.Default
-    private List<EmailVerification> emailVerifications = new ArrayList<>();
+    // Auth 서비스 내부 연관관계 제거 (마이크로서비스 아키텍처에 맞게 수정)
+    // Foreign Key 제약 조건을 제거하고 ID만 저장하는 방식으로 변경
     
     /**
      * 사용자 상태 열거형

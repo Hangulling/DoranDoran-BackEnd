@@ -2,6 +2,8 @@ package com.dorandoran.chat.service;
 
 import com.dorandoran.chat.entity.ChatRoom;
 import com.dorandoran.chat.entity.Message;
+import com.dorandoran.chat.entity.User;
+import com.dorandoran.chat.entity.Chatbot;
 import com.dorandoran.chat.repository.ChatRoomRepository;
 import com.dorandoran.chat.repository.MessageRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -52,10 +54,12 @@ class ChatServiceUnitTest {
     @Test
     @DisplayName("기존 채팅방이 있으면 그대로 반환한다")
     void getOrCreateRoom_returnsExisting() {
+        User user = User.builder().id(userId).build();
+        Chatbot chatbot = Chatbot.builder().id(chatbotId).build();
         ChatRoom existing = ChatRoom.builder()
             .id(chatroomId)
-            .userId(userId)
-            .chatbotId(chatbotId)
+            .user(user)
+            .chatbot(chatbot)
             .name("room")
             .isDeleted(false)
             .isArchived(false)
@@ -84,8 +88,8 @@ class ChatServiceUnitTest {
         ChatRoom result = chatService.getOrCreateRoom(userId, chatbotId, "new-room");
 
         ChatRoom saved = roomCaptor.getValue();
-        assertThat(saved.getUserId()).isEqualTo(userId);
-        assertThat(saved.getChatbotId()).isEqualTo(chatbotId);
+        assertThat(saved.getUser().getId()).isEqualTo(userId);
+        assertThat(saved.getChatbot().getId()).isEqualTo(chatbotId);
         assertThat(saved.getName()).isEqualTo("new-room");
         assertThat(saved.getIsArchived()).isFalse();
         assertThat(saved.getIsDeleted()).isFalse();
@@ -129,7 +133,7 @@ class ChatServiceUnitTest {
         Message saved = chatService.sendMessage(chatroomId, userId, "user", "hello", "text");
 
         Message toSave = messageCaptor.getValue();
-        assertThat(toSave.getChatroomId()).isEqualTo(chatroomId);
+        assertThat(toSave.getChatRoom().getId()).isEqualTo(chatroomId);
         assertThat(toSave.getSenderId()).isEqualTo(userId);
         assertThat(toSave.getSenderType()).isEqualTo("user");
         assertThat(toSave.getContent()).isEqualTo("hello");
@@ -138,7 +142,7 @@ class ChatServiceUnitTest {
 
         assertThat(saved).isSameAs(toSave);
         verify(chatRoomRepository, times(1)).save(any(ChatRoom.class));
-        assertThat(room.getLastMessageId()).isEqualTo(saved.getId());
+        assertThat(room.getLastMessage().getId()).isEqualTo(saved.getId());
         assertThat(room.getLastMessageAt()).isNotNull();
     }
 
@@ -157,7 +161,7 @@ class ChatServiceUnitTest {
     @Test
     @DisplayName("메시지 목록 전체 조회는 레포지토리에 위임한다")
     void listMessages_all_delegates() {
-        when(messageRepository.findByChatroomIdOrderBySequenceNumberAsc(chatroomId))
+        when(messageRepository.findByChatRoomIdOrderBySequenceNumberAsc(chatroomId))
             .thenReturn(List.of());
 
         List<Message> result = chatService.listMessages(chatroomId);

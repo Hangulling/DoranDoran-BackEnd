@@ -12,6 +12,8 @@ import reactor.core.publisher.Flux;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
+import java.time.Duration;
+import java.util.List;
 import java.util.Map;
 
 @Component
@@ -33,9 +35,7 @@ public class OpenAIClient {
      * OpenAI Chat Completions API (stream=true) 호출 - RAW 라인 스트림
      */
     public Flux<String> streamRawCompletion(String systemPrompt, String userContent) {
-        log.info("=== OpenAIClient.streamRawCompletion() 호출됨 ===");
-        log.info("=== systemPrompt: {} ===", systemPrompt);
-        log.info("=== userContent: {} ===", userContent);
+        log.info("OpenAI API 요청 시작");
         
         Map<String, Object> req = Map.of(
             "model", aiConfig.getModel(),
@@ -54,7 +54,6 @@ public class OpenAIClient {
             }
         );
 
-        log.info("=== OpenAI API 요청 시작 ===");
         return webClient()
             .post()
             .uri("/v1/chat/completions")
@@ -62,62 +61,35 @@ public class OpenAIClient {
             .accept(MediaType.TEXT_EVENT_STREAM, MediaType.APPLICATION_JSON)
             .retrieve()
             .bodyToFlux(String.class)
-            .doOnSubscribe(subscription -> log.info("=== OpenAI 스트림 구독 시작 ==="))
-            .doOnNext(s -> log.info("=== OpenAI 원시 응답: {} ===", s))
-            .doOnError(error -> log.error("=== OpenAI 스트림 오류 ===", error))
-            .doOnComplete(() -> log.info("=== OpenAI 스트림 완료 ==="))
-            .filter(s -> {
-                boolean isValid = s != null && !s.isEmpty();
-                log.info("=== OpenAI 필터링: '{}' -> {} ===", s, isValid);
-                return isValid;
-            })
+            .doOnError(error -> log.error("OpenAI 스트림 오류: {}", error.getMessage()))
+            .filter(s -> s != null && !s.isEmpty())
             .takeWhile(s -> !"[DONE]".equals(s.trim()));
     }
 
     /** 텍스트 청크만 추출 */
     public Flux<String> extractText(String raw) {
-        log.info("extractText 호출됨: raw='{}'", raw);
         try {
             // OpenAI Chat Completions Stream의 JSON 라인에서 텍스트 조각 경로를 탐색
             String jsonData = raw.startsWith("data: ") ? raw.substring(6) : raw;
             if ("[DONE]".equals(jsonData.trim())) {
-                log.info("OpenAI 스트림 완료: [DONE]");
                 return Flux.empty();
             }
             
             ObjectMapper mapper = new ObjectMapper();
             JsonNode node = mapper.readTree(jsonData);
-            log.info("JSON 파싱 성공: {}", node);
             
             // OpenAI Chat Completions 스트림 형식: { "choices": [{"delta": {"content": "..."}}] }
             if (node.has("choices")) {
-                log.info("OpenAI choices 발견: {}", node.get("choices"));
                 return Flux.fromIterable(node.get("choices"))
-                    .map(choice -> {
-                        log.info("OpenAI choice 처리: {}", choice);
-                        return choice.get("delta");
-                    })
-                    .filter(delta -> {
-                        boolean hasContent = delta != null && delta.has("content");
-                        log.info("OpenAI delta 필터링: {}, hasContent: {}", delta, hasContent);
-                        return hasContent;
-                    })
-                    .map(delta -> {
-                        String content = delta.get("content").asText();
-                        log.info("OpenAI 텍스트 추출 성공: '{}'", content);
-                        return content;
-                    })
-                    .filter(content -> {
-                        boolean notEmpty = content != null && !content.isEmpty();
-                        log.info("OpenAI 텍스트 최종 필터링: '{}', notEmpty: {}", content, notEmpty);
-                        return notEmpty;
-                    });
+                    .map(choice -> choice.get("delta"))
+                    .filter(delta -> delta != null && delta.has("content"))
+                    .map(delta -> delta.get("content").asText())
+                    .filter(content -> content != null && !content.isEmpty());
             }
             
-            log.info("OpenAI choices 없음: {}", node);
             return Flux.empty();
         } catch (Exception e) {
-            log.error("OpenAI 응답 파싱 오류: {}, raw: {}", e.getMessage(), raw);
+            log.debug("OpenAI 응답 파싱 오류: {}", e.getMessage());
             return Flux.empty();
         }
     }
@@ -142,6 +114,40 @@ public class OpenAIClient {
             }
         } catch (Exception ignored) {}
         return Usage.empty();
+    }
+
+    /**
+     * 동기 방식 OpenAI 완료 호출
+     * GreetingService 등 일회성 호출에 사용
+     * 
+     * @param systemPrompt 시스템 프롬프트
+     * @param userMessage 사용자 메시지
+     * @return AI 응답 텍스트
+     */
+    public String simpleCompletion(String systemPrompt, String userMessage) {
+        log.info("OpenAI 동기 호출 시작: systemPrompt={}, userMessage={}", 
+            systemPrompt != null ? systemPrompt.substring(0, Math.min(50, systemPrompt.length())) : "", 
+            userMessage);
+        
+        try {
+            List<String> chunks = streamRawCompletion(systemPrompt, userMessage)
+                .flatMap(this::extractText)
+                .collectList()
+                .block(Duration.ofSeconds(30));  // 30초 타임아웃 설정
+            
+            if (chunks == null || chunks.isEmpty()) {
+                log.warn("OpenAI 응답이 비어있습니다");
+                return "";
+            }
+            
+            String result = String.join("", chunks);
+            log.info("OpenAI 동기 호출 완료: length={}", result.length());
+            return result;
+            
+        } catch (Exception e) {
+            log.error("OpenAI 동기 호출 실패", e);
+            throw new RuntimeException("AI 응답 생성 실패", e);
+        }
     }
 
     public record Usage(int inputTokens, int outputTokens) {

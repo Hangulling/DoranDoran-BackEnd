@@ -15,9 +15,9 @@ public class RefreshTokenService {
 
     private final RefreshTokenRepository refreshTokenRepository;
 
-    public RefreshToken issue(com.dorandoran.auth.entity.User user, String tokenHash, LocalDateTime expiresAt, String deviceId, String userAgent, String ip) {
+    public RefreshToken issue(UUID userId, String tokenHash, LocalDateTime expiresAt, String deviceId, String userAgent, String ip) {
         RefreshToken entity = RefreshToken.builder()
-                .user(user)
+                .userId(userId)
                 .token(tokenHash)
                 .issuedAt(LocalDateTime.now())
                 .expiresAt(expiresAt)
@@ -43,7 +43,7 @@ public class RefreshTokenService {
         refreshTokenRepository.save(current);
 
         RefreshToken next = RefreshToken.builder()
-                .user(current.getUser())
+                .userId(current.getUserId())
                 .token(newTokenHash)
                 .issuedAt(LocalDateTime.now())
                 .expiresAt(newExpiresAt)

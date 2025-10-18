@@ -2,6 +2,7 @@ package com.dorandoran.auth.service;
 
 import com.dorandoran.auth.client.UserServiceClient;
 import com.dorandoran.shared.dto.UserDto;
+import com.dorandoran.shared.dto.UserWithPasswordDto;
 import com.dorandoran.shared.dto.ResetPasswordRequest;
 import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
 import io.github.resilience4j.retry.annotation.Retry;
@@ -55,6 +56,16 @@ public class UserIntegrationService {
     }
     
     /**
+     * 이메일로 사용자 조회 (Auth 서비스용 - passwordHash 포함)
+     */
+    @CircuitBreaker(name = "user-service", fallbackMethod = "getUserByEmailForAuthFallback")
+    @Retry(name = "user-service")
+    public UserWithPasswordDto getUserByEmailForAuth(String email) {
+        log.info("User Service 호출 - getUserByEmailForAuth: email={}", email);
+        return userServiceClient.getUserByEmailForAuth(email);
+    }
+    
+    /**
      * 사용자 서비스 헬스체크
      */
     @CircuitBreaker(name = "user-service", fallbackMethod = "healthCheckFallback")
@@ -98,6 +109,11 @@ public class UserIntegrationService {
     
     public UserDto getUserByEmailFallback(String email, Exception ex) {
         log.error("User Service 호출 실패 - getUserByEmail: email={}, error={}", email, ex.getMessage());
+        throw new RuntimeException("User Service를 사용할 수 없습니다. 잠시 후 다시 시도해주세요.");
+    }
+    
+    public UserWithPasswordDto getUserByEmailForAuthFallback(String email, Exception ex) {
+        log.error("User Service 호출 실패 - getUserByEmailForAuth: email={}, error={}", email, ex.getMessage());
         throw new RuntimeException("User Service를 사용할 수 없습니다. 잠시 후 다시 시도해주세요.");
     }
     

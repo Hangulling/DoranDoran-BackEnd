@@ -24,6 +24,7 @@ public class StorageListResponse {
   private UUID chatroomId;
   private String chatroomName;  // Chat Service에서 조회 (Feign)
   private String content;
+  private String correctedContent;
   private AiResponse aiResponse;
   private String botType;
   private LocalDateTime createdAt;
@@ -35,6 +36,7 @@ public class StorageListResponse {
         .messageId(store.getMessageId())
         .chatroomId(store.getChatroomId())
         .content(store.getContent())
+        .correctedContent(store.getCorrectedContent())
         .aiResponse(store.getAiResponse())
         .botType(store.getBotType())
         .createdAt(store.getCreatedAt())

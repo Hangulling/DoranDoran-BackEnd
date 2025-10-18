@@ -32,6 +32,9 @@ public class BookmarkRequest {
   @NotNull(message = "표현 내용은 필수입니다")
   private String content;
 
+  // 교정된 메시지
+  private String correctedContent;
+
   // Multi-Agent AI 응답 (필수)
   @NotNull(message = "AI 응답은 필수입니다")
   private AiResponse aiResponse;

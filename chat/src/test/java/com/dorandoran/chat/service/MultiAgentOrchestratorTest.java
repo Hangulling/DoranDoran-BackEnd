@@ -12,7 +12,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import reactor.core.publisher.Mono;
-import reactor.test.StepVerifier;
+// import reactor.test.StepVerifier; // 제거됨
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -39,6 +39,9 @@ class MultiAgentOrchestratorTest {
     private ConversationAgent conversationAgent;
     
     @Mock
+    private SummarizerAgent summarizerAgent;
+    
+    @Mock
     private SSEManager sseManager;
     
     @Mock
@@ -57,7 +60,7 @@ class MultiAgentOrchestratorTest {
     @BeforeEach
     void setUp() {
         orchestrator = new MultiAgentOrchestrator(
-            intimacyAgent, vocabularyAgent, translationAgent, conversationAgent,
+            intimacyAgent, vocabularyAgent, translationAgent, conversationAgent, summarizerAgent,
             sseManager, intimacyProgressRepository, chatService
         );
         

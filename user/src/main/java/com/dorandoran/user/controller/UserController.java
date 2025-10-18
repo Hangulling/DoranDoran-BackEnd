@@ -3,6 +3,7 @@ package com.dorandoran.user.controller;
 import com.dorandoran.shared.dto.CreateUserRequest;
 import com.dorandoran.shared.dto.UpdateUserRequest;
 import com.dorandoran.shared.dto.UserDto;
+import com.dorandoran.shared.dto.UserWithPasswordDto;
 import com.dorandoran.shared.dto.ResetPasswordRequest;
 import com.dorandoran.user.service.UserService;
 import com.dorandoran.common.response.ApiResponse;
@@ -91,6 +92,47 @@ public class UserController {
     }
     
     /**
+     * 이메일로 사용자 조회 (Auth 서비스용 - passwordHash 포함)
+     */
+    @GetMapping("/auth/email/{email}")
+    public ResponseEntity<UserWithPasswordDto> getUserByEmailForAuth(@PathVariable String email) {
+        log.info("Auth 서비스용 이메일로 사용자 조회 요청: email={}", email);
+        
+        try {
+            UserWithPasswordDto user = userService.findByEmailForAuth(email);
+            return ResponseEntity.ok(user);
+        } catch (Exception e) {
+            log.error("Auth 서비스용 이메일로 사용자 조회 실패: email={}, error={}", email, e.getMessage());
+            return ResponseEntity.notFound().build();
+        }
+    }
+    
+    /**
+     * 이메일 중복확인
+     */
+    @Operation(summary = "이메일 중복확인", description = "이메일이 이미 사용 중인지 확인합니다.")
+    @ApiResponses(value = {
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "이메일 중복확인 성공"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "잘못된 이메일 형식")
+    })
+    @GetMapping("/check-email/{email}")
+    public ResponseEntity<ApiResponse<Boolean>> checkEmailDuplicate(
+            @Parameter(description = "확인할 이메일 주소", required = true)
+            @PathVariable String email) {
+        log.info("이메일 중복확인 요청: email={}", email);
+        
+        try {
+            boolean isDuplicate = userService.isEmailDuplicate(email);
+            String message = isDuplicate ? "이미 사용 중인 이메일입니다." : "사용 가능한 이메일입니다.";
+            return ResponseEntity.ok(ApiResponse.success(isDuplicate, message));
+        } catch (Exception e) {
+            log.error("이메일 중복확인 실패: email={}, error={}", email, e.getMessage());
+            return ResponseEntity.badRequest()
+                    .body(ApiResponse.error("이메일 중복확인에 실패했습니다: " + e.getMessage()));
+        }
+    }
+    
+    /**
      * 사용자 프로필 업데이트
      */
     @PutMapping("/{userId}")
@@ -133,34 +175,6 @@ public class UserController {
         }
     }
     
-    /**
-     * 현재 사용자 정보 조회 (인증된 사용자)
-     */
-    @Operation(summary = "현재 사용자 정보 조회", description = "인증된 사용자의 정보를 조회합니다.")
-    @ApiResponses(value = {
-        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "사용자 정보 조회 성공"),
-        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "인증 실패")
-    })
-    @GetMapping("/me")
-    public ResponseEntity<ApiResponse<UserDto>> getCurrentUser(
-            @RequestHeader("Authorization") String token) {
-        log.info("현재 사용자 정보 조회 API 호출");
-        
-        try {
-            // JWT 토큰에서 사용자 ID 추출 (간단한 구현)
-            // 실제로는 JWT 서비스에서 토큰을 검증하고 사용자 정보를 반환해야 함
-            String actualToken = token.startsWith("Bearer ") ? token.substring(7) : token;
-            
-            // 임시로 첫 번째 사용자를 반환 (실제로는 JWT에서 사용자 ID를 추출해야 함)
-            // TODO: JWT 토큰 검증 및 사용자 ID 추출 로직 구현
-            UserDto user = userService.findById(UUID.randomUUID()); // 임시 구현
-            return ResponseEntity.ok(ApiResponse.success(user, "사용자 정보를 성공적으로 조회했습니다."));
-        } catch (Exception e) {
-            log.error("사용자 정보 조회 실패: {}", e.getMessage());
-            return ResponseEntity.status(401)
-                    .body(ApiResponse.error("사용자 정보 조회에 실패했습니다: " + e.getMessage()));
-        }
-    }
 
     /**
      * 헬스체크

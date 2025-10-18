@@ -2,6 +2,7 @@ package com.dorandoran.chat.service;
 
 import com.dorandoran.chat.entity.ChatRoom;
 import com.dorandoran.chat.entity.Chatbot;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.dorandoran.chat.repository.ChatRoomRepository;
 import com.dorandoran.chat.repository.ChatbotRepository;
 import org.junit.jupiter.api.DisplayName;
@@ -42,22 +43,23 @@ class PromptServiceTest {
 
     @Test
     @DisplayName("봇 메타와 룸 컨텍스트를 합성해 한국어 지시가 포함된 프롬프트를 생성한다")
-    void buildSystemPrompt_mergesBotAndRoomContext() {
+    void buildSystemPrompt_mergesBotAndRoomContext() throws Exception {
         UUID chatroomId = UUID.fromString("00000000-0000-0000-0000-000000000011");
         UUID botId = UUID.fromString("00000000-0000-0000-0000-0000000000b0");
 
+        Chatbot bot = Chatbot.builder().id(botId).build();
         ChatRoom room = ChatRoom.builder()
             .id(chatroomId)
-            .chatbotId(botId)
-            .contextData("{\n" +
+            .chatbot(bot)
+            .contextData(new ObjectMapper().readTree("{\n" +
                 "  \"conversationSummary\": \"요약입니다\",\n" +
                 "  \"userPreferences\": { \"responseLength\": \"short\", \"language\": \"ko\", \"topics\": [\"java\", \"spring\"] },\n" +
                 "  \"sessionData\": { \"currentTopic\": \"테스트\" }\n" +
-                "}")
+                "}"))
             .build();
         when(chatRoomRepository.findById(chatroomId)).thenReturn(Optional.of(room));
 
-        Chatbot bot = Chatbot.builder()
+        Chatbot botDetails = Chatbot.builder()
             .id(botId)
             .systemPrompt("너는 친절한 비서야.")
             .personality("{\n" +
@@ -72,7 +74,7 @@ class PromptServiceTest {
                 "  \"safety\": { \"profanityFilter\": true, \"piiRedaction\": true }\n" +
                 "}")
             .build();
-        when(chatbotRepository.findById(botId)).thenReturn(Optional.of(bot));
+        when(chatbotRepository.findById(botId)).thenReturn(Optional.of(botDetails));
 
         String prompt = promptService.buildSystemPrompt(chatroomId);
 
@@ -114,11 +116,12 @@ class PromptServiceTest {
         StringBuilder veryLong = new StringBuilder();
         for (int i = 0; i < 9000; i++) veryLong.append('a');
 
-        ChatRoom room = ChatRoom.builder().id(chatroomId).chatbotId(botId).build();
+        Chatbot bot = Chatbot.builder().id(botId).build();
+        ChatRoom room = ChatRoom.builder().id(chatroomId).chatbot(bot).build();
         when(chatRoomRepository.findById(chatroomId)).thenReturn(Optional.of(room));
 
-        Chatbot bot = Chatbot.builder().id(botId).systemPrompt(veryLong.toString()).build();
-        when(chatbotRepository.findById(botId)).thenReturn(Optional.of(bot));
+        Chatbot botDetails = Chatbot.builder().id(botId).systemPrompt(veryLong.toString()).build();
+        when(chatbotRepository.findById(botId)).thenReturn(Optional.of(botDetails));
 
         String prompt = promptService.buildSystemPrompt(chatroomId);
 

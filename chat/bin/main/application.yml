@@ -4,11 +4,16 @@ server:
 spring:
   application:
     name: chat-service
+  flyway:
+    enabled: true
+    locations: filesystem:docker/scripts
+    baseline-on-migrate: true
+    schemas: chat_schema, user_schema, auth_schema, billing
   
-  # 정적 리소스 설정
+  # 정적 리소스 설
   web:
     resources:
-      static-locations: classpath:/static/,file:./test-ai.html
+      static-locations: classpath:/static/
       add-mappings: true
   
   # Spring Security 완전 비활성화
@@ -26,18 +31,19 @@ spring:
     password: doran
     driver-class-name: org.postgresql.Driver
     hikari:
-      maximum-pool-size: 10
+      maximum-pool-size: 20  # 동시 처리 능력 향상
       minimum-idle: 5
-      connection-timeout: 30000
-      idle-timeout: 600000
-      max-lifetime: 1800000
-      leak-detection-threshold: 60000
+      connection-timeout: 20000  # 연결 대기 시간 단축
+      idle-timeout: 300000  # 유휴 연결 타임아웃
+      max-lifetime: 600000  # 연결 최대 수명 단축 (10분)
+      leak-detection-threshold: 10000  # 누수 조기 감지 (10초)
   
   # JPA 설정
   jpa:
     hibernate:
       ddl-auto: none
     show-sql: true
+    open-in-view: false  # SSE 연결 누수 방지
     properties:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
@@ -51,7 +57,7 @@ spring:
         default_schema: user_schema
         # 다중 스키마 지원을 위한 설정
         hbm2ddl:
-          auto: none
+          auto: none  # create-drop 제거하여 데이터 보존
         # 엔티티 스캔 패키지 명시적 설정 (다중 스키마 지원)
         packages_to_scan: com.dorandoran.chat.entity,com.dorandoran.shared.entity,com.dorandoran.common.entity
     database-platform: org.hibernate.dialect.PostgreSQLDialect
@@ -59,12 +65,14 @@ spring:
 # 로깅 설정
 logging:
   level:
-    com.dorandoran.chat: DEBUG
-    org.springframework.web: DEBUG
-    org.hibernate.SQL: DEBUG
-    org.hibernate.type.descriptor.sql.BasicBinder: TRACE
-    org.hibernate.type.descriptor.sql.BasicExtractor: TRACE
-    org.hibernate.engine.jdbc.binding.internal.BasicBinder: TRACE
+    com.dorandoran.chat: INFO
+    org.springframework.web: WARN
+    org.hibernate.SQL: WARN
+    org.hibernate.type.descriptor.sql.BasicBinder: WARN
+    org.hibernate.type.descriptor.sql.BasicExtractor: WARN
+    org.hibernate.engine.jdbc.binding.internal.BasicBinder: WARN
+    reactor.netty: WARN
+    io.netty: WARN
   pattern:
     console: "%d{yyyy-MM-dd HH:mm:ss} - %msg%n"
 
@@ -92,5 +100,11 @@ springdoc:
     displayRequestDuration: true
     showExtensions: true
     showCommonExtensions: true
+
+# Gateway HMAC 설정
+gateway:
+  jwt:
+    hmac-secret: 404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970
+    skew-ms: 60000
 
 # Actuator 설정은 application-docker.yml에서 관리
