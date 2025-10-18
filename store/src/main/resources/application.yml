@@ -3,9 +3,9 @@ spring:
     name: store-service
 
   datasource:
-    url: jdbc:postgresql://localhost:5432/dorandoran_db
+    url: jdbc:postgresql://localhost:5432/dorandoran
     username: doran
-    password: doran_password
+    password: doran
     driver-class-name: org.postgresql.Driver
 
   jpa:
@@ -52,7 +52,7 @@ feign:
         readTimeout: 5000
         loggerLevel: FULL
   chat-service:
-    url: http://chat-service:8083
+    url: ${FEIGN_CHAT_SERVICE_URL:http://localhost:8083}
   circuitbreaker:
     enabled: true
 
