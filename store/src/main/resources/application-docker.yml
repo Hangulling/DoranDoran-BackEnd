@@ -2,6 +2,14 @@ spring:
   application:
     name: store-service
 
+  # Spring Security 완전 비활성화
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration
+      - org.springframework.boot.autoconfigure.security.servlet.UserDetailsServiceAutoConfiguration
+      - org.springframework.boot.autoconfigure.security.servlet.SecurityFilterAutoConfiguration
+      - org.springframework.boot.autoconfigure.security.servlet.ManagementWebSecurityAutoConfiguration
+
   # 데이터베이스 연결
   datasource:
     url: ${SPRING_DATASOURCE_URL}
@@ -44,3 +52,22 @@ server:
 logging:
   level:
     com.dorandoran.store: DEBUG
+
+# Actuator 설정
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+      base-path: /actuator
+  endpoint:
+    health:
+      show-details: always
+    prometheus:
+      enabled: true
+  security:
+    enabled: false
+  prometheus:
+    metrics:
+      export:
+        enabled: true
