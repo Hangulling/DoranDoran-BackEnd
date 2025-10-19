@@ -11,7 +11,7 @@ INSERT INTO chat_schema.chatbots (
     '한국어 튜터',
     '외국인을 위한 한국어 학습 AI 튜터',
     'gpt',
-    'gpt-4o-mini',
+    'gpt-5-mini',
     '{"tone": "friendly", "style": "educational"}',
     '당신은 도란도란의 AI 어시스턴트입니다. 외국인 한국어 학습자를 도와주는 친근한 튜터입니다.',
     '["conversation", "intimacy_analysis", "vocabulary_extraction", "translation"]',

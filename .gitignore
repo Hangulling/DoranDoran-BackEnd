@@ -17,25 +17,6 @@
 **/target/
 !gradle/wrapper/gradle-wrapper.jar
 
-# JAR 파일들 (빌드 결과물)
-*.jar
-*.war
-*.ear
-*.nar
-**/libs/*.jar
-**/build/libs/*.jar
-**/build/libs/*.war
-**/build/libs/*.ear
-
-# 클래스 파일들
-*.class
-**/classes/
-**/build/classes/
-
-# MANIFEST 파일들
-**/MANIFEST.MF
-**/build/tmp/**/MANIFEST.MF
-
 # ==============================
 # ⚙️ Gradle
 # ==============================
@@ -125,3 +106,31 @@ build/
 # 🔐 Sensitive Files (API Keys)
 # ==============================
 scripts/
+
+# ==============================
+# 🧹 Build Artifacts & Compilation
+# ==============================
+*.jar
+*.war
+*.ear
+*.class
+**/build/libs/
+**/build/tmp/
+**/build/resources/main/
+**/build/resources/test/
+
+# ==============================
+# 📝 IDE & Development Files
+# ==============================
+.cursor/
+*.plan.md
+*.migration-log.txt
+.gpt5-migration-log.txt
+
+# ==============================
+# 🗂️ Temporary & Cache Files
+# ==============================
+*.tmp
+*.temp
+*.cache
+previous-compilation-data.bin
