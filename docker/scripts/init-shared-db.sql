@@ -21,7 +21,7 @@ CREATE SCHEMA IF NOT EXISTS chat_schema;
 CREATE SCHEMA IF NOT EXISTS batch_schema;
 
 -- Store 스키마 (저장소 관련)
-CREATE SCHEMA IF NOT EXISTS store;
+CREATE SCHEMA IF NOT EXISTS store_schema;
 
 -- ========================================
 -- 2. 테이블 생성
@@ -404,55 +404,6 @@ CREATE INDEX idx_messages_created_at ON chat_schema.messages(created_at);
 CREATE INDEX idx_messages_parent ON chat_schema.messages(parent_message_id);
 -- Foreign Key 제약 조건 제거 (마이크로서비스 아키텍처에 맞게 수정)
 
--- ===========================================================
--- Store Schema 생성
--- ===========================================================
-
-CREATE EXTENSION IF NOT EXISTS pgcrypto;
-
-CREATE SCHEMA IF NOT EXISTS store_schema;
-
--- ============================================================
--- Stores 테이블 (보관함)
--- ============================================================
-DROP TABLE IF EXISTS store_schema.stores CASCADE;
-
-CREATE TABLE store_schema.stores (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id UUID NOT NULL,
-    message_id UUID NOT NULL,
-    chatroom_id UUID NOT NULL,
-    content TEXT NOT NULL,
-    corrected_content TEXT,
-    ai_response JSONB NOT NULL,
-    bot_type VARCHAR(20),
-    is_deleted BOOLEAN NOT NULL DEFAULT FALSE,
-    deleted_at TIMESTAMP,
-    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMP NOT NULL DEFAULT NOW()
-);
-
-COMMENT ON TABLE store_schema.stores IS ''보관함 - 사용자가 저장한 표현과 AI 응답'';
-COMMENT ON COLUMN store_schema.stores.content IS ''표현 원본'';
-COMMENT ON COLUMN store_schema.stores.ai_response IS ''Multi-Agent AI 응답 (JSONB)'';
-COMMENT ON COLUMN store_schema.stores.bot_type IS ''챗봇 역할 (Honey, Coworker, Senior, Client)'';
-COMMENT ON COLUMN store_schema.stores.corrected_content IS '친밀도 Agent가 교정한 문장 (교정 없으면 NULL)';
-
--- 인덱스
-CREATE UNIQUE INDEX idx_store_user_message
-    ON store_schema.stores(user_id, message_id)
-    WHERE is_deleted = FALSE;
-
-CREATE INDEX idx_store_user_created
-    ON store_schema.stores(user_id, created_at DESC)
-    WHERE is_deleted = FALSE;
-
-CREATE INDEX idx_store_chatroom
-    ON store_schema.stores(chatroom_id, created_at DESC)
-    WHERE is_deleted = FALSE;
-
-CREATE INDEX idx_store_ai_response_gin
-    ON store_schema.stores USING GIN (ai_response);
 
 
 -- ========================================
@@ -537,21 +488,21 @@ GRANT USAGE ON SCHEMA auth_schema TO doran;
 GRANT USAGE ON SCHEMA user_schema TO doran;
 GRANT USAGE ON SCHEMA chat_schema TO doran;
 GRANT USAGE ON SCHEMA batch_schema TO doran;
-GRANT USAGE ON SCHEMA store TO doran;
+GRANT USAGE ON SCHEMA store_schema TO doran;
 
 -- 테이블 권한 부여
 GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA auth_schema TO doran;
 GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA user_schema TO doran;
 GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA chat_schema TO doran;
 GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA batch_schema TO doran;
-GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA store TO doran;
+GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA store_schema TO doran;
 
 -- 시퀀스 권한 부여 (향후 추가될 경우)
 GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA auth_schema TO doran;
 GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA user_schema TO doran;
 GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA chat_schema TO doran;
 GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA batch_schema TO doran;
-GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA store TO doran;
+GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA store_schema TO doran;
 
 -- ========================================
 -- 4. 테스트 데이터 생성
@@ -574,7 +525,7 @@ INSERT INTO user_schema.app_user (id, email, name, first_name, last_name, info, 
 
 -- 기본 챗봇 5개 생성 (concept별)
 INSERT INTO chat_schema.chatbots (id, name, display_name, description, bot_type, model_name, personality, system_prompt, intimacy_system_prompt, intimacy_user_prompt, vocabulary_system_prompt, vocabulary_user_prompt, translation_system_prompt, translation_user_prompt, capabilities, settings, intimacy_level, avatar_url, is_active, created_by, created_at, updated_at) VALUES
-(''22222222-2222-2222-2222-222222222221'', ''friend-bot'', ''친구 봇'', ''친구처럼 편안하게 대화하는 AI 튜터'', ''gpt'', ''gpt-4o-mini'', ''{"personality": "friendly", "tone": "casual"}'', ''당신은 친구처럼 편안하고 친근한 한국어 학습 AI 튜터입니다. 격식 없이 대화하며 자연스럽게 한국어를 가르쳐주세요.'', ''**친구 ver 0.1**
+(''22222222-2222-2222-2222-222222222221'', ''friend-bot'', ''친구 봇'', ''친구처럼 편안하게 대화하는 AI 튜터'', ''gpt'', ''gpt-5-mini'', ''{"personality": "friendly", "tone": "casual"}'', ''당신은 친구처럼 편안하고 친근한 한국어 학습 AI 튜터입니다. 격식 없이 대화하며 자연스럽게 한국어를 가르쳐주세요.'', ''**친구 ver 0.1**
 
 **역할 설명:**
 
@@ -730,7 +681,7 @@ JSON 형식:
     {"original": "한국어", "english": "English", "pronunciation": "[발음기호]"}
   ]
 }'', ''다음 텍스트를 번역해주세요: {input}'', ''{"conversation": true, "intimacy": true, "vocabulary": true, "translation": true}'', ''{"concept": "FRIEND", "intimacy_level": 2}'', 2, ''https://example.com/avatar/friend.png'', true, ''11111111-1111-1111-1111-111111111111'', NOW(), NOW()),
-(''22222222-2222-2222-2222-222222222222'', ''honey-bot'', ''꿀 봇'', ''연인처럼 애정적으로 대화하는 AI 튜터'', ''gpt'', ''gpt-4o-mini'', ''{"personality": "romantic", "tone": "intimate"}'', ''당신은 연인처럼 애정적이고 따뜻한 한국어 학습 AI 튜터입니다. 사랑스럽고 부드럽게 한국어를 가르쳐주세요.'', ''**애인 ver 0.1**
+(''22222222-2222-2222-2222-222222222222'', ''honey-bot'', ''꿀 봇'', ''연인처럼 애정적으로 대화하는 AI 튜터'', ''gpt'', ''gpt-5-mini'', ''{"personality": "romantic", "tone": "intimate"}'', ''당신은 연인처럼 애정적이고 따뜻한 한국어 학습 AI 튜터입니다. 사랑스럽고 부드럽게 한국어를 가르쳐주세요.'', ''**애인 ver 0.1**
 
 **역할 설명:**
 
@@ -852,7 +803,7 @@ JSON 형식:
     {"original": "한국어", "english": "English", "pronunciation": "[발음기호]"}
   ]
 }'', ''다음 텍스트를 번역해주세요: {input}'', ''{"conversation": true, "intimacy": true, "vocabulary": true, "translation": true}'', ''{"concept": "HONEY", "intimacy_level": 3}'', 3, ''https://example.com/avatar/lover.png'', true, ''11111111-1111-1111-1111-111111111111'', NOW(), NOW()),
-(''22222222-2222-2222-2222-222222222223'', ''coworker-bot'', ''동료 봇'', ''직장 동료처럼 전문적으로 대화하는 AI 튜터'', ''gpt'', ''gpt-4o-mini'', ''{"personality": "professional", "tone": "formal"}'', ''당신은 직장 동료처럼 전문적이고 격식 있는 한국어 학습 AI 튜터입니다. 업무 상황에 맞는 한국어를 가르쳐주세요.'', ''당신은 외국인의 한국어 친밀도를 분석하는 전문가입니다.
+(''22222222-2222-2222-2222-222222222223'', ''coworker-bot'', ''동료 봇'', ''직장 동료처럼 전문적으로 대화하는 AI 튜터'', ''gpt'', ''gpt-5-mini'', ''{"personality": "professional", "tone": "formal"}'', ''당신은 직장 동료처럼 전문적이고 격식 있는 한국어 학습 AI 튜터입니다. 업무 상황에 맞는 한국어를 가르쳐주세요.'', ''당신은 외국인의 한국어 친밀도를 분석하는 전문가입니다.
 
 사용자의 문장을 분석하여 반드시 JSON 형식으로만 답변하세요.
 다른 텍스트나 설명은 포함하지 마세요.
@@ -891,7 +842,7 @@ JSON 형식:
     {"original": "한국어", "english": "English", "pronunciation": "[발음기호]"}
   ]
 }'', ''다음 텍스트를 번역해주세요: {input}'', ''{"conversation": true, "intimacy": true, "vocabulary": true, "translation": true}'', ''{"concept": "COWORKER", "intimacy_level": 2}'', 2, ''https://example.com/avatar/coworker.png'', true, ''11111111-1111-1111-1111-111111111111'', NOW(), NOW()),
-(''22222222-2222-2222-2222-222222222224'', ''senior-bot'', ''선배 봇'', ''선배처럼 존중하며 대화하는 AI 튜터'', ''gpt'', ''gpt-4o-mini'', ''{"personality": "respectful", "tone": "formal"}'', ''당신은 선배처럼 존중하고 격식 있는 한국어 학습 AI 튜터입니다. 존댓말과 격식을 중시하며 한국어를 가르쳐주세요.'', ''**학교 선배 ver 0.1**
+(''22222222-2222-2222-2222-222222222224'', ''senior-bot'', ''선배 봇'', ''선배처럼 존중하며 대화하는 AI 튜터'', ''gpt'', ''gpt-5-mini'', ''{"personality": "respectful", "tone": "formal"}'', ''당신은 선배처럼 존중하고 격식 있는 한국어 학습 AI 튜터입니다. 존댓말과 격식을 중시하며 한국어를 가르쳐주세요.'', ''**학교 선배 ver 0.1**
 
 **역할 설명:**
 
@@ -1097,7 +1048,7 @@ JSON 형식:
     {"original": "한국어", "english": "English", "pronunciation": "[발음기호]"}
   ]
 }'', ''다음 텍스트를 번역해주세요: {input}'', ''{"conversation": true, "intimacy": true, "vocabulary": true, "translation": true}'', ''{"concept": "SENIOR", "intimacy_level": 1}'', 1, ''https://example.com/avatar/senior.png'', true, ''11111111-1111-1111-1111-111111111111'', NOW(), NOW()),
-(''22222222-2222-2222-2222-222222222225'', ''boss-bot'', ''상사 봇'', ''직장 상사처럼 존경하며 대화하는 AI 튜터'', ''gpt'', ''gpt-4o-mini'', ''{"personality": "authoritative", "tone": "formal"}'', ''당신은 직장 상사처럼 존경하고 격식 있는 한국어 학습 AI 튜터입니다. 리더십과 존경을 바탕으로 한국어를 가르쳐주세요.'', ''**직장 상사 ver 0.1**
+(''22222222-2222-2222-2222-222222222225'', ''boss-bot'', ''상사 봇'', ''직장 상사처럼 존경하며 대화하는 AI 튜터'', ''gpt'', ''gpt-5-mini'', ''{"personality": "authoritative", "tone": "formal"}'', ''당신은 직장 상사처럼 존경하고 격식 있는 한국어 학습 AI 튜터입니다. 리더십과 존경을 바탕으로 한국어를 가르쳐주세요.'', ''**직장 상사 ver 0.1**
 
 **역할 설명:**
 
@@ -1239,3 +1190,47 @@ JSON 형식:
     {"original": "한국어", "english": "English", "pronunciation": "[발음기호]"}
   ]
 }'', ''다음 텍스트를 번역해주세요: {input}'', ''{"conversation": true, "intimacy": true, "vocabulary": true, "translation": true}'', ''{"concept": "BOSS", "intimacy_level": 1}'', 1, ''https://example.com/avatar/boss.png'', true, ''11111111-1111-1111-1111-111111111111'', NOW(), NOW());
+
+-- ============================================================
+-- Store 스키마 테이블 (보관함)
+-- ============================================================
+
+-- Stores 테이블 (보관함)
+DROP TABLE IF EXISTS store_schema.stores CASCADE;
+
+CREATE TABLE store_schema.stores (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL,
+    message_id UUID NOT NULL,
+    chatroom_id UUID NOT NULL,
+    content TEXT NOT NULL,
+    corrected_content TEXT,
+    ai_response JSONB NOT NULL,
+    bot_type VARCHAR(20),
+    is_deleted BOOLEAN NOT NULL DEFAULT FALSE,
+    deleted_at TIMESTAMP,
+    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
+COMMENT ON TABLE store_schema.stores IS '보관함 - 사용자가 저장한 표현과 AI 응답';
+COMMENT ON COLUMN store_schema.stores.content IS '표현 원본';
+COMMENT ON COLUMN store_schema.stores.ai_response IS 'Multi-Agent AI 응답 (JSONB)';
+COMMENT ON COLUMN store_schema.stores.bot_type IS '챗봇 역할 (Honey, Coworker, Senior, Client)';
+COMMENT ON COLUMN store_schema.stores.corrected_content IS '친밀도 Agent가 교정한 문장 (교정 없으면 NULL)';
+
+-- 인덱스
+CREATE UNIQUE INDEX idx_store_user_message
+    ON store_schema.stores(user_id, message_id)
+    WHERE is_deleted = FALSE;
+
+CREATE INDEX idx_store_user_created
+    ON store_schema.stores(user_id, created_at DESC)
+    WHERE is_deleted = FALSE;
+
+CREATE INDEX idx_store_chatroom
+    ON store_schema.stores(chatroom_id, created_at DESC)
+    WHERE is_deleted = FALSE;
+
+CREATE INDEX idx_store_ai_response_gin
+    ON store_schema.stores USING GIN (ai_response);
