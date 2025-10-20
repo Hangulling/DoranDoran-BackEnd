@@ -1,0 +1,43 @@
+{
+  // === 포맷터 ===
+  "editor.defaultFormatter": "esbenp.prettier-vscode",
+  "editor.tabSize": 2,
+  "editor.insertSpaces": false,
+  "editor.detectIndentation": false,
+  "editor.formatOnSave": true,
+  "editor.formatOnPaste": true,
+
+  // === ESLint ===
+  "editor.codeActionsOnSave": {
+    "source.fixAll": "explicit",
+    "source.fixAll.eslint": "explicit"
+  },
+  "eslint.validate": ["javascript", "typescript", "typescriptreact"],
+  "eslint.format.enable": true,
+  "eslint.alwaysShowStatus": true,
+
+  // === 언어별 formatter 확정
+  "[javascript]": { "editor.defaultFormatter": "esbenp.prettier-vscode" },
+  "[typescript]": { "editor.defaultFormatter": "esbenp.prettier-vscode" },
+  "[typescriptreact]": { "editor.defaultFormatter": "esbenp.prettier-vscode" },
+
+  // === import 자동 경로수정
+  "typescript.updateImportsOnFileMove.enabled": "always",
+  "javascript.updateImportsOnFileMove.enabled": "always",
+
+  // === 자동저장 onFocusChange
+  "files.autoSave": "onFocusChange",
+
+  // === TailwindCSS IntelliSense 설정
+  "tailwindCSS.includeLanguages": {
+    "typescriptreact": "typescriptreact"
+  },
+  "tailwindCSS.experimental.classRegex": ["clsx\\(([^)]*)\\)", "className={`([^`}]+)"],
+
+  // === Prettier 보조 설정
+  "prettier.requireConfig": true,
+  "prettier.useEditorConfig": true,
+
+  // === javascript 내장포맷터 차단 (Prettier 우선)
+  "javascript.format.enable": false
+}

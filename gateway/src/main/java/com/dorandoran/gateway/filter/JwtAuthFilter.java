@@ -5,6 +5,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.lang.NonNull;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.server.ServerWebExchange;
@@ -36,14 +37,40 @@ public class JwtAuthFilter implements WebFilter {
     private long skewMs;
 
     @Override
-    public Mono<Void> filter(ServerWebExchange exchange, WebFilterChain chain) {
-        // 임시 배포 대응: JWT 필터 우회
-        // TODO: 배포 안정화 후 아래 원래 로직 복구
-        return chain.filter(exchange);
+    public @NonNull Mono<Void> filter(@NonNull ServerWebExchange exchange, @NonNull WebFilterChain chain) {
+        String path = exchange.getRequest().getURI().getPath();
+        String method = exchange.getRequest().getMethod().name();
+        
+        // CORS preflight 요청은 바로 통과
+        if ("OPTIONS".equals(method)) {
+            return chain.filter(exchange);
+        }
+        
+        // 인증 제외 경로는 바로 통과
+        if (isExcludedPath(path)) {
+            return chain.filter(exchange);
+        }
+        
+        // Authorization 헤더 추출
+        String authHeader = exchange.getRequest().getHeaders().getFirst(HttpHeaders.AUTHORIZATION);
+        
+        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+            log.debug("Authorization 헤더가 없거나 형식이 잘못됨: path={}", path);
+            exchange.getResponse().setStatusCode(HttpStatus.UNAUTHORIZED);
+            return exchange.getResponse().setComplete();
+        }
+        
+        String token = authHeader.substring(7);
+        
+        // Auth 서비스를 통한 토큰 검증
+        return validateTokenWithAuthService(token, exchange, chain);
     }
 
     /**
      * 인증 제외 경로 확인
+     * - Actuator: 모니터링 및 헬스체크
+     * - 공개 API: 로그인, 토큰 갱신, 비밀번호 재설정, 헬스체크
+     * - 회원가입: 사용자 등록 관련 API
      */
     private boolean isExcludedPath(String path) {
         return path.startsWith("/actuator") || 
@@ -53,7 +80,10 @@ public class JwtAuthFilter implements WebFilter {
                path.startsWith("/api/auth/password/reset") ||
                path.startsWith("/api/auth/health") ||
                path.startsWith("/api/users/register") ||
-               path.startsWith("/api/users/health");
+               path.startsWith("/api/users/health") ||
+               path.startsWith("/api/users/email/") ||
+               path.startsWith("/api/users/auth/email/") ||
+               path.startsWith("/api/users/check-email/");
     }
 
     /**

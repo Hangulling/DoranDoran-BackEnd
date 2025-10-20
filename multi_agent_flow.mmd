@@ -1,0 +1,43 @@
+sequenceDiagram
+    participant User
+    participant ChatController
+    participant MultiAgent
+    participant IntimacyAgent
+    participant VocabularyAgent
+    participant TranslationAgent
+    participant ConversationAgent
+    participant OpenAI
+    participant SSEManager
+
+    User->>ChatController: 메시지 전송
+    ChatController->>MultiAgent: Multi-Agent 처리 시작
+    
+    par 병렬 실행
+        MultiAgent->>IntimacyAgent: 친밀도 분석
+        IntimacyAgent->>OpenAI: AI 호출
+        OpenAI-->>IntimacyAgent: 분석 결과
+        IntimacyAgent-->>MultiAgent: IntimacyAgentResponse
+        MultiAgent->>SSEManager: intimacy_analysis 이벤트
+    and
+        MultiAgent->>VocabularyAgent: 어휘 추출
+        VocabularyAgent->>OpenAI: AI 호출
+        OpenAI-->>VocabularyAgent: 추출 결과
+        VocabularyAgent-->>MultiAgent: VocabularyAgentResponse
+        MultiAgent->>SSEManager: vocabulary_extracted 이벤트
+    and
+        MultiAgent->>ConversationAgent: 대화 생성
+        ConversationAgent->>OpenAI: AI 호출
+        OpenAI-->>ConversationAgent: 스트림 응답
+        ConversationAgent-->>MultiAgent: Flux<String>
+        MultiAgent->>SSEManager: conversation_chunk 이벤트들
+    end
+
+    MultiAgent->>TranslationAgent: VocabularyAgent 결과 전달
+    TranslationAgent->>OpenAI: 번역 요청
+    OpenAI-->>TranslationAgent: 번역 결과
+    TranslationAgent-->>MultiAgent: TranslationAgentResponse
+    MultiAgent->>SSEManager: vocabulary_translated 이벤트
+
+    MultiAgent->>SSEManager: conversation_complete 이벤트
+    MultiAgent->>SSEManager: aggregated_complete 이벤트
+    SSEManager-->>User: 실시간 응답 스트림

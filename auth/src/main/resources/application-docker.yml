@@ -8,7 +8,7 @@ spring:
   # Auth 서비스 공유 데이터베이스 설정
   datasource:
     url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://shared-db:5432/dorandoran}
-    username: ${SPRING_DATASOURCE_USERNAME:doran}
+    username: ${SPRING_DATASOURCE_USERNAME:doran}git
     password: ${SPRING_DATASOURCE_PASSWORD:doran}
     driver-class-name: org.postgresql.Driver
     hikari:
@@ -39,7 +39,7 @@ spring:
   # Redis 설정 (Docker 프로필)
   data:
     redis:
-      host: ${SPRING_REDIS_HOST:redis}
+      host: ${SPRING_REDIS_HOST:dorandoran-redis}
       port: ${SPRING_REDIS_PORT:6379}
       timeout: 2000ms
       lettuce:
@@ -59,7 +59,7 @@ application:
 # 서비스 간 통신 설정
 user:
   service:
-    url: ${USER_SERVICE_URL:http://user-service:8082}
+    url: ${USER_SERVICE_URL:http://dorandoran-user:8082}
 
 # Circuit Breaker 설정
 resilience4j:

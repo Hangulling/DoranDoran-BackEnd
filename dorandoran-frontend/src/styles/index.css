@@ -1,0 +1,61 @@
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@100..900&family=Noto+Sans:ital,wght@0,100..900;1,100..900&display=swap');
+
+@import 'tailwindcss';
+@plugin "daisyui" {
+}
+
+@theme {
+  --font-family-sans: 'Noto Sans', 'Noto Sans KR', sans-serif;
+
+  --color-white: #ffffff;
+  --color-green-50: #e9f6f5;
+  --color-green-80: #d3eeec;
+  --color-green-300: #7bccc5;
+  --color-green-350: #68c5bd;
+  --color-green-400: #54bdb4;
+  --color-orange-100: #ffb8ad;
+  --color-orange-200: #ff8c7a;
+  --color-orange-300: #ff6149;
+  --color-blue-500: #546eff;
+  --color-gray-50: #f4f5f5;
+  --color-gray-80: #eaebeb;
+  --color-gray-100: #dadcdc;
+  --color-gray-200: #c0c4c3;
+  --color-gray-300: #a6abaa;
+  --color-gray-400: #8b9292;
+  --color-gray-500: #727978;
+  --color-gray-600: #595f5e;
+  --color-gray-700: #404444;
+  --color-gray-800: #282a2a;
+  --color-gray-900: #0f1010;
+  --color-label-pink: #f68a8c;
+  --color-label-blue: #86abfb;
+  --color-label-yellow: #f1c749;
+}
+
+@layer base {
+  html,
+  body {
+    height: 100%;
+  }
+  body {
+    font-family: var(--font-family-sans);
+  }
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+  }
+}
+
+@layer components {
+  .text-title {
+    @apply font-semibold;
+  }
+  .text-subtitle {
+    @apply font-medium;
+  }
+  .text-body {
+    @apply font-normal;
+  }
+}

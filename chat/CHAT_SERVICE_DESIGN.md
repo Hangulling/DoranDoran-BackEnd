@@ -52,16 +52,16 @@ WHY:
 **capabilities JSONB 상세 가이드**:
 ```json
 {
-  "model": "gpt-4o-mini",                    // AI 모델명
+  "model": "gpt-5-mini",                    // AI 모델명
   "modalities": ["text"],                    // 지원 모달리티 (text만)
   "tools": [],                               // 함수 호출 도구 (추후 확장)
   "temperature": 0.7,                        // 창의성 (0.0-2.0)
   "topP": 1.0,                              // 토큰 선택 다양성 (0.0-1.0)
   "maxTokens": 800,                          // 최대 응답 토큰 수
-  "safety": {                                // 안전 필터 설정
-    "profanityFilter": true,                 // 욕설 필터
-    "piiRedaction": true,                    // 개인정보 마스킹
-    "harmfulContent": "block"                // 유해 콘텐츠 차단
+  "safety": {                                // 안전 필터 설정 (DISABLED)
+    "profanityFilter": false,                // 욕설 필터 (비활성화)
+    "piiRedaction": false,                   // 개인정보 마스킹 (비활성화)
+    "harmfulContent": "allow"                // 유해 콘텐츠 허용
   },
   "responseStyle": {                         // 응답 스타일 제어
     "format": "markdown",                    // 마크다운 포맷
@@ -182,7 +182,7 @@ WHY:
 {
   "codeLanguage": "python",                  // 코드 언어 (content_type이 'code'일 때)
   "systemMessageType": "error",              // 시스템 메시지 타입 (error/info/warning)
-  "aiModel": "gpt-4o-mini",                 // AI 모델명 (bot 메시지일 때)
+  "aiModel": "gpt-5-mini",                 // AI 모델명 (bot 메시지일 때)
   "confidence": 0.95,                        // AI 응답 신뢰도 (0.0-1.0)
   "processingTime": 1200,                    // 처리 시간 (밀리초)
   "tokenUsage": {                           // 토큰 사용량

@@ -41,7 +41,7 @@ public class OpenAIClient {
             "model", aiConfig.getModel(),
             "stream", true,
             "max_tokens", aiConfig.getMaxOutputTokens(),
-            "temperature", 0.7,
+            "temperature", 0.85,
             "messages", new Object[]{
                 Map.of(
                     "role", "system",

@@ -1,0 +1,39 @@
+graph TB
+    subgraph "Security Layers"
+        subgraph "Network Security"
+            Firewall[Firewall]
+            LoadBalancer[Load Balancer]
+            WAF[Web Application Firewall]
+        end
+        
+        subgraph "Application Security"
+            Gateway[API Gateway]
+            RateLimiter[Rate Limiter]
+            JWTAuth[JWT Authentication]
+            RBAC[Role-Based Access Control]
+        end
+        
+        subgraph "Data Security"
+            Encryption[Data Encryption]
+            Hashing[Password Hashing]
+            TokenBlacklist[Token Blacklist]
+        end
+        
+        subgraph "Infrastructure Security"
+            ContainerSecurity[Container Security]
+            SecretManagement[Secret Management]
+            NetworkPolicies[Network Policies]
+        end
+    end
+
+    subgraph "External Threats"
+        DDoS[DDoS Attacks]
+        Injection[SQL Injection]
+        XSS[XSS Attacks]
+        CSRF[CSRF Attacks]
+    end
+
+    DDoS --> Firewall
+    Injection --> WAF
+    XSS --> WAF
+    CSRF --> JWTAuth

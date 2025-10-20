@@ -33,103 +33,33 @@ spring:
       routes:
         # Auth 서비스 라우팅
         - id: auth-service
-          uri: http://auth-service:8081
+          uri: http://dorandoran-auth:8081
           predicates:
             - Path=/api/auth/**
           filters:
             - RewritePath=/api/auth/(?<segment>.*), /api/auth/$\{segment}
-            - name: RequestRateLimiter
-              args:
-                redis-rate-limiter.replenishRate: 10
-                redis-rate-limiter.burstCapacity: 20
-            - name: AddResponseHeader
-              args:
-                name: Access-Control-Allow-Origin
-                value: "*"
-            - name: AddResponseHeader
-              args:
-                name: Access-Control-Allow-Methods
-                value: "GET,POST,PUT,DELETE,PATCH,OPTIONS"
-            - name: AddResponseHeader
-              args:
-                name: Access-Control-Allow-Headers
-                value: "*"
         
         # User 서비스 라우팅
         - id: user-service
-          uri: http://user-service:8082
+          uri: http://dorandoran-user:8082
           predicates:
             - Path=/api/users/**
-          filters:
-            - name: AddResponseHeader
-              args:
-                name: Access-Control-Allow-Origin
-                value: "*"
-            - name: AddResponseHeader
-              args:
-                name: Access-Control-Allow-Methods
-                value: "GET,POST,PUT,DELETE,PATCH,OPTIONS"
-            - name: AddResponseHeader
-              args:
-                name: Access-Control-Allow-Headers
-                value: "*"
+          filters: []
         
         # Chat 서비스 라우팅
         - id: chat-service
-          uri: http://chat-service:8083
+          uri: http://dorandoran-chat:8083
           predicates:
             - Path=/api/chat/**
-          filters:
-            # StripPrefix 제거 - 올바른 경로 매핑
-            - name: RequestRateLimiter
-              args:
-                redis-rate-limiter.replenishRate: 30
-                redis-rate-limiter.burstCapacity: 60
-            - name: AddResponseHeader
-              args:
-                name: Access-Control-Allow-Origin
-                value: "*"
-            - name: AddResponseHeader
-              args:
-                name: Access-Control-Allow-Methods
-                value: "GET,POST,PUT,DELETE,PATCH,OPTIONS"
-            - name: AddResponseHeader
-              args:
-                name: Access-Control-Allow-Headers
-                value: "*"
+          filters: []
         
         # Batch 서비스 라우팅
         - id: batch-service
-          uri: http://batch-service:8085
+          uri: http://dorandoran-batch:8085
           predicates:
             - Path=/api/batch/**
-          filters:
-            # StripPrefix 제거 - 올바른 경로 매핑
-            - name: RequestRateLimiter
-              args:
-                redis-rate-limiter.replenishRate: 5
-                redis-rate-limiter.burstCapacity: 10
-            - name: AddResponseHeader
-              args:
-                name: Access-Control-Allow-Origin
-                value: "*"
-            - name: AddResponseHeader
-              args:
-                name: Access-Control-Allow-Methods
-                value: "GET,POST,PUT,DELETE,PATCH,OPTIONS"
-            - name: AddResponseHeader
-              args:
-                name: Access-Control-Allow-Headers
-                value: "*"
+          filters: []
       
-      # 글로벌 CORS 설정
-      globalcors:
-        cors-configurations:
-          '[/**]':
-            allowedOriginPatterns: "*"
-            allowedMethods: "*"
-            allowedHeaders: "*"
-            allowCredentials: true
 
 # 로깅 설정
 logging:

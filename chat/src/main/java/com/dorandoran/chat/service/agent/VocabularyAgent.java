@@ -53,7 +53,7 @@ public class VocabularyAgent {
             **입력 정보:**
 
             - 학습자 레벨: {userLevel}
-            - 분석 대상 문장 (AI 챗봇 응답): "{userMessage}"
+            - 분석 대상 문장 (AI 챗봇 응답): "{content}"
 
             **난이도 정의 (상황 독립적):**
 
@@ -63,12 +63,14 @@ public class VocabularyAgent {
 
             **어휘(단어) 추출 기준:**
 
-            1. 반드시 "{userMessage}"에 포함된 단어만 추출할 것
+            1. 반드시 "{content}"에 포함된 단어만 추출할 것
             2. 어휘 난이도가 '중급(2단계)' 이상인 단어/표현만 추출할 것 (난이도 1인 단어 추출 절대 금지.)
             3. 항상 1개의 단어만 반환할 것
             4. `context` 필드의 `ko`와 `en` 설명은 부드럽고 친근한 톤앤매너를 사용하여 학습자에게 친절하게 설명할 것
             5. `context` 필드의 `ko` 설명은 100자 이내로 작성할 것
             6. 어려운 어휘가 없을 경우, 빈 객체 (`{}`)를 반환할 것
+            7. 추출된 단어는 실제 문장에서 사용된 형태 그대로 추출할 것
+            8. 만약 추출 대상의 단어가 직전 사용자 입력(userMessage)에 이미 등장한 단어라면 그 단어는 건너뛰고 설명하지 않을 것
 
             **JSON 형식(단어 있을 경우):**
 
@@ -100,7 +102,7 @@ public class VocabularyAgent {
             입력 정보: 
 
             {
-            "userMessage": "보고서는 내일 오전까지 결재 올리겠습니다."
+            "content": "보고서는 내일 오전까지 결재 올리겠습니다."
             }
 
             응답 형식:
@@ -121,7 +123,7 @@ public class VocabularyAgent {
             입력 정보:
 
             {
-            "userMessage": "혹시 문제가 있다면 즉시 말씀해 주시면 좋을 것 같아요."
+            "content": "혹시 문제가 있다면 즉시 말씀해 주시면 좋을 것 같아요."
             }
 
             응답 형식:
@@ -142,7 +144,7 @@ public class VocabularyAgent {
             입력 정보:
 
             {
-            "userMessage": "그 제안에 대해 제가 잠시 검토해 보도록 하겠습니다."
+            "content": "그 제안에 대해 제가 잠시 검토해 보도록 하겠습니다."
             }
 
             응답 형식:
@@ -163,7 +165,7 @@ public class VocabularyAgent {
             입력 정보:
 
             {
-            "userMessage": "오늘 몇 시에 퇴근하세요?"
+            "content": "오늘 몇 시에 퇴근하세요?"
             }
 
             응답 형식:
