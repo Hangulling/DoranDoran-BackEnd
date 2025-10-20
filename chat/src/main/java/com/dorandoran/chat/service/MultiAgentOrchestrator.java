@@ -59,22 +59,22 @@ public class MultiAgentOrchestrator {
         log.info("Multi-Agent 처리 시작: chatroomId={}, userId={}, userLevel={}", chatroomId, userId, userLevel);
         
         // Phase 1: 병렬 실행 (Intimacy, Vocabulary, Conversation)
-        log.debug("=== Phase 1: Parallel execution started ===");
-        log.debug("=== IntimacyAgent 호출 시작 ===");
+        log.info("=== Phase 1: Parallel execution started ===");
+        log.info("=== IntimacyAgent 호출 시작 ===");
         Mono<IntimacyAgentResponse> intimacyMono = intimacyAgent.analyze(chatroomId, content)
-            .doOnSubscribe(subscription -> log.debug("IntimacyAgent 스트림 구독"))
+            .doOnSubscribe(subscription -> log.info("IntimacyAgent 스트림 구독"))
             .doOnNext(resp -> {
-                log.debug("IntimacyAgent 완료: detectedLevel={}", resp.detectedLevel());
+                log.info("IntimacyAgent 완료: detectedLevel={}", resp.detectedLevel());
                 sseManager.send(chatroomId, "intimacy_analysis", Map.of(
                     "detectedLevel", resp.detectedLevel(),
                     "correctedSentence", resp.correctedSentence(),
-                    "feedback", resp.feedback(),
+                    "feedback", Map.of("ko", resp.feedback().ko(), "en", resp.feedback().en()),
                     "corrections", resp.corrections()
                 ));
                 updateIntimacyProgress(chatroomId, userId, resp);
             })
             .doOnError(ex -> log.error("IntimacyAgent 오류", ex))
-            .doOnSuccess(resp -> log.debug("IntimacyAgent 스트림 완료"))
+            .doOnSuccess(resp -> log.info("IntimacyAgent 스트림 완료"))
             .cache(); // 결과 캐싱
 
         // 즉시 구독
