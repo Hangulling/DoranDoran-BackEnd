@@ -60,14 +60,7 @@ spring:
             - Path=/api/batch/**
           filters: []
       
-      # 글로벌 CORS 설정
-      globalcors:
-        cors-configurations:
-          '[/**]':
-            allowedOriginPatterns: "*"
-            allowedMethods: "*"
-            allowedHeaders: "*"
-            allowCredentials: true
+      # 글로벌 CORS 설정은 SecurityConfig의 CorsWebFilter에서 처리
       
 
 # SpringDoc OpenAPI 설정 (Reactive)
@@ -125,5 +118,5 @@ gateway:
       - /api/users/health
       - /api/users
   jwt:
-    hmac-secret: change-me-hmac-secret
+    hmac-secret: 404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970
     skew-ms: 60000

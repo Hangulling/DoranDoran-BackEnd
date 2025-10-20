@@ -19,6 +19,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import jakarta.servlet.http.HttpServletRequest;
+
 /**
  * 인증 컨트롤러 (User 서비스 중심 구조)
  * User 서비스와 완전 통합된 구조
@@ -187,12 +189,21 @@ public class AuthController {
      * 사용자 정보 조회 (인증된 사용자)
      */
     @GetMapping("/me")
-    public ResponseEntity<ApiResponse<UserDto>> getCurrentUser(@RequestHeader("Authorization") String token) {
+    public ResponseEntity<ApiResponse<UserDto>> getCurrentUser(HttpServletRequest request) {
         log.info("현재 사용자 정보 조회 API 호출");
         
         try {
-            String actualToken = token.startsWith("Bearer ") ? token.substring(7) : token;
-            UserDto user = authService.validateToken(actualToken);
+            // HMAC 헤더에서 사용자 정보 추출 (Gateway에서 주입됨)
+            String userEmail = request.getHeader("X-User-Email");
+            String userId = request.getHeader("X-User-Id");
+            
+            if (userEmail == null || userEmail.isEmpty()) {
+                log.warn("HMAC 헤더에서 사용자 이메일을 찾을 수 없음");
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                        .body(ApiResponse.error("인증이 필요합니다.", ErrorCode.AUTH_TOKEN_INVALID.getCode()));
+            }
+            
+            UserDto user = authService.findUserByEmail(userEmail);
             return ResponseEntity.ok(ApiResponse.success(user, "사용자 정보를 성공적으로 조회했습니다."));
         } catch (DoranDoranException e) {
             log.error("사용자 정보 조회 실패: {}", e.getMessage());

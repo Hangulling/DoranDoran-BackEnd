@@ -41,25 +41,26 @@ public class WebMvcConfig implements WebMvcConfigurer {
    *
    * @param registry CORS 레지스트리
    */
-  @Override
-  public void addCorsMappings(CorsRegistry registry) {
-    registry.addMapping("/api/**")  // /api/** 경로에 대해 CORS 허용
-        .allowedOrigins(
-            "http://localhost:3000",      // React 개발 서버
-            "http://localhost:8080",      // API Gateway
-            "https://dorandoran.com"      // 운영 도메인
-        )
-        .allowedMethods(
-            "GET",     // 조회
-            "POST",    // 생성
-            "PUT",     // 수정
-            "DELETE",  // 삭제
-            "OPTIONS"  // Preflight
-        )
-        .allowedHeaders("*")        // 모든 헤더 허용
-        .allowCredentials(true)     // 쿠키/인증 정보 허용
-        .maxAge(3600);              // Preflight 캐시 시간 (1시간)
-  }
+  // CORS 설정은 Gateway에서 처리하므로 제거
+  // @Override
+  // public void addCorsMappings(CorsRegistry registry) {
+  //   registry.addMapping("/api/**")  // /api/** 경로에 대해 CORS 허용
+  //       .allowedOrigins(
+  //           "http://localhost:3000",      // React 개발 서버
+  //           "http://localhost:8080",      // API Gateway
+  //           "https://dorandoran.com"      // 운영 도메인
+  //       )
+  //       .allowedMethods(
+  //           "GET",     // 조회
+  //           "POST",    // 생성
+  //           "PUT",     // 수정
+  //           "DELETE",  // 삭제
+  //           "OPTIONS"  // Preflight
+  //       )
+  //       .allowedHeaders("*")        // 모든 헤더 허용
+  //       .allowCredentials(true)     // 쿠키/인증 정보 허용
+  //       .maxAge(3600);              // Preflight 캐시 시간 (1시간)
+  // }
 
   /**
    * Interceptor 설정

@@ -17,14 +17,15 @@ public class WebMvcConfig implements WebMvcConfigurer {
         registry.addInterceptor(hmacAuthInterceptor).addPathPatterns("/**");
     }
 
-    @Override
-    public void addCorsMappings(CorsRegistry registry) {
-        registry.addMapping("/**")
-            .allowedOriginPatterns("*")
-            .allowedMethods("*")
-            .allowedHeaders("*")
-            .allowCredentials(true);
-    }
+    // CORS 설정은 Gateway에서 처리하므로 제거
+    // @Override
+    // public void addCorsMappings(CorsRegistry registry) {
+    //     registry.addMapping("/**")
+    //         .allowedOriginPatterns("*")
+    //         .allowedMethods("*")
+    //         .allowedHeaders("*")
+    //         .allowCredentials(true);
+    // }
 }
 
 
