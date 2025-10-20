@@ -52,6 +52,13 @@ spring:
           predicates:
             - Path=/api/chat/**
           filters: []
+
+        # Store Service 라우팅 추가
+        - id: store-service
+          uri: http://dorandoran-store:8084
+          predicates:
+            - Path=/api/store/**
+          filters: []
         
         # Batch 서비스 라우팅
         - id: batch-service
