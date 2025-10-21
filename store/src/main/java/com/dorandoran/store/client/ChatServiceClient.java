@@ -1,6 +1,7 @@
 package com.dorandoran.store.client;
 
 import com.dorandoran.store.client.dto.ChatRoomDto;
+import com.dorandoran.store.config.FeignConfig;
 import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -15,6 +16,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 @FeignClient(
     name = "chat-service",
     url = "${feign.chat-service.url:http://localhost:8083}",
+    configuration = FeignConfig.class,
     fallback = ChatServiceClientFallback.class
 )
 public interface ChatServiceClient {

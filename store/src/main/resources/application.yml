@@ -56,6 +56,12 @@ feign:
   circuitbreaker:
     enabled: true
 
+# gateway.jwt.hmac-secret
+gateway:
+  jwt:
+    hmac-secret: 404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970
+    skew-ms: 60000
+
 # OpenAPI/Swagger
 springdoc:
   api-docs:
