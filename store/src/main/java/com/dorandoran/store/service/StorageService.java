@@ -10,6 +10,7 @@ import com.dorandoran.store.exception.BookmarkNotFoundException;
 import com.dorandoran.store.exception.DuplicateBookmarkException;
 import com.dorandoran.store.exception.UnauthorizedAccessException;
 import com.dorandoran.store.repository.StoreRepository;
+import com.dorandoran.store.util.BotTypeMapper;
 import feign.FeignException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -48,6 +49,17 @@ public class StorageService {
       throw new DuplicateBookmarkException("이미 보관함에 저장된 표현입니다");
     }
 
+    // chatbotId로 botType 자동 매핑
+    String botType;
+    try {
+      botType = BotTypeMapper.getBotType(request.getChatbotId());
+      log.info("botType 자동 매핑 완료: chatbotId={}, botType={}",
+          request.getChatbotId(), botType);
+    } catch (IllegalArgumentException e) {
+      log.error("유효하지 않은 chatbotId: {}", request.getChatbotId());
+      throw e;
+    }
+
     // Store 엔티티 생성
     Store store = Store.builder()
         .userId(userId)
@@ -57,7 +69,8 @@ public class StorageService {
         .content(request.getContent())
         .correctedContent(request.getCorrectedContent())
         .aiResponse(request.getAiResponse())
-        .botType(request.getBotType())
+//        .botType(request.getBotType())
+        .botType(botType)
         .isDeleted(false)
         .build();
 
