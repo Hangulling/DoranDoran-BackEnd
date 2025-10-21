@@ -2,19 +2,22 @@ package com.dorandoran.auth.config;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.lang.NonNull;
 import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
+/**
+ * Web MVC 설정
+ */
 @Configuration
 @RequiredArgsConstructor
 public class WebMvcConfig implements WebMvcConfigurer {
-
+    
     private final HmacAuthInterceptor hmacAuthInterceptor;
-
+    
     @Override
-    public void addInterceptors(InterceptorRegistry registry) {
-        registry.addInterceptor(hmacAuthInterceptor).addPathPatterns("/**");
+    public void addInterceptors(@NonNull InterceptorRegistry registry) {
+        registry.addInterceptor(hmacAuthInterceptor)
+                .addPathPatterns("/**");
     }
 }
-
-

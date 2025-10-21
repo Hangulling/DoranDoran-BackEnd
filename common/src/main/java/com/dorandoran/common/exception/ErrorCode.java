@@ -11,6 +11,7 @@ public enum ErrorCode {
     INVALID_PASSWORD_FORMAT("U004", "비밀번호는 8자 이상이며 영문과 숫자를 포함해야 합니다"),
     USER_ALREADY_INACTIVE("U005", "이미 비활성화된 사용자입니다"),
     USER_ALREADY_SUSPENDED("U006", "이미 정지된 사용자입니다"),
+    USER_ACCOUNT_DISABLED("U007", "비활성화된 계정입니다. 로그인할 수 없습니다"),
     
     // 인증 관련 (확장 가능)
     AUTH_TOKEN_EXPIRED("A001", "인증 토큰이 만료되었습니다"),
