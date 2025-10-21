@@ -58,6 +58,7 @@ public class AiResponse {
   public static class VocabularyItem {
     private String word;
     private String pronunciation;
-    private String explanation;
+    private String explanation;        // 영어 설명
+    private String korExplanation;     // 한국어 설명
   }
 }

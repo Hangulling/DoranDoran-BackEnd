@@ -28,6 +28,10 @@ public class BookmarkRequest {
   @NotNull(message = "채팅방 ID는 필수입니다")
   private UUID chatroomId;
 
+  // chatbotId (필수)
+  @NotNull(message = "챗봇 ID는 필수입니다")
+  private UUID chatbotId;
+
   // 표현 원본 (필수)
   @NotNull(message = "표현 내용은 필수입니다")
   private String content;
@@ -38,8 +42,4 @@ public class BookmarkRequest {
   // Multi-Agent AI 응답 (필수)
   @NotNull(message = "AI 응답은 필수입니다")
   private AiResponse aiResponse;
-
-  @NotBlank(message = "챗봇 타입은 필수입니다")
-  @Pattern(regexp = "^(friend|honey|coworker|senior)$", message = "챗봇 타입은 friend, honey, coworker, senior 중 하나여야 합니다")
-  private String botType;
 }
