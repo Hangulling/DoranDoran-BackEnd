@@ -29,6 +29,7 @@ public class SecurityConfig {
             // 기타 모든 요청은 허용
             .anyRequest().permitAll()
         )
+        .cors(cors -> cors.disable())  // ← CORS 명시적 비활성화
         .csrf(csrf -> csrf.disable())
         .httpBasic(httpBasic -> httpBasic.disable())
         .formLogin(formLogin -> formLogin.disable());
