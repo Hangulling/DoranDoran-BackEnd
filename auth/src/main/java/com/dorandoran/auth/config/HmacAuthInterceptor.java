@@ -7,6 +7,13 @@ import org.springframework.web.servlet.HandlerInterceptor;
 import org.springframework.lang.NonNull;
 import lombok.extern.slf4j.Slf4j;
 
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+
+/**
+ * HMAC 인증 인터셉터 (Auth 서비스)
+ * Gateway에서 주입한 HMAC 헤더를 검증하여 서비스 간 통신 보안을 보장
+ */
 @Component
 @Slf4j
 public class HmacAuthInterceptor implements HandlerInterceptor {
@@ -18,22 +25,10 @@ public class HmacAuthInterceptor implements HandlerInterceptor {
     private long skewMs;
 
     @Override
-    public boolean preHandle(@NonNull jakarta.servlet.http.HttpServletRequest request, @NonNull jakarta.servlet.http.HttpServletResponse response, @NonNull Object handler) throws Exception {
+    public boolean preHandle(@NonNull HttpServletRequest request, @NonNull HttpServletResponse response, @NonNull Object handler) throws Exception {
+        // 공개 엔드포인트는 통과
         String path = request.getRequestURI();
-        
-        // Gateway와 동일한 제외 경로 적용
-        if (path.startsWith("/actuator") || 
-            path.equals("/") || 
-            path.startsWith("/swagger-ui") || 
-            path.startsWith("/v3/api-docs") || 
-            path.startsWith("/api-docs") || 
-            path.startsWith("/api/auth/login") || 
-            path.startsWith("/api/auth/refresh") || 
-            path.startsWith("/api/auth/password/reset") || 
-            path.startsWith("/api/auth/health") ||
-            path.startsWith("/api/auth/validate") ||  // Gateway가 validate API 호출할 때 무한 루프 방지
-            path.startsWith("/api/users/health") ||
-            path.startsWith("/api/users/email/")) {
+        if (isExcludedPath(path)) {
             return true;
         }
 
@@ -42,6 +37,7 @@ public class HmacAuthInterceptor implements HandlerInterceptor {
         String sign = request.getHeader("X-Auth-Sign");
 
         if (userId == null || ts == null || sign == null) {
+            log.debug("HMAC 헤더 누락: path={}", path);
             response.setStatus(401);
             return false;
         }
@@ -54,15 +50,47 @@ public class HmacAuthInterceptor implements HandlerInterceptor {
 
         long now = System.currentTimeMillis();
         long t;
-        try { t = Long.parseLong(ts); } catch (NumberFormatException e) { response.setStatus(401); return false; }
-        if (Math.abs(now - t) > skewMs) { response.setStatus(401); return false; }
+        try { 
+            t = Long.parseLong(ts); 
+        } catch (NumberFormatException e) { 
+            log.debug("잘못된 타임스탬프 형식: {}", ts);
+            response.setStatus(401); 
+            return false; 
+        }
+        
+        if (Math.abs(now - t) > skewMs) { 
+            log.debug("타임스탬프 만료: now={}, ts={}, diff={}", now, t, Math.abs(now - t));
+            response.setStatus(401); 
+            return false; 
+        }
 
         String message = userId + "|" + ts;
         String expected = HmacVerifier.hmacSha256Hex(hmacSecret, message);
-        if (!expected.equalsIgnoreCase(sign)) { response.setStatus(401); return false; }
+        if (!expected.equalsIgnoreCase(sign)) { 
+            log.debug("HMAC 서명 불일치: expected={}, actual={}", expected, sign);
+            response.setStatus(401); 
+            return false; 
+        }
 
+        log.debug("HMAC 인증 성공: userId={}, path={}", userId, path);
         return true;
     }
+
+    /**
+     * 인증 제외 경로 확인
+     * - Swagger/Actuator: 개발 및 모니터링 도구
+     * - 공개 API: 로그인, 토큰 갱신, 비밀번호 재설정, 헬스체크, 토큰 검증
+     */
+    private boolean isExcludedPath(String path) {
+        return path.startsWith("/actuator") || 
+               path.equals("/") || 
+               path.startsWith("/swagger-ui") || 
+               path.startsWith("/v3/api-docs") || 
+               path.startsWith("/api-docs") || 
+               path.startsWith("/api/auth/login") || 
+               path.startsWith("/api/auth/refresh") || 
+               path.startsWith("/api/auth/password/reset") || 
+               path.startsWith("/api/auth/health") ||
+               path.startsWith("/api/auth/validate");
+    }
 }
-
-

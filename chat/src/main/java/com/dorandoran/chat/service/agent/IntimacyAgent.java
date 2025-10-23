@@ -13,6 +13,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Mono;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -46,8 +47,10 @@ public class IntimacyAgent {
         
         log.info("=== IntimacyAgent OpenAI API 호출 시작 ===");
         return openAIClient.streamRawCompletion(systemPrompt, userMessage)
+            .doOnNext(chunk -> log.debug("IntimacyAgent 스트림 청크: '{}'", chunk))
             .doOnError(error -> log.error("IntimacyAgent 스트림 오류", error))
             .collectList()
+            .doOnNext(chunks -> log.info("IntimacyAgent collectList 완료: {} 개 청크", chunks.size()))
             .doOnError(error -> log.error("IntimacyAgent collectList 오류", error))
             .map(this::parseIntimacyResponse)
             .doOnSuccess(response -> log.info("IntimacyAgent 파싱 완료: 레벨={}", response.detectedLevel()))
@@ -85,9 +88,23 @@ public class IntimacyAgent {
             {
               "detectedLevel": 1-3,
               "correctedSentence": "교정된 문장",
-              "feedback": "피드백 메시지",
-              "corrections": ["변경사항1", "변경사항2"]
+              "feedback": {
+                "ko": "한국어 피드백",
+                "en": "English feedback"
+              },
+              "corrections": "변경사항 설명 (예: '오늘 밥 먹었어?' → '오늘 밥 드셨어요?'로 변경)"
             }
+            
+            [교정 처리 지침]
+            교정이 필요 없는 경우:
+            - corrections: ""
+            - feedback: {"ko": "", "en": ""}
+            - correctedSentence: 원문 그대로
+            
+            교정이 필요한 경우:
+            - corrections: 구체적인 변경사항 설명
+            - feedback: {ko/en} 각각 명확한 피드백
+            - correctedSentence: 수정된 문장
             """, level, concept, conceptGuideline);
         
         // 3. 합성
@@ -115,17 +132,33 @@ public class IntimacyAgent {
             {
               "detectedLevel": 1-3,
               "correctedSentence": "교정된 문장",
-              "feedback": "피드백 메시지",
-              "corrections": ["변경사항1", "변경사항2"]
+              "feedback": {
+                "ko": "한국어 피드백",
+                "en": "English feedback"
+              },
+              "corrections": "변경사항 설명 (예: '오늘 밥 먹었어?' → '오늘 밥 드셨어요?'로 변경)"
             }
+            
+            교정이 필요 없는 경우:
+            - corrections: ""
+            - feedback: {"ko": "", "en": ""}
+            - correctedSentence: 원문 그대로
+            
+            교정이 필요한 경우:
+            - corrections: 구체적인 변경사항 설명
+            - feedback: {ko/en} 각각 명확한 피드백
+            - correctedSentence: 수정된 문장
             """;
     }
     
     private IntimacyAgentResponse parseIntimacyResponse(List<String> chunks) {
+        log.info("=== parseIntimacyResponse 호출됨: {} 개 청크 ===", chunks.size());
         try {
             // OpenAI 스트림에서 실제 content만 추출
             StringBuilder contentBuilder = new StringBuilder();
-            for (String chunk : chunks) {
+            for (int i = 0; i < chunks.size(); i++) {
+                String chunk = chunks.get(i);
+                log.debug("IntimacyAgent 청크 {}: '{}'", i, chunk);
                 try {
                     JsonNode chunkJson = objectMapper.readTree(chunk);
                     if (chunkJson.has("choices") && chunkJson.get("choices").isArray() && chunkJson.get("choices").size() > 0) {
@@ -133,24 +166,28 @@ public class IntimacyAgent {
                         if (choice.has("delta") && choice.get("delta").has("content")) {
                             String content = choice.get("delta").get("content").asText();
                             contentBuilder.append(content);
+                            log.debug("IntimacyAgent content 추출: '{}'", content);
                         }
                     }
                 } catch (Exception e) {
-                    log.debug("IntimacyAgent 청크 파싱 실패 (무시): {}", e.getMessage());
+                    log.debug("IntimacyAgent 청크 파싱 실패 (무시): {} - 청크: '{}'", e.getMessage(), chunk);
                 }
             }
             
             String fullResponse = contentBuilder.toString();
+            log.info("IntimacyAgent 원시 응답: '{}'", fullResponse);
             
             if (fullResponse.trim().isEmpty()) {
+                log.warn("IntimacyAgent 빈 응답 - 기본값 반환");
                 return new IntimacyAgentResponse("intimacy", 0, "", new FeedbackText("", ""), "");
             }
             
             JsonNode json;
             try {
                 json = objectMapper.readTree(fullResponse);
+                log.info("IntimacyAgent JSON 파싱 성공: {}", json.toString());
             } catch (Exception e) {
-                log.warn("IntimacyAgent JSON 파싱 실패: {}", e.getMessage());
+                log.warn("IntimacyAgent JSON 파싱 실패: {} - 원시 응답: '{}'", e.getMessage(), fullResponse);
                 return new IntimacyAgentResponse(
                     "intimacy",
                     0,
@@ -162,7 +199,20 @@ public class IntimacyAgent {
             
             int detectedLevel = json.has("detectedLevel") ? json.get("detectedLevel").asInt() : 0;
             String correctedSentence = json.has("correctedSentence") ? json.get("correctedSentence").asText() : "";
-            String corrections = json.has("corrections") ? json.get("corrections").asText() : "";
+            
+            // corrections 파싱 강화 - Array/String 둘 다 처리
+            String corrections = "";
+            if (json.has("corrections")) {
+                JsonNode correctionsNode = json.get("corrections");
+                if (correctionsNode.isTextual()) {
+                    corrections = correctionsNode.asText();
+                } else if (correctionsNode.isArray()) {
+                    // Array를 String으로 변환
+                    List<String> correctionsList = new ArrayList<>();
+                    correctionsNode.forEach(node -> correctionsList.add(node.asText()));
+                    corrections = String.join(", ", correctionsList);
+                }
+            }
             
             // feedback 파싱 (ko/en 구조)
             FeedbackText feedback = new FeedbackText("", "");
@@ -173,13 +223,24 @@ public class IntimacyAgent {
                 feedback = new FeedbackText(ko, en);
             }
             
-            return new IntimacyAgentResponse(
+            // 빈 값 체크 및 경고
+            if (detectedLevel > 0 && (corrections.isEmpty() || feedback.ko().isEmpty())) {
+                log.warn("IntimacyAgent 빈 값 감지 - detectedLevel: {}, corrections: '{}', feedback.ko: '{}'", 
+                    detectedLevel, corrections, feedback.ko());
+            }
+            
+            IntimacyAgentResponse response = new IntimacyAgentResponse(
                 "intimacy",
                 detectedLevel,
                 correctedSentence,
                 feedback,
                 corrections
             );
+            
+            log.info("IntimacyAgent 최종 응답: detectedLevel={}, corrections='{}', feedback.ko='{}'", 
+                response.detectedLevel(), response.corrections(), response.feedback().ko());
+            
+            return response;
         } catch (Exception e) {
             log.error("IntimacyAgent 응답 파싱 실패", e);
             return new IntimacyAgentResponse(

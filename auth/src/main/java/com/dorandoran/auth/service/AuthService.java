@@ -53,6 +53,13 @@ public class AuthService {
             // User 서비스에서 사용자 정보 조회 (Auth 서비스용 - passwordHash 포함)
             UserWithPasswordDto user = userIntegrationService.getUserByEmailForAuth(request.getEmail());
             
+            // 사용자 상태 확인 (비활성화된 사용자 로그인 차단)
+            if (user.status() == com.dorandoran.shared.dto.UserDto.UserStatus.INACTIVE) {
+                log.warn("비활성화된 사용자 로그인 시도: email={}", request.getEmail());
+                recordLoginAttempt(null, request.getEmail(), false);
+                throw new DoranDoranException(ErrorCode.USER_ACCOUNT_DISABLED);
+            }
+            
             // 비밀번호 검증 (User 서비스의 데이터 사용)
             log.info("비밀번호 검증: 입력된 비밀번호={}, 저장된 해시={}", request.getPassword(), user.passwordHash());
             boolean passwordMatches = passwordEncoder.matches(request.getPassword(), user.passwordHash());
