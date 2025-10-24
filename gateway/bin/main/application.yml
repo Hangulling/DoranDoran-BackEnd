@@ -12,7 +12,7 @@ spring:
   # Redis 설정
   data:
     redis:
-      host: redis
+      host: dorandoran-redis
       port: 6379
       timeout: 2000ms
       lettuce:
@@ -46,12 +46,21 @@ spring:
             - Path=/api/chat/**
           filters: []
         
+        # Store 서비스 라우팅
+        - id: store-service
+          uri: http://dorandoran-store:8084
+          predicates:
+            - Path=/api/store/**
+          filters: []
+        
         # Batch 서비스 라우팅
         - id: batch-service
           uri: http://dorandoran-batch:8085
           predicates:
             - Path=/api/batch/**
           filters: []
+      
+      # 글로벌 CORS 설정은 SecurityConfig의 CorsWebFilter에서 처리
       
 
 # SpringDoc OpenAPI 설정 (Reactive)
@@ -110,4 +119,4 @@ gateway:
       - /api/users
   jwt:
     hmac-secret: 404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970
-    skew-ms: 60000
+    skew-ms: 180000

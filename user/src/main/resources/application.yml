@@ -5,6 +5,12 @@ spring:
   application:
     name: user-service
   
+  # Spring Security 자동 생성 비밀번호 비활성화
+  security:
+    user:
+      name: disabled
+      password: disabled
+  
   # User 서비스 공유 데이터베이스 설정
   datasource:
     url: jdbc:postgresql://localhost:5432/dorandoran
@@ -43,13 +49,15 @@ logging:
     org.springframework.jdbc: DEBUG
     org.hibernate.SQL: DEBUG
     org.hibernate.type.descriptor.sql.BasicBinder: TRACE
+    # Spring Security 자동 생성 비밀번호 메시지 숨기기
+    org.springframework.boot.autoconfigure.security: WARN
   pattern:
     console: "%d{yyyy-MM-dd HH:mm:ss} - %msg%n"
 
 gateway:
   jwt:
     hmac-secret: 404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970
-    skew-ms: 60000
+    skew-ms: 180000
 
 # SpringDoc OpenAPI 설정
 springdoc:

@@ -23,11 +23,15 @@ public class ConversationAgent {
     public Flux<String> generateResponse(UUID chatroomId, String userMessage) {
         log.info("=== ConversationAgent.generateResponse() 호출됨 ===");
         String systemPrompt = promptService.buildSystemPrompt(chatroomId);
-        log.info("ConversationAgent 시작: chatroomId={}, userMessage='{}'", chatroomId, userMessage);
+        
+        // 친밀도 레벨 재주입 (매 턴마다)
+        String enhancedUserMessage = promptService.injectIntimacyReminder(chatroomId, userMessage);
+        
+        log.info("ConversationAgent 시작: chatroomId={}, userMessage='{}'", chatroomId, enhancedUserMessage);
         log.info("System Prompt: {}", systemPrompt);
         
         log.info("=== OpenAI API 호출 시작 ===");
-        return openAIClient.streamRawCompletion(systemPrompt, userMessage)
+        return openAIClient.streamRawCompletion(systemPrompt, enhancedUserMessage)
             .doOnError(error -> log.error("ConversationAgent 원시 응답 오류: {}", error.getMessage(), error))
             .map(raw -> {
                 try {

@@ -43,16 +43,18 @@ public class SummarizerAgent {
 
             StringBuilder full = new StringBuilder();
             Flux<String> raw = openAIClient.streamRawCompletion(system, user);
-            raw.flatMap(openAIClient::extractText)
+            String fullResponse = raw.flatMap(openAIClient::extractText)
                .doOnNext(full::append)
-               .blockLast();
+               .collectList()
+               .map(list -> String.join("", list))
+               .block();
 
             // 토큰 수 추정 (대략적)
             inputTokens = estimateTokens(system + user);
-            outputTokens = estimateTokens(full.toString());
+            outputTokens = estimateTokens(fullResponse);
 
             ObjectMapper mapper = new ObjectMapper();
-            JsonNode node = mapper.readTree(full.toString());
+            JsonNode node = mapper.readTree(fullResponse);
 
             SummaryResult result = new SummaryResult();
             result.timestamp = LocalDateTime.now().toString();

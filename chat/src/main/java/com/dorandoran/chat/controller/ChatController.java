@@ -76,11 +76,11 @@ public class ChatController {
             request.getIntimacyLevel()
         );
         
-        // 새로 생성된 채팅방에만 AI 인사말 발송
-        if (isNewRoom) {
-            ChatRoomConcept concept = ChatRoomConcept.fromString(request.getConcept());
-            greetingService.sendGreeting(room.getId(), userId, concept, request.getIntimacyLevel());
-        }
+        // 새로 생성된 채팅방에만 AI 인사말 발송 (임시 주석처리)
+        // if (isNewRoom) {
+        //     ChatRoomConcept concept = ChatRoomConcept.fromString(request.getConcept());
+        //     greetingService.sendGreeting(room.getId(), userId, concept, request.getIntimacyLevel());
+        // }
         
         // concept와 intimacyLevel을 포함한 응답 생성
         return ResponseEntity.ok(toChatRoomResponse(room));
@@ -454,10 +454,11 @@ public class ChatController {
         if (uid == null) return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
         boolean isNewRoom = !chatRoomRepository.findByUserIdAndChatbotIdAndIsDeletedFalse(uid, request.getChatbotId()).isPresent();
         ChatRoom room = chatService.getOrCreateRoom(uid, request.getChatbotId(), request.getName(), request.getConcept(), request.getIntimacyLevel());
-        if (isNewRoom) {
-            ChatRoomConcept concept = ChatRoomConcept.fromString(request.getConcept());
-            greetingService.sendGreeting(room.getId(), uid, concept, request.getIntimacyLevel());
-        }
+        // AI 인사말 발송 (임시 주석처리)
+        // if (isNewRoom) {
+        //     ChatRoomConcept concept = ChatRoomConcept.fromString(request.getConcept());
+        //     greetingService.sendGreeting(room.getId(), uid, concept, request.getIntimacyLevel());
+        // }
         return ResponseEntity.ok(toChatRoomResponse(room));
     }
 

@@ -1134,6 +1134,23 @@ public class GreetingService {
     }
     
     private void initializeIntimacyProgress(UUID chatroomId, UUID userId, int intimacyLevel) {
+        // 중복 생성 방지: 이미 존재하면 필드 업데이트만 수행
+        var existingOpt = intimacyProgressRepository.findByChatRoomId(chatroomId);
+        if (existingOpt.isPresent()) {
+            IntimacyProgress progress = existingOpt.get();
+            progress.setIntimacyLevel(intimacyLevel);
+            if (progress.getLastFeedback() == null || progress.getLastFeedback().isBlank()) {
+                progress.setLastFeedback("AI 인사말 발송");
+            }
+            if (progress.getProgressData() == null || progress.getProgressData().isBlank()) {
+                progress.setProgressData("{}");
+            }
+            progress.setLastUpdated(LocalDateTime.now());
+            intimacyProgressRepository.save(progress);
+            log.debug("친밀도 진척 기존 레코드 갱신: chatroomId={}, level={}", chatroomId, intimacyLevel);
+            return;
+        }
+
         IntimacyProgress progress = IntimacyProgress.builder()
             .id(UUID.randomUUID())
             .chatRoom(chatService.getChatRoomById(chatroomId))

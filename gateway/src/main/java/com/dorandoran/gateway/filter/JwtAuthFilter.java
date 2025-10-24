@@ -79,6 +79,7 @@ public class JwtAuthFilter implements WebFilter {
                path.startsWith("/api/auth/refresh") ||
                path.startsWith("/api/auth/password/reset") ||
                path.startsWith("/api/auth/health") ||
+               path.equals("/api/users") ||  // POST /api/users (회원가입) 제외
                path.startsWith("/api/users/register") ||
                path.startsWith("/api/users/health") ||
                path.startsWith("/api/users/email/") ||
@@ -135,8 +136,8 @@ public class JwtAuthFilter implements WebFilter {
                             if (!userId.isEmpty()) http.add("X-User-Id", userId);
                             if (!email.isEmpty()) http.add("X-User-Email", email);
                             if (!name.isEmpty()) http.add("X-User-Name", name);
-                            http.add("X-Auth-Ts", Long.toString(timestamp));
-                            http.add("X-Auth-Sign", hmacSignature);
+                            http.set("X-Auth-Ts", Long.toString(timestamp));
+                            http.set("X-Auth-Sign", hmacSignature);
                         })
                 ).build();
                 

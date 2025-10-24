@@ -40,14 +40,31 @@ public class SecurityConfig {
     public CorsWebFilter corsWebFilter() {
         CorsConfiguration corsConfig = new CorsConfiguration();
         corsConfig.setAllowCredentials(true);
+
+        // 로컬 개발 환경
         corsConfig.addAllowedOrigin("http://localhost:3000");
         corsConfig.addAllowedOrigin("http://localhost:3001");
         corsConfig.addAllowedOrigin("http://127.0.0.1:3000");
         corsConfig.addAllowedOrigin("http://127.0.0.1:3001");
+        
+        // 향후 커스텀 도메인용
+        // corsConfig.addAllowedOrigin("https://www.doran-chat.com");
+    
+
+		// 프로덕션 도메인
+		corsConfig.addAllowedOrigin("https://doran-chat.com");
+		corsConfig.addAllowedOrigin("https://www.doran-chat.com");
+		// 와일드카드 도메인 허용 (Spring 5.3+)
+		corsConfig.addAllowedOrigin("https://*.doran-chat.com");
+		corsConfig.addAllowedOrigin("https://doran-chat.vercel.app");
+		corsConfig.addAllowedOrigin("https://*.vercel.app");
+        corsConfig.addAllowedOrigin("https://*.doran-chat.com");
+
         corsConfig.addAllowedHeader("*");
         corsConfig.addAllowedMethod("*");
         corsConfig.addExposedHeader("*");
 
+        // 운영 환경
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", corsConfig);
 

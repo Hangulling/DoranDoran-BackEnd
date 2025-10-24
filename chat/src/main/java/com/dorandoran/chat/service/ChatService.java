@@ -289,6 +289,22 @@ public class ChatService {
      * IntimacyProgress 초기화
      */
     private void initializeIntimacyProgress(UUID chatroomId, UUID userId, int intimacyLevel) {
+        // 이미 존재하면 업데이트만 수행하여 중복 삽입 방지 (uq_intimacy_chatroom)
+        Optional<IntimacyProgress> existing = intimacyProgressRepository.findByChatRoomId(chatroomId);
+        if (existing.isPresent()) {
+            IntimacyProgress progress = existing.get();
+            progress.setIntimacyLevel(intimacyLevel);
+            if (progress.getLastFeedback() == null || progress.getLastFeedback().isBlank()) {
+                progress.setLastFeedback("채팅방 생성");
+            }
+            if (progress.getProgressData() == null || progress.getProgressData().isBlank()) {
+                progress.setProgressData("{}");
+            }
+            progress.setLastUpdated(LocalDateTime.now());
+            intimacyProgressRepository.save(progress);
+            return;
+        }
+
         IntimacyProgress progress = IntimacyProgress.builder()
             .id(UUID.randomUUID())
             .chatRoom(getChatRoomById(chatroomId))
@@ -299,7 +315,7 @@ public class ChatService {
             .lastUpdated(LocalDateTime.now())
             .progressData("{}")
             .build();
-            
+        
         intimacyProgressRepository.save(progress);
     }
     

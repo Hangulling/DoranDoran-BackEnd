@@ -97,14 +97,25 @@ springdoc:
     operationsSorter: method
     tagsSorter: alpha
     tryItOutEnabled: true
-    displayRequestDuration: true
-    showExtensions: true
-    showCommonExtensions: true
+
+# Actuator 설정 (Prometheus 모니터링용)
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  endpoint:
+    health:
+      show-details: always
+  metrics:
+    export:
+      prometheus:
+        enabled: true
 
 # Gateway HMAC 설정
 gateway:
   jwt:
     hmac-secret: 404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970
-    skew-ms: 60000
+    skew-ms: 180000
 
 # Actuator 설정은 application-docker.yml에서 관리

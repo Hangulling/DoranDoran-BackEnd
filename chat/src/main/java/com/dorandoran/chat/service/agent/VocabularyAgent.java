@@ -71,6 +71,7 @@ public class VocabularyAgent {
             6. 어려운 어휘가 없을 경우, 빈 객체 (`{}`)를 반환할 것
             7. 추출된 단어는 실제 문장에서 사용된 형태 그대로 추출할 것
             8. 만약 추출 대상의 단어가 직전 사용자 입력(userMessage)에 이미 등장한 단어라면 그 단어는 건너뛰고 설명하지 않을 것
+            9. **중요**: 학습자 레벨이 낮을수록 더 많은 단어를 추출하도록 유연하게 판단할 것
 
             **JSON 형식(단어 있을 경우):**
 
@@ -194,16 +195,19 @@ public class VocabularyAgent {
             }
             
             String fullResponse = contentBuilder.toString();
+            log.info("VocabularyAgent 원시 응답: '{}'", fullResponse);
             
             if (fullResponse.trim().isEmpty()) {
+                log.warn("VocabularyAgent 빈 응답 - 기본값 반환");
                 return new VocabularyAgentResponse("vocabulary", List.of());
             }
             
             JsonNode json;
             try {
                 json = objectMapper.readTree(fullResponse);
+                log.info("VocabularyAgent JSON 파싱 성공: {}", json.toString());
             } catch (Exception e) {
-                log.warn("VocabularyAgent JSON 파싱 실패: {}", e.getMessage());
+                log.warn("VocabularyAgent JSON 파싱 실패: {} - 원시 응답: '{}'", e.getMessage(), fullResponse);
                 return new VocabularyAgentResponse("vocabulary", List.of());
             }
             

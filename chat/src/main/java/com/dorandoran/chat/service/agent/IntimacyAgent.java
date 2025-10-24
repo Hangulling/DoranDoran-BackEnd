@@ -47,7 +47,7 @@ public class IntimacyAgent {
         
         log.info("=== IntimacyAgent OpenAI API 호출 시작 ===");
         return openAIClient.streamRawCompletion(systemPrompt, userMessage)
-            .doOnNext(chunk -> log.debug("IntimacyAgent 스트림 청크: '{}'", chunk))
+            .doOnNext(chunk -> log.trace("IntimacyAgent 스트림 청크: '{}'", chunk))
             .doOnError(error -> log.error("IntimacyAgent 스트림 오류", error))
             .collectList()
             .doOnNext(chunks -> log.info("IntimacyAgent collectList 완료: {} 개 청크", chunks.size()))
@@ -158,7 +158,7 @@ public class IntimacyAgent {
             StringBuilder contentBuilder = new StringBuilder();
             for (int i = 0; i < chunks.size(); i++) {
                 String chunk = chunks.get(i);
-                log.debug("IntimacyAgent 청크 {}: '{}'", i, chunk);
+                log.trace("IntimacyAgent 청크 {}: '{}'", i, chunk);
                 try {
                     JsonNode chunkJson = objectMapper.readTree(chunk);
                     if (chunkJson.has("choices") && chunkJson.get("choices").isArray() && chunkJson.get("choices").size() > 0) {
@@ -166,7 +166,7 @@ public class IntimacyAgent {
                         if (choice.has("delta") && choice.get("delta").has("content")) {
                             String content = choice.get("delta").get("content").asText();
                             contentBuilder.append(content);
-                            log.debug("IntimacyAgent content 추출: '{}'", content);
+                            log.trace("IntimacyAgent content 추출: '{}'", content);
                         }
                     }
                 } catch (Exception e) {
