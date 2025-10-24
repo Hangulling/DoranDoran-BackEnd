@@ -24,13 +24,13 @@ public interface StoreRepository extends JpaRepository<Store, UUID> {
   // 사용자별 전체 조회 (페이징)
   Page<Store> findByUserIdAndIsDeletedFalseOrderByCreatedAtDesc(UUID userId, Pageable pageable);
 
-//  // 방별 조회
-//  List<Store> findByUserIdAndChatroomIdAndIsDeletedFalseOrderByCreatedAtDesc(UUID userId, UUID chatroomId);
-//
-//  // 방별 조회 (페이징)
-//  Page<Store> findByUserIdAndChatroomIdAndIsDeletedFalseOrderByCreatedAtDesc(
-//      UUID userId, UUID chatroomId, Pageable pageable
-//  );
+  // 방별 조회
+  List<Store> findByUserIdAndChatroomIdAndIsDeletedFalseOrderByCreatedAtDesc(UUID userId, UUID chatroomId);
+
+  // 방별 조회 (페이징)
+  Page<Store> findByUserIdAndChatroomIdAndIsDeletedFalseOrderByCreatedAtDesc(
+      UUID userId, UUID chatroomId, Pageable pageable
+  );
 
   // 중복 저장 확인
   boolean existsByUserIdAndMessageIdAndIsDeletedFalse(UUID userId, UUID messageId);
@@ -65,6 +65,25 @@ public interface StoreRepository extends JpaRepository<Store, UUID> {
       "AND (:lastId IS NULL OR s.id < :lastId) " +
       "ORDER BY s.createdAt DESC")
   Page<Store> findByUserIdWithCursor(@Param("userId") UUID userId,
+      @Param("lastId") UUID lastId,
+      Pageable pageable);
+
+  /**
+   * 방별 Cursor 기반 페이징 조회 (무한스크롤용)
+   * @param userId 사용자 ID
+   * @param chatroomId 채팅방 ID
+   * @param lastId 마지막 조회 ID (null이면 처음부터)
+   * @param pageable 페이지 정보
+   */
+  @Query("SELECT s FROM Store s WHERE s.userId = :userId " +
+      "AND s.chatroomId = :chatroomId " +
+      "AND s.isDeleted = false " +
+      "AND (:lastId IS NULL OR s.createdAt < " +
+      "(SELECT s2.createdAt FROM Store s2 WHERE s2.id = :lastId)) " +
+      "ORDER BY s.createdAt DESC")
+  Page<Store> findByUserIdAndChatroomIdWithCursor(
+      @Param("userId") UUID userId,
+      @Param("chatroomId") UUID chatroomId,
       @Param("lastId") UUID lastId,
       Pageable pageable);
 }
