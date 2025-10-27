@@ -134,3 +134,15 @@ scripts/
 *.temp
 *.cache
 previous-compilation-data.bin
+
+# ==============================
+# 📚 Documentation (Important Docs)
+# ==============================
+important_docs/
+*.migration.md
+MIGRATION_PLAN.md
+RDS_DELETE_GUIDE.md
+RE_DEPLOYMENT_COMMANDS.md
+DEPLOYMENT_SUMMARY.md
+CLEANUP_GUIDE.md
+COST_CHECKLIST.md

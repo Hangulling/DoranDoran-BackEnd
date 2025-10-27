@@ -13,6 +13,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -148,6 +149,58 @@ public class OpenAIClient {
             log.error("OpenAI 동기 호출 실패", e);
             throw new RuntimeException("AI 응답 생성 실패", e);
         }
+    }
+
+    /**
+     * OpenAI Chat Completions API (stream=true) - 히스토리 포함
+     * @param systemPrompt 시스템 프롬프트
+     * @param messageHistory 대화 히스토리 List<Map<String, String>> 형식
+     * @param userContent 현재 사용자 메시지
+     */
+    public Flux<String> streamRawCompletionWithHistory(
+            String systemPrompt,
+            List<Map<String, String>> messageHistory,
+            String userContent) {
+        log.info("OpenAI API 요청 시작 (히스토리 포함): {} 개 메시지", messageHistory.size());
+        
+        // messages 배열 구성: [system, ...history, user]
+        List<Object> messages = new ArrayList<>();
+        
+        // 1. system 메시지
+        if (systemPrompt != null && !systemPrompt.isBlank()) {
+            messages.add(Map.of("role", "system", "content", systemPrompt));
+        }
+        
+        // 2. 히스토리
+        for (Map<String, String> msg : messageHistory) {
+            String role = msg.get("role");
+            String content = msg.get("content");
+            if (role != null && content != null) {
+                messages.add(Map.of("role", role, "content", content));
+            }
+        }
+        
+        // 3. 사용자 메시지
+        messages.add(Map.of("role", "user", "content", userContent));
+        
+        Map<String, Object> req = Map.of(
+            "model", aiConfig.getModel(),
+            "stream", true,
+            "max_tokens", aiConfig.getMaxOutputTokens(),
+            "temperature", 0.85,
+            "messages", messages.toArray()
+        );
+
+        return webClient()
+            .post()
+            .uri("/v1/chat/completions")
+            .body(BodyInserters.fromValue(req))
+            .accept(MediaType.TEXT_EVENT_STREAM, MediaType.APPLICATION_JSON)
+            .retrieve()
+            .bodyToFlux(String.class)
+            .doOnError(error -> log.error("OpenAI 스트림 오류: {}", error.getMessage()))
+            .filter(s -> s != null && !s.isEmpty())
+            .takeWhile(s -> !"[DONE]".equals(s.trim()));
     }
 
     public record Usage(int inputTokens, int outputTokens) {

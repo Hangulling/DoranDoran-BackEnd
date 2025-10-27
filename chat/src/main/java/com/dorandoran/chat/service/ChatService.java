@@ -119,6 +119,7 @@ public class ChatService {
         ChatRoom chatRoom = chatRoomRepository.findById(chatroomId)
             .orElseThrow(() -> new RuntimeException("ChatRoom not found: " + chatroomId));
         
+        LocalDateTime now = LocalDateTime.now();
         Message message = Message.builder()
             .id(UUID.randomUUID())
             .chatRoom(chatRoom)
@@ -129,6 +130,8 @@ public class ChatService {
             .sequenceNumber(seq)
             .isDeleted(false)
             .isEdited(false)
+            .createdAt(now)
+            .updatedAt(now)
             .build();
         Message saved = messageRepository.save(message);
 

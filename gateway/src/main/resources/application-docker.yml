@@ -81,6 +81,16 @@ gateway:
   auth:
     base-url: http://dorandoran-auth:8081  # Docker 서비스명 사용
     validate-path: /api/auth/validate
+    exclusions:
+      - /actuator
+      - /
+      - /api/auth/login
+      - /api/auth/refresh
+      - /api/auth/password/reset
+      - /api/auth/health
+      - /api/users/health
+      - /api/users
+      - /api/batch
   jwt:
     hmac-secret: 404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970
     skew-ms: 180000

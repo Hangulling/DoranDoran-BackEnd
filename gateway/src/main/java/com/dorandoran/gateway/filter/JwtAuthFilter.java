@@ -84,7 +84,8 @@ public class JwtAuthFilter implements WebFilter {
                path.startsWith("/api/users/health") ||
                path.startsWith("/api/users/email/") ||
                path.startsWith("/api/users/auth/email/") ||
-               path.startsWith("/api/users/check-email/");
+               path.startsWith("/api/users/check-email/") ||
+               path.startsWith("/api/batch/");  // Batch 서비스 인증 제외
     }
 
     /**

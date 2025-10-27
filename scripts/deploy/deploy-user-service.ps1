@@ -47,13 +47,13 @@ $deployCommands = @"
 cd /tmp && unzip -o user-prod.zip && docker load < dorandoran-user-prod.tar
 docker stop dorandoran-user || true
 docker rm dorandoran-user || true
-docker run -d --name dorandoran-user -p 8082:8082 --restart=unless-stopped \
+docker run -d --name dorandoran-user --network dorandoran-network -p 8082:8082 --restart=unless-stopped \
   -e SPRING_PROFILES_ACTIVE=docker \
-  -e SPRING_DATASOURCE_URL=jdbc:postgresql://dorandoran-postgres.cpw00a6ga2uv.us-east-2.rds.amazonaws.com:5432/dorandoran \
+  -e SPRING_DATASOURCE_URL=jdbc:postgresql://dorandoran-shared-db:5432/dorandoran \
   -e SPRING_DATASOURCE_USERNAME=doran \
-  -e SPRING_DATASOURCE_PASSWORD=DoranDoran123! \
+  -e SPRING_DATASOURCE_PASSWORD=doran \
   -e SPRING_JPA_HIBERNATE_DEFAULT_SCHEMA=user_schema \
-  -e SPRING_REDIS_HOST=localhost \
+  -e SPRING_REDIS_HOST=dorandoran-redis \
   -e SPRING_REDIS_PORT=6379 \
   dorandoran-user:latest
 "@
