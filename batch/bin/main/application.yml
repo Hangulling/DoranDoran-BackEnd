@@ -12,9 +12,9 @@ spring:
     password: doran
     driver-class-name: org.postgresql.Driver
     hikari:
-      maximum-pool-size: 10
-      minimum-idle: 5
-      connection-timeout: 30000
+      maximum-pool-size: 5  # 하루 한 번 실행되므로 최소화
+      minimum-idle: 1  # 평소에는 유휴 연결 최소화
+      connection-timeout: 20000  # 연결 대기 시간 단축
       idle-timeout: 600000
       max-lifetime: 1800000
       leak-detection-threshold: 60000

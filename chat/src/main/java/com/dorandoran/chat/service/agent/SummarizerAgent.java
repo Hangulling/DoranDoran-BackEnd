@@ -14,7 +14,6 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
-import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 @Service
@@ -143,6 +142,7 @@ public class SummarizerAgent {
             .senderId(message.getSenderId())
             .content(content)
             .contentType(message.getContentType())
+            .metadata(message.getMetadata())
             .sequenceNumber(message.getSequenceNumber())
             .isDeleted(message.getIsDeleted())
             .isEdited(message.getIsEdited())

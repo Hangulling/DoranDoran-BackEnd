@@ -2,10 +2,11 @@
 
 ## 목차
 1. [Hibernate 프록시 객체 순환 참조 문제](#hibernate-프록시-객체-순환-참조-문제)
-2. [SSE 이벤트 전송 실패](#sse-이벤트-전송-실패)
-3. [AI 프롬프트 파싱 오류](#ai-프롬프트-파싱-오류)
-4. [데이터베이스 연결 문제](#데이터베이스-연결-문제)
-5. [Docker 배포 문제](#docker-배포-문제)
+2. [Redis 캐싱 무한 순환 참조 문제](#redis-캐싱-무한-순환-참조-문제)
+3. [SSE 이벤트 전송 실패](#sse-이벤트-전송-실패)
+4. [AI 프롬프트 파싱 오류](#ai-프롬프트-파싱-오류)
+5. [데이터베이스 연결 문제](#데이터베이스-연결-문제)
+6. [Docker 배포 문제](#docker-배포-문제)
 
 ---
 
@@ -48,6 +49,127 @@ public class ChatRoom {
 ### 예방 방법
 - 양방향 관계가 있는 엔티티에서는 항상 `@ToString(exclude = {...})` 사용
 - 연관 엔티티 필드들을 toString()에서 제외
+
+---
+
+## Redis 캐싱 무한 순환 참조 문제
+
+### 증상
+- 채팅방 생성/조회 시 500 Internal Server Error 발생
+- Jackson 직렬화 중 무한 순환 참조로 인한 중첩 깊이 초과
+- 로그에서 `Document nesting depth (1001) exceeds the maximum allowed (1000)` 오류
+
+### 원인
+1. **Hibernate 프록시 객체 문제**: `@JsonIgnore` 어노테이션이 Hibernate 프록시 객체에서 무시됨
+2. **Entity 캐싱 시 순환 참조**: `User["chatRooms"]` ↔ `ChatRoom["user"]` 무한 루프
+3. **Jackson 직렬화 제한**: 기본 중첩 깊이 제한 1000 초과
+
+### 해결 방법
+
+#### 1. Repository 레벨 캐싱 제거
+```java
+// UserRepository.java - @Cacheable 제거
+@Repository
+public interface UserRepository extends JpaRepository<User, UUID> {
+    Optional<User> findByEmail(String email);  // @Cacheable 제거
+    Optional<User> findById(UUID id);          // @Cacheable 제거
+    boolean existsByEmail(String email);
+}
+
+// ChatbotRepository.java - @Cacheable 제거
+@Repository
+public interface ChatbotRepository extends JpaRepository<Chatbot, UUID> {
+    Optional<Chatbot> findById(UUID id);       // @Cacheable 제거
+}
+```
+
+#### 2. 안전한 캐싱만 유지
+```java
+// String, Integer 등 단순 타입은 안전하게 캐싱
+@Cacheable(value = "prompts", key = "#chatroomId")
+public String buildSystemPrompt(UUID chatroomId) { ... }
+
+@Cacheable(value = "intimacy", key = "#chatroomId")
+public int getCurrentIntimacyLevel(UUID chatroomId) { ... }
+
+@Cacheable(value = "messageHistory", key = "#chatroomId")
+private List<Map<String, String>> buildMessageHistory(UUID chatroomId) { ... }
+```
+
+#### 3. Redis 설정 최적화
+```java
+// RedisCacheConfig.java
+@Configuration
+@EnableCaching
+public class RedisCacheConfig {
+    
+    @Bean
+    public CacheManager cacheManager(RedisConnectionFactory redisConnectionFactory) {
+        // Jackson 직렬화 설정
+        Jackson2JsonRedisSerializer<Object> serializer = createJacksonSerializer();
+        
+        // 기본 캐시 설정
+        RedisCacheConfiguration defaultConfig = RedisCacheConfiguration.defaultCacheConfig()
+                .serializeKeysWith(RedisSerializationContext.SerializationPair.fromSerializer(new StringRedisSerializer()))
+                .serializeValuesWith(RedisSerializationContext.SerializationPair.fromSerializer(serializer))
+                .entryTtl(Duration.ofMinutes(30))
+                .disableCachingNullValues();
+        
+        return RedisCacheManager.builder(redisConnectionFactory)
+                .cacheDefaults(defaultConfig)
+                .build();
+    }
+    
+    private Jackson2JsonRedisSerializer<Object> createJacksonSerializer() {
+        ObjectMapper objectMapper = new ObjectMapper();
+        
+        // Java 8 시간 타입 지원
+        objectMapper.registerModule(new JavaTimeModule());
+        
+        // 순환 참조 방지 설정
+        objectMapper.configure(SerializationFeature.FAIL_ON_EMPTY_BEANS, false);
+        objectMapper.configure(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS, false);
+        objectMapper.configure(SerializationFeature.FAIL_ON_SELF_REFERENCES, false);
+        
+        return new Jackson2JsonRedisSerializer<>(objectMapper, Object.class);
+    }
+}
+```
+
+### 예방 방법
+1. **Entity 캐싱 피하기**: JPA 엔티티는 직접 캐싱하지 않음
+2. **DTO 캐싱 사용**: 필요한 필드만 포함한 DTO로 캐싱
+3. **단순 타입 캐싱**: String, Integer, List<Map> 등은 안전하게 캐싱 가능
+4. **@JsonIgnore 한계 인식**: Hibernate 프록시에서는 무시될 수 있음
+
+### 관련 오류들
+
+#### Redis 의존성 인식 오류
+```
+RedisConnectionFactory cannot be resolved to a type
+Jackson2JsonRedisSerializer cannot be resolved to a type
+```
+**해결**: 프로젝트 재빌드
+
+#### enableStatistics() 메서드 오류
+```
+cannot find symbol .enableStatistics()
+```
+**해결**: `RedisCacheManager.builder`에서 호출
+
+#### SpEL 표현식 오류
+```
+org.springframework.expression.spel.SpelEvaluationException: 
+EL1004E: Method call: Method getCurrentIntimacyLevel(java.util.UUID) cannot be found
+```
+**해결**: 메서드를 public으로 변경하고 키 단순화
+
+#### LocalDateTime 직렬화 오류
+```
+com.fasterxml.jackson.databind.exc.InvalidDefinitionException: 
+Java 8 date/time type java.time.LocalDateTime not supported by default
+```
+**해결**: `JavaTimeModule` 등록
 
 ---
 

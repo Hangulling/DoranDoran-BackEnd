@@ -6,6 +6,7 @@ import com.dorandoran.chat.service.OpenAIClient;
 import com.dorandoran.chat.service.PromptService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 
@@ -93,6 +94,7 @@ public class ConversationAgent {
      * @param chatroomId 채팅방 ID
      * @return List<Map<String, String>> [{role, content}, ...]
      */
+    @Cacheable(value = "messageHistory", key = "#chatroomId", unless = "#result == null || #result.isEmpty()")
     private List<Map<String, String>> buildMessageHistory(UUID chatroomId) {
         try {
             // 최근 메시지 조회

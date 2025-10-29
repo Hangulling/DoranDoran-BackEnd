@@ -9,6 +9,7 @@ import com.dorandoran.chat.repository.IntimacyProgressRepository;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 
 import java.util.Iterator;
@@ -28,6 +29,7 @@ public class PromptService {
      * 룸의 context_data + 챗봇 system_prompt/personality/capabilities를 합성하여
      * 최종 시스템 프롬프트 문자열을 생성한다.
      */
+    @Cacheable(value = "prompts", key = "#chatroomId", unless = "#result == null || #result.isEmpty()")
     public String buildSystemPrompt(UUID chatroomId) {
         Optional<ChatRoom> roomOpt = chatRoomRepository.findById(chatroomId);
         if (roomOpt.isEmpty()) {
@@ -400,7 +402,8 @@ public class PromptService {
         prompt.append("✅ \"멋지네요~ 좋은 선택이시에요!\"\n");
     }
     
-    private int getCurrentIntimacyLevel(UUID chatroomId) {
+    @Cacheable(value = "intimacy", key = "#chatroomId", unless = "#result == null")
+    public int getCurrentIntimacyLevel(UUID chatroomId) {
         return intimacyProgressRepository.findByChatRoomId(chatroomId)
             .map(IntimacyProgress::getIntimacyLevel)
             .orElse(2); // 기본값

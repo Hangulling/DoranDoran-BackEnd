@@ -114,6 +114,14 @@ public class ChatService {
      */
     @Transactional
     public Message sendMessage(UUID chatroomId, UUID senderId, String senderType, String content, String contentType) {
+        return sendMessage(chatroomId, senderId, senderType, content, contentType, null);
+    }
+
+    /**
+     * 메시지 전송 (metadata 포함): 저장 후 룸의 last_message_* 업데이트
+     */
+    @Transactional
+    public Message sendMessage(UUID chatroomId, UUID senderId, String senderType, String content, String contentType, String metadata) {
         long seq = nextSequenceNumber(chatroomId);
         // ChatRoom 객체 조회
         ChatRoom chatRoom = chatRoomRepository.findById(chatroomId)
@@ -127,6 +135,7 @@ public class ChatService {
             .senderId(senderId)
             .content(content)
             .contentType(contentType)
+            .metadata(metadata)
             .sequenceNumber(seq)
             .isDeleted(false)
             .isEdited(false)
