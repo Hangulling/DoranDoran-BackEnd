@@ -75,6 +75,7 @@ public class HmacAuthInterceptor implements HandlerInterceptor {
                path.startsWith("/swagger-ui") || 
                path.startsWith("/v3/api-docs") || 
                path.startsWith("/api-docs") || 
+               path.equals("/api/users") ||  // POST /api/users (회원가입) 제외
                path.startsWith("/api/users/register") || 
                path.startsWith("/api/users/health") ||
                path.startsWith("/api/users/email/") ||

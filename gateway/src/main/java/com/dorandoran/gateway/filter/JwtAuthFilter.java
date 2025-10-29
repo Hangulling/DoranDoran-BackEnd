@@ -79,11 +79,13 @@ public class JwtAuthFilter implements WebFilter {
                path.startsWith("/api/auth/refresh") ||
                path.startsWith("/api/auth/password/reset") ||
                path.startsWith("/api/auth/health") ||
+               path.equals("/api/users") ||  // POST /api/users (회원가입) 제외
                path.startsWith("/api/users/register") ||
                path.startsWith("/api/users/health") ||
                path.startsWith("/api/users/email/") ||
                path.startsWith("/api/users/auth/email/") ||
-               path.startsWith("/api/users/check-email/");
+               path.startsWith("/api/users/check-email/") ||
+               path.startsWith("/api/batch/");  // Batch 서비스 인증 제외
     }
 
     /**
@@ -132,9 +134,9 @@ public class JwtAuthFilter implements WebFilter {
                 // 헤더 주입하여 요청 계속
                 var mutated = exchange.mutate().request(
                         builder -> builder.headers(http -> {
-                            if (!userId.isEmpty()) http.set("X-User-Id", userId);
-                            if (!email.isEmpty()) http.set("X-User-Email", email);
-                            if (!name.isEmpty()) http.set("X-User-Name", name);
+                            if (!userId.isEmpty()) http.add("X-User-Id", userId);
+                            if (!email.isEmpty()) http.add("X-User-Email", email);
+                            if (!name.isEmpty()) http.add("X-User-Name", name);
                             http.set("X-Auth-Ts", Long.toString(timestamp));
                             http.set("X-Auth-Sign", hmacSignature);
                         })

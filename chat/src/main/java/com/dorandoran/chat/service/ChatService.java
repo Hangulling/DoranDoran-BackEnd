@@ -114,11 +114,20 @@ public class ChatService {
      */
     @Transactional
     public Message sendMessage(UUID chatroomId, UUID senderId, String senderType, String content, String contentType) {
+        return sendMessage(chatroomId, senderId, senderType, content, contentType, null);
+    }
+
+    /**
+     * 메시지 전송 (metadata 포함): 저장 후 룸의 last_message_* 업데이트
+     */
+    @Transactional
+    public Message sendMessage(UUID chatroomId, UUID senderId, String senderType, String content, String contentType, String metadata) {
         long seq = nextSequenceNumber(chatroomId);
         // ChatRoom 객체 조회
         ChatRoom chatRoom = chatRoomRepository.findById(chatroomId)
             .orElseThrow(() -> new RuntimeException("ChatRoom not found: " + chatroomId));
         
+        LocalDateTime now = LocalDateTime.now();
         Message message = Message.builder()
             .id(UUID.randomUUID())
             .chatRoom(chatRoom)
@@ -126,9 +135,12 @@ public class ChatService {
             .senderId(senderId)
             .content(content)
             .contentType(contentType)
+            .metadata(metadata)
             .sequenceNumber(seq)
             .isDeleted(false)
             .isEdited(false)
+            .createdAt(now)
+            .updatedAt(now)
             .build();
         Message saved = messageRepository.save(message);
 
@@ -289,6 +301,22 @@ public class ChatService {
      * IntimacyProgress 초기화
      */
     private void initializeIntimacyProgress(UUID chatroomId, UUID userId, int intimacyLevel) {
+        // 이미 존재하면 업데이트만 수행하여 중복 삽입 방지 (uq_intimacy_chatroom)
+        Optional<IntimacyProgress> existing = intimacyProgressRepository.findByChatRoomId(chatroomId);
+        if (existing.isPresent()) {
+            IntimacyProgress progress = existing.get();
+            progress.setIntimacyLevel(intimacyLevel);
+            if (progress.getLastFeedback() == null || progress.getLastFeedback().isBlank()) {
+                progress.setLastFeedback("채팅방 생성");
+            }
+            if (progress.getProgressData() == null || progress.getProgressData().isBlank()) {
+                progress.setProgressData("{}");
+            }
+            progress.setLastUpdated(LocalDateTime.now());
+            intimacyProgressRepository.save(progress);
+            return;
+        }
+
         IntimacyProgress progress = IntimacyProgress.builder()
             .id(UUID.randomUUID())
             .chatRoom(getChatRoomById(chatroomId))
@@ -299,7 +327,7 @@ public class ChatService {
             .lastUpdated(LocalDateTime.now())
             .progressData("{}")
             .build();
-            
+        
         intimacyProgressRepository.save(progress);
     }
     
