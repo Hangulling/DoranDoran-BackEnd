@@ -238,6 +238,81 @@ jvm_threads_live{instance="user-service:8082"}
 - **Prometheus 쿼리 가이드**: https://prometheus.io/docs/prometheus/latest/querying/
 - **Spring Boot Actuator**: https://docs.spring.io/spring-boot/docs/current/reference/html/actuator.html
 
+## 8. 동시 접속자 모니터링
+
+### 8.1 동시 접속자 수 추정
+
+DoranDoran MSA 프로젝트의 동시 접속자 수는 데이터베이스 커넥션 풀 사용률로 추정할 수 있습니다.
+
+**대시보드 확인**:
+1. **DoranDoran MSA Overview** 대시보드 접속
+2. **Estimated Concurrent Users** 패널 확인
+3. 각 서비스별 활성 DB 연결 수 표시
+
+**추정 공식**:
+```
+동시 접속자 수 ≈ 활성 DB 커넥션 수
+```
+
+### 8.2 주요 모니터링 메트릭
+
+#### DB 커넥션 풀 사용률
+```promql
+(hikaricp_connections_active / hikaricp_connections_max) * 100
+```
+
+**임계값**:
+- 🟢 정상: 0-80%
+- 🟡 경고: 80-95%
+- 🔴 위험: 95% 이상
+
+**병목 발생 시 조치**:
+1. 풀 크기 증가 검토
+2. 장시간 실행 쿼리 확인
+3. Connection Leak 로그 확인
+
+#### 서버 스레드 사용률
+```promql
+(tomcat_threads_busy / tomcat_threads_max) * 100
+```
+
+**병목 발생 시 조치**:
+1. `server.tomcat.threads.max` 증가
+2. 부하 분산(Load Balancer) 고려
+
+### 8.3 병목 현상 조기 감지
+
+#### 1. DB 커넥션 풀 경고 감지
+```promql
+# 80% 이상 사용 중인 서비스 식별
+(hikaricp_connections_active / hikaricp_connections_max) * 100 > 80
+```
+
+#### 2. 응답 시간 증가 감지
+```promql
+# P95 응답 시간이 1초 초과
+histogram_quantile(0.95, rate(http_server_requests_seconds_bucket[5m])) > 1
+```
+
+#### 3. 에러율 증가 감지
+```promql
+# 에러율이 1% 초과
+(rate(http_server_requests_seconds_count{status=~"5.."}[5m]) / rate(http_server_requests_seconds_count[5m])) * 100 > 1
+```
+
+### 8.4 서비스별 동시 접속자 한계
+
+| 서비스 | 최대 동시 접속자 | 병목 원인 |
+|--------|-----------------|----------|
+| Chat Service | 20명 | DB 커넥션 풀 (20) |
+| User/Auth Service | 10명 | DB 커넥션 풀 (10) |
+| Store/Batch Service | 10명 | DB 커넥션 풀 (10) |
+| Gateway | 제한 없음 | 백엔드 서비스 병목 |
+
+**참고**: 전체 시스템은 일반적으로 동시 20-30명, 최대 50-60명까지 처리 가능
+
+자세한 내용은 [동시 접속자 수 평가 리포트](./CONCURRENT_USERS_ANALYSIS.md)를 참조하세요.
+
 ## 🔧 유용한 Prometheus 쿼리
 
 ```promql
@@ -255,6 +330,15 @@ hibernate_connections_active
 
 # JVM 가비지 컬렉션 시간
 rate(jvm_gc_pause_seconds_sum[5m])
+
+# 동시 접속자 추정 (활성 DB 연결 수)
+hikaricp_connections_active
+
+# DB 커넥션 풀 사용률
+(hikaricp_connections_active / hikaricp_connections_max) * 100
+
+# 서버 스레드 사용률
+(tomcat_threads_busy / tomcat_threads_max) * 100
 ```
 
 이 매뉴얼을 통해 Grafana를 효과적으로 활용하여 DoranDoran MSA 프로젝트를 모니터링할 수 있습니다.

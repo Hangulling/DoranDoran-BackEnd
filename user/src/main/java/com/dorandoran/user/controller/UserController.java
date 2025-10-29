@@ -53,6 +53,23 @@ public class UserController {
     }
     
     /**
+     * 회원가입 (별도 엔드포인트)
+     */
+    @PostMapping("/register")
+    public ResponseEntity<ApiResponse<UserDto>> registerUser(@RequestBody CreateUserRequest request) {
+        log.info("회원가입 요청: email={}", request.email());
+        
+        try {
+            UserDto createdUser = userService.createUser(request);
+            return ResponseEntity.ok(ApiResponse.success(createdUser, "회원가입이 성공적으로 완료되었습니다."));
+        } catch (Exception e) {
+            log.error("회원가입 실패: email={}, error={}", request.email(), e.getMessage());
+            return ResponseEntity.badRequest()
+                    .body(ApiResponse.error("회원가입에 실패했습니다: " + e.getMessage()));
+        }
+    }
+    
+    /**
      * 사용자 ID로 조회
      */
     @Operation(summary = "사용자 조회 (ID)", description = "사용자 ID로 사용자 정보를 조회합니다.")

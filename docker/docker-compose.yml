@@ -14,6 +14,8 @@ services:
     volumes:
       - shared_db_data:/var/lib/postgresql/data
       - ./scripts/init-shared-db.sql:/docker-entrypoint-initdb.d/init-shared-db.sql
+    # command 라인 주석 처리: 메모리 부족 방지를 위해 기본값(100개 연결) 유지
+    # command: postgres -c max_connections=150 -c shared_buffers=256MB
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U doran -d dorandoran"]
       interval: 5s
@@ -37,7 +39,7 @@ services:
     container_name: dorandoran-auth
     ports: ["8081:8081"]
     environment:
-      - SPRING_PROFILES_ACTIVE=docker
+      - SPRING_PROFILES_ACTIVE=local
       - SPRING_DATASOURCE_URL=jdbc:postgresql://shared-db:5432/dorandoran
       - SPRING_DATASOURCE_USERNAME=doran
       - SPRING_DATASOURCE_PASSWORD=doran
@@ -58,7 +60,7 @@ services:
     container_name: dorandoran-user
     ports: ["8082:8082"]
     environment:
-      - SPRING_PROFILES_ACTIVE=docker
+      - SPRING_PROFILES_ACTIVE=local
       - SPRING_DATASOURCE_URL=jdbc:postgresql://shared-db:5432/dorandoran       
       - SPRING_DATASOURCE_USERNAME=doran
       - SPRING_DATASOURCE_PASSWORD=doran
@@ -81,7 +83,7 @@ services:
     env_file:
       - ../.env
     environment:
-      - SPRING_PROFILES_ACTIVE=docker
+      - SPRING_PROFILES_ACTIVE=local
       - SPRING_DATASOURCE_URL=jdbc:postgresql://shared-db:5432/dorandoran
       - SPRING_DATASOURCE_USERNAME=doran
       - SPRING_DATASOURCE_PASSWORD=doran
@@ -103,7 +105,7 @@ services:
     container_name: dorandoran-store
     ports: ["8084:8084"]
     environment:
-      - SPRING_PROFILES_ACTIVE=docker
+      - SPRING_PROFILES_ACTIVE=local
       - SPRING_DATASOURCE_URL=jdbc:postgresql://shared-db:5432/dorandoran
       - SPRING_DATASOURCE_USERNAME=doran
       - SPRING_DATASOURCE_PASSWORD=doran
@@ -123,7 +125,7 @@ services:
     container_name: dorandoran-batch
     ports: ["8085:8085"]
     environment:
-      - SPRING_PROFILES_ACTIVE=docker
+      - SPRING_PROFILES_ACTIVE=local
       - SPRING_DATASOURCE_URL=jdbc:postgresql://shared-db:5432/dorandoran
       - SPRING_DATASOURCE_USERNAME=doran
       - SPRING_DATASOURCE_PASSWORD=doran
@@ -140,7 +142,7 @@ services:
     container_name: dorandoran-gateway
     ports: ["8080:8080"]
     environment:
-      - SPRING_PROFILES_ACTIVE=docker
+      - SPRING_PROFILES_ACTIVE=local
       - SPRING_REDIS_HOST=redis
       - SPRING_REDIS_PORT=6379
     depends_on:

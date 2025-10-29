@@ -9,6 +9,7 @@ import com.dorandoran.chat.sse.SSEManager;
 import com.dorandoran.chat.service.agent.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Mono;
 
@@ -19,7 +20,6 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -59,25 +59,25 @@ public class MultiAgentOrchestrator {
         log.info("Multi-Agent 처리 시작: chatroomId={}, userId={}, userLevel={}", chatroomId, userId, userLevel);
         
         // Phase 1: 병렬 실행 (Intimacy, Vocabulary, Conversation)
-        log.debug("=== Phase 1: Parallel execution started ===");
-        log.debug("=== IntimacyAgent 호출 시작 ===");
+        log.info("=== Phase 1: Parallel execution started ===");
+        log.info("=== IntimacyAgent 호출 시작 ===");
         Mono<IntimacyAgentResponse> intimacyMono = intimacyAgent.analyze(chatroomId, content)
-            .doOnSubscribe(subscription -> log.debug("IntimacyAgent 스트림 구독"))
+            .doOnSubscribe(subscription -> log.info("IntimacyAgent 스트림 구독"))
             .doOnNext(resp -> {
-                log.debug("IntimacyAgent 완료: detectedLevel={}", resp.detectedLevel());
+                log.info("IntimacyAgent 완료: detectedLevel={}", resp.detectedLevel());
                 sseManager.send(chatroomId, "intimacy_analysis", Map.of(
                     "detectedLevel", resp.detectedLevel(),
                     "correctedSentence", resp.correctedSentence(),
-                    "feedback", resp.feedback(),
+                    "feedback", Map.of("ko", resp.feedback().ko(), "en", resp.feedback().en()),
                     "corrections", resp.corrections()
                 ));
                 updateIntimacyProgress(chatroomId, userId, resp);
             })
             .doOnError(ex -> log.error("IntimacyAgent 오류", ex))
-            .doOnSuccess(resp -> log.debug("IntimacyAgent 스트림 완료"))
+            .doOnSuccess(resp -> log.info("IntimacyAgent 스트림 완료"))
             .cache(); // 결과 캐싱
 
-        // 즉시 구독
+        // 즉시 구독하여 SSE 전송 및 progress 업데이트 실행
         intimacyMono.subscribe();
         
         // Phase 2: Translation 제거됨 - VocabularyAgent가 모든 기능을 담당
@@ -98,36 +98,88 @@ public class MultiAgentOrchestrator {
                 String actualContent = extractContentFromJson(fullResponse);
                 log.debug("extracted content: '{}'", actualContent);
                 
-                Message botMessage = chatService.sendMessage(
-                    chatroomId, null, "bot", actualContent, "text"
-                );
-                sseManager.send(chatroomId, "conversation_complete", Map.of(
-                    "messageId", botMessage.getId(),
-                    "content", actualContent
-                ));
-                log.info("ConversationAgent 완료: messageId={}", botMessage.getId());
+                // === 비동기로 Intimacy/Vocabulary 결과 수집 ===
+                log.info("=== IntimacyAgent 결과 수집 시작 ===");
+                intimacyMono
+                    .doOnNext(intimacyResp -> {
+                        log.info("IntimacyAgent 결과 수집 완료: detectedLevel={}, corrections='{}'", 
+                            intimacyResp.detectedLevel(), intimacyResp.corrections());
+                        
+                        // VocabularyAgent 실행
+                        log.debug("=== VocabularyAgent 호출 시작 (챗봇 응답 분석) ===");
+                        log.debug("VocabularyAgent 파라미터 - botResponse='{}', userLevel={}", actualContent, userLevel);
+                        
+                        vocabularyAgent.extractDifficultWords(actualContent, userLevel)
+                            .doOnNext(vocabResp -> {
+                                log.info("VocabularyAgent 결과 수집 완료: wordsCount={}", vocabResp.words().size());
+                                
+                                // SSE 전송
+                                sseManager.send(chatroomId, "vocabulary_extracted", Map.of(
+                                    "words", vocabResp.words().stream().map(w -> Map.of(
+                                        "word", w.word(),
+                                        "difficulty", w.difficulty(),
+                                        "context", Map.of(
+                                            "roma", w.context().roma(),
+                                            "ko", w.context().ko(),
+                                            "en", w.context().en()
+                                        )
+                                    )).toList()
+                                ));
+                                
+                                // === Metadata 생성 및 봇 메시지 저장 ===
+                                String metadataJson = null;
+                                try {
+                                    metadataJson = buildBotMetadata(userMessage.getId(), intimacyResp, vocabResp);
+                                    log.info("메타데이터 생성 성공: {}", metadataJson);
+                                } catch (Exception e) {
+                                    log.warn("메타데이터 생성 실패 - metadata 없이 저장합니다.", e);
+                                }
 
-                // === VocabularyAgent 호출 (챗봇 응답에서 어려운 단어 추출) ===
-                log.debug("=== VocabularyAgent 호출 시작 (챗봇 응답 분석) ===");
-                log.debug("VocabularyAgent 파라미터 - botResponse='{}', userLevel={}", actualContent, userLevel);
-                vocabularyAgent.extractDifficultWords(actualContent, userLevel)
-                    .doOnSubscribe(subscription -> log.debug("VocabularyAgent 스트림 구독"))
-                    .doOnNext(resp -> {
-                        log.debug("VocabularyAgent 완료: wordsCount={}", resp.words().size());
-                        sseManager.send(chatroomId, "vocabulary_extracted", Map.of(
-                            "words", resp.words().stream().map(w -> Map.of(
-                                "word", w.word(),
-                                "difficulty", w.difficulty(),
-                                "context", Map.of(
-                                    "roma", w.context().roma(),
-                                    "ko", w.context().ko(),
-                                    "en", w.context().en()
-                                )
-                            )).toList()
-                        ));
+                                Message botMessage = chatService.sendMessage(
+                                    chatroomId, null, "bot", actualContent, "text", metadataJson
+                                );
+                                
+                                sseManager.send(chatroomId, "conversation_complete", Map.of(
+                                    "messageId", botMessage.getId(),
+                                    "content", actualContent
+                                ));
+                                log.info("ConversationAgent 완료: messageId={}", botMessage.getId());
+                            })
+                            .doOnError(ex -> {
+                                log.error("VocabularyAgent 오류", ex);
+                                // VocabularyAgent 실패 시에도 봇 메시지 저장
+                                String metadataJson = null;
+                                try {
+                                    metadataJson = buildBotMetadata(userMessage.getId(), intimacyResp, null);
+                                } catch (Exception e) {
+                                    log.warn("메타데이터 생성 실패 - metadata 없이 저장합니다.", e);
+                                }
+
+                                Message botMessage = chatService.sendMessage(
+                                    chatroomId, null, "bot", actualContent, "text", metadataJson
+                                );
+                                
+                                sseManager.send(chatroomId, "conversation_complete", Map.of(
+                                    "messageId", botMessage.getId(),
+                                    "content", actualContent
+                                ));
+                                log.info("ConversationAgent 완료 (VocabularyAgent 실패): messageId={}", botMessage.getId());
+                            })
+                            .subscribe();
                     })
-                    .doOnError(ex -> log.error("VocabularyAgent 오류", ex))
-                    .doOnSuccess(resp -> log.debug("VocabularyAgent 스트림 완료"))
+                    .doOnError(ex -> {
+                        log.error("IntimacyAgent 결과 수집 실패", ex);
+                        // IntimacyAgent 실패 시에도 봇 메시지 저장
+                        Message botMessage = chatService.sendMessage(
+                            chatroomId, null, "bot", actualContent, "text", null
+                        );
+                        
+                        sseManager.send(chatroomId, "conversation_complete", Map.of(
+                            "messageId", botMessage.getId(),
+                            "content", actualContent
+                        ));
+                        log.info("ConversationAgent 완료 (IntimacyAgent 실패): messageId={}", botMessage.getId());
+                    })
                     .subscribe();
 
                 // === 후처리: 요약/키워드 생성 및 progress_data 병합 저장 ===
@@ -274,6 +326,7 @@ public class MultiAgentOrchestrator {
             .subscribe();
     }
     
+    @Cacheable(value = "intimacy", key = "#chatroomId", unless = "#result == null")
     private int getCurrentIntimacyLevel(UUID chatroomId) {
         return intimacyProgressRepository.findByChatRoomId(chatroomId)
             .map(IntimacyProgress::getIntimacyLevel)
@@ -363,5 +416,64 @@ public class MultiAgentOrchestrator {
             log.debug("JSON 파싱 실패, 원본 텍스트 반환: {}", e.getMessage());
             return jsonResponse; // JSON 파싱 실패시 원본 반환
         }
+    }
+
+    /**
+     * Bot 메시지에 저장할 metadata JSON 생성
+     */
+    private String buildBotMetadata(UUID userMessageId,
+                                    IntimacyAgentResponse intimacyResp,
+                                    VocabularyAgentResponse vocabResp) throws Exception {
+        ObjectMapper mapper = new ObjectMapper();
+        ObjectNode root = mapper.createObjectNode();
+
+        // userMessageAnalysis
+        ObjectNode userAnalysis = mapper.createObjectNode();
+        userAnalysis.put("userMessageId", userMessageId != null ? userMessageId.toString() : null);
+        // intimacy: 항상 기본 구조 포함 (파싱 일관성 보장)
+        ObjectNode intimacy = mapper.createObjectNode();
+        if (intimacyResp != null) {
+            intimacy.put("detectedLevel", intimacyResp.detectedLevel());
+            intimacy.put("correctedSentence", intimacyResp.correctedSentence());
+            ObjectNode feedback = mapper.createObjectNode();
+            feedback.put("ko", intimacyResp.feedback().ko());
+            feedback.put("en", intimacyResp.feedback().en());
+            intimacy.set("feedback", feedback);
+            intimacy.put("corrections", intimacyResp.corrections());
+        } else {
+            // 기본값
+            intimacy.put("detectedLevel", 0);
+            intimacy.put("correctedSentence", "");
+            ObjectNode feedback = mapper.createObjectNode();
+            feedback.put("ko", "");
+            feedback.put("en", "");
+            intimacy.set("feedback", feedback);
+            intimacy.put("corrections", "");
+        }
+        userAnalysis.set("intimacy", intimacy);
+        root.set("userMessageAnalysis", userAnalysis);
+
+        // botResponseAnalysis
+        ObjectNode botAnalysis = mapper.createObjectNode();
+        if (vocabResp != null && vocabResp.words() != null && !vocabResp.words().isEmpty()) {
+            ObjectNode vocabulary = mapper.createObjectNode();
+            ArrayNode words = mapper.createArrayNode();
+            for (var w : vocabResp.words()) {
+                ObjectNode word = mapper.createObjectNode();
+                word.put("word", w.word());
+                word.put("difficulty", w.difficulty());
+                ObjectNode context = mapper.createObjectNode();
+                context.put("roma", w.context().roma());
+                context.put("ko", w.context().ko());
+                context.put("en", w.context().en());
+                word.set("context", context);
+                words.add(word);
+            }
+            vocabulary.set("words", words);
+            botAnalysis.set("vocabulary", vocabulary);
+        }
+        root.set("botResponseAnalysis", botAnalysis);
+
+        return mapper.writeValueAsString(root);
     }
 }

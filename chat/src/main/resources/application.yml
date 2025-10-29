@@ -31,9 +31,9 @@ spring:
     password: doran
     driver-class-name: org.postgresql.Driver
     hikari:
-      maximum-pool-size: 20  # 동시 처리 능력 향상
+      maximum-pool-size: 20  # 메모리 제약 고려하여 적절한 수준 유지
       minimum-idle: 5
-      connection-timeout: 20000  # 연결 대기 시간 단축
+      connection-timeout: 15000  # 연결 대기 시간 단축
       idle-timeout: 300000  # 유휴 연결 타임아웃
       max-lifetime: 600000  # 연결 최대 수명 단축 (10분)
       leak-detection-threshold: 10000  # 누수 조기 감지 (10초)
@@ -62,6 +62,25 @@ spring:
         packages_to_scan: com.dorandoran.chat.entity,com.dorandoran.shared.entity,com.dorandoran.common.entity
     database-platform: org.hibernate.dialect.PostgreSQLDialect
 
+  # Redis 설정 (로컬 개발 환경)
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      timeout: 2000ms
+      lettuce:
+        pool:
+          max-active: 8
+          max-idle: 8
+          min-idle: 0
+
+# 캐시 설정
+cache:
+  redis:
+    time-to-live: 1800000  # 기본 TTL: 30분 (밀리초)
+    cache-null-values: false
+    enable-statistics: true
+
 # 로깅 설정
 logging:
   level:
@@ -81,7 +100,7 @@ ai:
   openai:
     api-key: ${OPENAI_API_KEY}
     base-url: ${OPENAI_BASE_URL:https://api.openai.com}
-    model: ${OPENAI_MODEL:gpt-5-mini}
+    model: ${OPENAI_MODEL:gpt-4o-mini}
     max-prompt-chars: ${OPENAI_MAX_PROMPT_CHARS:8000}
     max-output-tokens: ${OPENAI_MAX_OUTPUT_TOKENS:800}
     price-per1k-input: ${OPENAI_PRICE_IN_PER1K:0.25}
@@ -97,14 +116,32 @@ springdoc:
     operationsSorter: method
     tagsSorter: alpha
     tryItOutEnabled: true
-    displayRequestDuration: true
-    showExtensions: true
-    showCommonExtensions: true
+
+# Actuator 설정 (Prometheus 모니터링용)
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus,metrics,caches
+      base-path: /actuator
+  endpoint:
+    health:
+      show-details: always
+    metrics:
+      enabled: true
+    caches:
+      enabled: true
+  metrics:
+    export:
+      prometheus:
+        enabled: true
+    cache:
+      enabled: true
 
 # Gateway HMAC 설정
 gateway:
   jwt:
     hmac-secret: 404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970
-    skew-ms: 60000
+    skew-ms: 180000
 
 # Actuator 설정은 application-docker.yml에서 관리

@@ -5,6 +5,12 @@ spring:
   application:
     name: user-service
   
+  # Spring Security 자동 생성 비밀번호 비활성화
+  security:
+    user:
+      name: disabled
+      password: disabled
+  
   # User 서비스 공유 데이터베이스 설정
   datasource:
     url: jdbc:postgresql://localhost:5432/dorandoran
@@ -12,9 +18,9 @@ spring:
     password: doran
     driver-class-name: org.postgresql.Driver
     hikari:
-      maximum-pool-size: 10
+      maximum-pool-size: 15  # 메모리 제약 고려하여 적절한 수준 유지
       minimum-idle: 5
-      connection-timeout: 30000
+      connection-timeout: 20000  # 연결 대기 시간 단축
       idle-timeout: 600000
       max-lifetime: 1800000
       leak-detection-threshold: 60000
@@ -43,13 +49,15 @@ logging:
     org.springframework.jdbc: DEBUG
     org.hibernate.SQL: DEBUG
     org.hibernate.type.descriptor.sql.BasicBinder: TRACE
+    # Spring Security 자동 생성 비밀번호 메시지 숨기기
+    org.springframework.boot.autoconfigure.security: WARN
   pattern:
     console: "%d{yyyy-MM-dd HH:mm:ss} - %msg%n"
 
 gateway:
   jwt:
     hmac-secret: 404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970
-    skew-ms: 60000
+    skew-ms: 180000
 
 # SpringDoc OpenAPI 설정
 springdoc:

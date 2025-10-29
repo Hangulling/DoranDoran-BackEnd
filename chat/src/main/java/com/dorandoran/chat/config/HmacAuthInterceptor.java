@@ -71,6 +71,8 @@ public class HmacAuthInterceptor implements HandlerInterceptor {
 
     /**
      * 인증 제외 경로 확인
+     * - Swagger/Actuator: 개발 및 모니터링 도구
+     * - Chat 헬스체크: 서비스 상태 확인
      */
     private boolean isExcludedPath(String path) {
         return path.startsWith("/actuator") || 
@@ -78,13 +80,6 @@ public class HmacAuthInterceptor implements HandlerInterceptor {
                path.startsWith("/swagger-ui") || 
                path.startsWith("/v3/api-docs") || 
                path.startsWith("/api-docs") || 
-               path.startsWith("/api/auth/login") || 
-               path.startsWith("/api/auth/refresh") || 
-               path.startsWith("/api/auth/password/reset") || 
-               path.startsWith("/api/auth/health") ||
-               path.startsWith("/api/auth/validate") ||
-               path.startsWith("/api/users/health") ||
-               path.startsWith("/api/users/email/") ||
                path.startsWith("/api/chat/health");
     }
 }

@@ -9,7 +9,9 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 
 /**
- * Spring Security 설정
+ * Spring Security 설정 (Auth 서비스)
+ * User/Chat 서비스와 동일한 구조로 모든 API 요청을 허용하고,
+ * 실제 인증은 HmacAuthInterceptor에서 처리
  */
 @Configuration
 @EnableWebSecurity
@@ -23,8 +25,6 @@ public class SecurityConfig {
                 .requestMatchers("/swagger-ui/**", "/swagger-ui.html", "/v3/api-docs/**", "/api-docs/**").permitAll()
                 // Actuator 엔드포인트 허용
                 .requestMatchers("/actuator/**").permitAll()
-                // 로그인 관련 엔드포인트는 허용
-                .requestMatchers("/api/auth/login", "/api/auth/refresh", "/api/auth/password/reset/**", "/api/auth/health").permitAll()
                 // API 엔드포인트는 MSA 내부 통신이므로 허용 (HmacAuthInterceptor가 인증 담당)
                 .requestMatchers("/api/**").permitAll()
                 // 기타 모든 요청은 허용
