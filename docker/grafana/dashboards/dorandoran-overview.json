@@ -136,6 +136,94 @@
           }
         ],
         "gridPos": {"h": 8, "w": 12, "x": 12, "y": 16}
+      },
+      {
+        "id": 7,
+        "title": "Connection Pool Usage (%)",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "(hikaricp_connections_active / hikaricp_connections_max) * 100",
+            "legendFormat": "Usage % - {{job}}"
+          }
+        ],
+        "yAxes": [
+          {
+            "label": "Usage (%)",
+            "min": 0,
+            "max": 100
+          }
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 24},
+        "fieldConfig": {
+          "defaults": {
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"color": "green", "value": 0},
+                {"color": "yellow", "value": 80},
+                {"color": "red", "value": 95}
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 8,
+        "title": "Server Thread Usage (%)",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "(tomcat_threads_busy / tomcat_threads_max) * 100",
+            "legendFormat": "Thread Usage % - {{job}}"
+          }
+        ],
+        "yAxes": [
+          {
+            "label": "Usage (%)",
+            "min": 0,
+            "max": 100
+          }
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 24},
+        "fieldConfig": {
+          "defaults": {
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"color": "green", "value": 0},
+                {"color": "yellow", "value": 80},
+                {"color": "red", "value": 95}
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 9,
+        "title": "Estimated Concurrent Users",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "sum(hikaricp_connections_active) by (job)",
+            "legendFormat": "{{job}}"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "thresholds"
+            },
+            "thresholds": {
+              "steps": [
+                {"color": "blue", "value": 0},
+                {"color": "yellow", "value": 20},
+                {"color": "orange", "value": 50}
+              ]
+            }
+          }
+        },
+        "gridPos": {"h": 6, "w": 24, "x": 0, "y": 32}
       }
     ],
     "time": {

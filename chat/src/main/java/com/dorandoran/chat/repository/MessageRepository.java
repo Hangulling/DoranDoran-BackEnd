@@ -32,4 +32,7 @@ public interface MessageRepository extends JpaRepository<Message, UUID> {
     
     // 채팅방 ID로 메시지 목록을 시퀀스 순으로 정렬하여 찾기 (페이징)
     Page<Message> findByChatRoomIdOrderBySequenceNumberAsc(UUID chatroomId, Pageable pageable);
+    
+    // 채팅방 ID와 senderType으로 메시지 존재 여부 확인
+    boolean existsByChatRoomIdAndSenderType(UUID chatroomId, String senderType);
 }

@@ -19,11 +19,12 @@ docker load -i dorandoran-batch.tar
 echo "Starting Redis..."
 docker run -d --name dorandoran-redis -p 6379:6379 redis:7-alpine
 
-# RDS 정보
-RDS_HOST="dorandoran-postgres.cpw00a6ga2uv.us-east-2.rds.amazonaws.com"
-RDS_DB="dorandoran"
-RDS_USER="doran"
-RDS_PASS="doran"
+# Local Database 정보
+LOCAL_DB_HOST="localhost"
+LOCAL_DB_PORT="5432"
+DB_NAME="dorandoran"
+DB_USER="doran"
+DB_PASS="doran"
 
 # 서비스들 시작
 echo "Starting services..."
@@ -31,9 +32,9 @@ echo "Starting services..."
 # Auth Service
 docker run -d --name dorandoran-auth -p 8081:8081 \
   -e SPRING_PROFILES_ACTIVE=production \
-  -e SPRING_DATASOURCE_URL="jdbc:postgresql://$RDS_HOST:5432/$RDS_DB" \
-  -e SPRING_DATASOURCE_USERNAME=$RDS_USER \
-  -e SPRING_DATASOURCE_PASSWORD=$RDS_PASS \
+  -e SPRING_DATASOURCE_URL="jdbc:postgresql://$LOCAL_DB_HOST:$LOCAL_DB_PORT/$DB_NAME" \
+  -e SPRING_DATASOURCE_USERNAME=$DB_USER \
+  -e SPRING_DATASOURCE_PASSWORD=$DB_PASS \
   -e SPRING_JPA_HIBERNATE_DEFAULT_SCHEMA=auth_schema \
   -e SPRING_REDIS_HOST=localhost \
   -e SPRING_REDIS_PORT=6379 \
@@ -42,9 +43,9 @@ docker run -d --name dorandoran-auth -p 8081:8081 \
 # User Service
 docker run -d --name dorandoran-user -p 8082:8082 \
   -e SPRING_PROFILES_ACTIVE=production \
-  -e SPRING_DATASOURCE_URL="jdbc:postgresql://$RDS_HOST:5432/$RDS_DB" \
-  -e SPRING_DATASOURCE_USERNAME=$RDS_USER \
-  -e SPRING_DATASOURCE_PASSWORD=$RDS_PASS \
+  -e SPRING_DATASOURCE_URL="jdbc:postgresql://$LOCAL_DB_HOST:$LOCAL_DB_PORT/$DB_NAME" \
+  -e SPRING_DATASOURCE_USERNAME=$DB_USER \
+  -e SPRING_DATASOURCE_PASSWORD=$DB_PASS \
   -e SPRING_JPA_HIBERNATE_DEFAULT_SCHEMA=user_schema \
   -e SPRING_REDIS_HOST=localhost \
   -e SPRING_REDIS_PORT=6379 \
@@ -53,9 +54,9 @@ docker run -d --name dorandoran-user -p 8082:8082 \
 # Chat Service
 docker run -d --name dorandoran-chat -p 8083:8083 \
   -e SPRING_PROFILES_ACTIVE=production \
-  -e SPRING_DATASOURCE_URL="jdbc:postgresql://$RDS_HOST:5432/$RDS_DB" \
-  -e SPRING_DATASOURCE_USERNAME=$RDS_USER \
-  -e SPRING_DATASOURCE_PASSWORD=$RDS_PASS \
+  -e SPRING_DATASOURCE_URL="jdbc:postgresql://$LOCAL_DB_HOST:$LOCAL_DB_PORT/$DB_NAME" \
+  -e SPRING_DATASOURCE_USERNAME=$DB_USER \
+  -e SPRING_DATASOURCE_PASSWORD=$DB_PASS \
   -e SPRING_JPA_HIBERNATE_DEFAULT_SCHEMA=chat_schema \
   -e SPRING_REDIS_HOST=localhost \
   -e SPRING_REDIS_PORT=6379 \
@@ -65,9 +66,9 @@ docker run -d --name dorandoran-chat -p 8083:8083 \
 # Batch Service
 docker run -d --name dorandoran-batch -p 8085:8085 \
   -e SPRING_PROFILES_ACTIVE=production \
-  -e SPRING_DATASOURCE_URL="jdbc:postgresql://$RDS_HOST:5432/$RDS_DB" \
-  -e SPRING_DATASOURCE_USERNAME=$RDS_USER \
-  -e SPRING_DATASOURCE_PASSWORD=$RDS_PASS \
+  -e SPRING_DATASOURCE_URL="jdbc:postgresql://$LOCAL_DB_HOST:$LOCAL_DB_PORT/$DB_NAME" \
+  -e SPRING_DATASOURCE_USERNAME=$DB_USER \
+  -e SPRING_DATASOURCE_PASSWORD=$DB_PASS \
   -e SPRING_JPA_HIBERNATE_DEFAULT_SCHEMA=batch_schema \
   dorandoran-batch:latest
 

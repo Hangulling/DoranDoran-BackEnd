@@ -5,12 +5,15 @@ import com.fasterxml.jackson.databind.JsonNode;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 
+import java.io.Serializable;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
 @Getter
 @AllArgsConstructor
-public class ChatRoomResponse {
+public class ChatRoomResponse implements Serializable {
+    private static final long serialVersionUID = 1L;
+    
     private UUID id;
     private UUID userId;
     private UUID chatbotId;

@@ -12,9 +12,9 @@ spring:
     password: doran
     driver-class-name: org.postgresql.Driver
     hikari:
-      maximum-pool-size: 10
+      maximum-pool-size: 10  # 토큰 검증만 수행, RefreshToken 저장용으로 충분
       minimum-idle: 5
-      connection-timeout: 30000
+      connection-timeout: 20000  # 연결 대기 시간 단축
       idle-timeout: 600000
       max-lifetime: 1800000
       leak-detection-threshold: 60000
@@ -81,7 +81,7 @@ logging:
 gateway:
   jwt:
     hmac-secret: 404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970
-    skew-ms: 60000
+    skew-ms: 180000
 
 # SpringDoc OpenAPI 설정
 springdoc:
@@ -113,7 +113,7 @@ management:
       prometheus:
         enabled: true
 
-# Redis 설정 (토큰 블랙리스트용)
+  # Redis 설정 (토큰 블랙리스트용)
   data:
     redis:
       host: ${SPRING_REDIS_HOST:localhost}

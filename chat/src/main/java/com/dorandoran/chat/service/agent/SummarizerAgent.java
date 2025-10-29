@@ -14,7 +14,6 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
-import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 @Service
@@ -43,16 +42,18 @@ public class SummarizerAgent {
 
             StringBuilder full = new StringBuilder();
             Flux<String> raw = openAIClient.streamRawCompletion(system, user);
-            raw.flatMap(openAIClient::extractText)
+            String fullResponse = raw.flatMap(openAIClient::extractText)
                .doOnNext(full::append)
-               .blockLast();
+               .collectList()
+               .map(list -> String.join("", list))
+               .block();
 
             // 토큰 수 추정 (대략적)
             inputTokens = estimateTokens(system + user);
-            outputTokens = estimateTokens(full.toString());
+            outputTokens = estimateTokens(fullResponse);
 
             ObjectMapper mapper = new ObjectMapper();
-            JsonNode node = mapper.readTree(full.toString());
+            JsonNode node = mapper.readTree(fullResponse);
 
             SummaryResult result = new SummaryResult();
             result.timestamp = LocalDateTime.now().toString();
@@ -141,6 +142,7 @@ public class SummarizerAgent {
             .senderId(message.getSenderId())
             .content(content)
             .contentType(message.getContentType())
+            .metadata(message.getMetadata())
             .sequenceNumber(message.getSequenceNumber())
             .isDeleted(message.getIsDeleted())
             .isEdited(message.getIsEdited())

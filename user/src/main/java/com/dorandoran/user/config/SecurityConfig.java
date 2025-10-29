@@ -39,4 +39,12 @@ public class SecurityConfig {
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
     }
+    
+    // UserDetailsService Bean을 명시적으로 비활성화하여 자동 생성된 비밀번호 메시지 제거
+    @Bean
+    public org.springframework.security.core.userdetails.UserDetailsService userDetailsService() {
+        return username -> {
+            throw new org.springframework.security.core.userdetails.UsernameNotFoundException("User not found: " + username);
+        };
+    }
 }
