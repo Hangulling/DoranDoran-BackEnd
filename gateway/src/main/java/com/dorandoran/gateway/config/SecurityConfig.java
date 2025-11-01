@@ -17,18 +17,18 @@ public class SecurityConfig {
     @Bean
     public SecurityWebFilterChain securityWebFilterChain(ServerHttpSecurity http) {
         return http
-                .csrf(csrf -> csrf.disable())
-                .authorizeExchange(exchanges -> exchanges
-                        // Actuator 엔드포인트는 모든 접근 허용
-                        .pathMatchers("/actuator/**").permitAll()
-                        // API 경로는 모든 접근 허용 (MSA 내부 통신용)
-                        .pathMatchers("/api/**").permitAll()
-                        // 루트 경로는 모든 접근 허용
-                        .pathMatchers("/").permitAll()
-                        // 기타 모든 요청은 인증 필요
-                        .anyExchange().authenticated()
-                )
-                .build();
+            .csrf(csrf -> csrf.disable())
+            .authorizeExchange(exchanges -> exchanges
+                // Actuator 엔드포인트는 모든 접근 허용
+                .pathMatchers("/actuator/**").permitAll()
+                // API 경로는 모든 접근 허용 (MSA 내부 통신용)
+                .pathMatchers("/api/**").permitAll()
+                // 루트 경로는 모든 접근 허용
+                .pathMatchers("/").permitAll()
+                // 기타 모든 요청은 인증 필요
+                .anyExchange().authenticated()
+            )
+            .build();
     }
 
     @Bean

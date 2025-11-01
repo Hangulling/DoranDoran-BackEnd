@@ -59,7 +59,7 @@ spring:
           predicates:
             - Path=/api/store/**
           filters: []
-        
+
         # Batch 서비스 라우팅
         - id: batch-service
           uri: http://dorandoran-batch:8085
