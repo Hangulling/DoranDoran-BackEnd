@@ -71,3 +71,21 @@ management:
     metrics:
       export:
         enabled: true
+
+# Feign Client 설정 추가
+feign:
+  client:
+    config:
+      default:
+        connectTimeout: 5000
+        readTimeout: 5000
+        loggerLevel: FULL
+  chat-service:
+    url: http://dorandoran-chat:8083  # ⭐ localhost → 도커 서비스명으로 변경
+  circuitbreaker:
+    enabled: true
+
+gateway:
+  jwt:
+    hmac-secret: 404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970
+    skew-ms: 60000

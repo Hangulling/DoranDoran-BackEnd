@@ -50,12 +50,14 @@ class AuthServiceIntegrationTest {
             "$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBOsl7iKTVEFDi", // bcrypt hash for "password123"
             "https://example.com/profile.jpg",
             "Integration Test User",
-            null,
+            null, // preferences
+            null, // lastConnTime
             UserDto.UserStatus.ACTIVE,
             UserDto.RoleName.ROLE_USER,
-            false,
-            null,
-            null
+            false, // coachCheck
+            false, // exitModalDoNotShowAgain
+            null, // createdAt
+            null  // updatedAt
         );
 
         loginRequest = LoginRequest.builder()
@@ -78,8 +80,8 @@ class AuthServiceIntegrationTest {
         assertNotNull(response.getRefreshToken());
         assertEquals("Bearer", response.getTokenType());
         assertEquals(3600L, response.getExpiresIn());
-        assertEquals("integration@example.com", response.getEmail());
-        assertEquals("Integration Test", response.getName());
+        assertEquals("integration@example.com", response.getUser().email());
+        assertEquals("Integration Test", response.getUser().name());
     }
 
     @Test
@@ -141,8 +143,8 @@ class AuthServiceIntegrationTest {
         assertNotNull(newTokens.getRefreshToken());
         assertEquals("Bearer", newTokens.getTokenType());
         assertEquals(3600L, newTokens.getExpiresIn());
-        assertEquals("integration@example.com", newTokens.getEmail());
-        assertEquals("Integration Test", newTokens.getName());
+        assertEquals("integration@example.com", newTokens.getUser().email());
+        assertEquals("Integration Test", newTokens.getUser().name());
         
         // 새 토큰이 이전 토큰과 다른지 확인
         assertNotEquals(loginResponse.getAccessToken(), newTokens.getAccessToken());

@@ -86,6 +86,21 @@ public class UserIntegrationService {
     }
 
     /**
+     * 사용자 상태 업데이트
+     */
+    @CircuitBreaker(name = "user-service", fallbackMethod = "updateStatusFallback")
+    @Retry(name = "user-service")
+    public UserDto updateStatus(UUID userId, UserDto.UserStatus status) {
+        log.info("User Service 호출 - updateStatus: userId={}, status={}", userId, status);
+        return userServiceClient.updateStatus(userId.toString(), status.name());
+    }
+
+    public UserDto updateStatusFallback(UUID userId, UserDto.UserStatus status, Exception ex) {
+        log.error("User Service 호출 실패 - updateStatus: userId={}, error={}", userId, ex.getMessage());
+        throw new RuntimeException("User Service를 사용할 수 없습니다. 잠시 후 다시 시도해주세요.");
+    }
+
+    /**
      * 비밀번호 재설정
      */
     @CircuitBreaker(name = "user-service", fallbackMethod = "resetPasswordFallback")
@@ -98,6 +113,21 @@ public class UserIntegrationService {
     public void resetPasswordFallback(String email, String newPassword, Exception ex) {
         log.error("User Service 호출 실패 - resetPassword: email={}, error={}", email, ex.getMessage());
         throw new RuntimeException("User Service unavailable");
+    }
+    
+    /**
+     * 이메일 중복 확인
+     */
+    @CircuitBreaker(name = "user-service", fallbackMethod = "isEmailDuplicateFallback")
+    @Retry(name = "user-service")
+    public boolean isEmailDuplicate(String email) {
+        log.info("User Service 호출 - isEmailDuplicate: email={}", email);
+        return userServiceClient.isEmailDuplicate(email);
+    }
+    
+    public boolean isEmailDuplicateFallback(String email, Exception ex) {
+        log.error("User Service 호출 실패 - isEmailDuplicate: email={}, error={}", email, ex.getMessage());
+        throw new RuntimeException("User Service를 사용할 수 없습니다. 잠시 후 다시 시도해주세요.");
     }
     
     // ===== Fallback 메서드들 =====

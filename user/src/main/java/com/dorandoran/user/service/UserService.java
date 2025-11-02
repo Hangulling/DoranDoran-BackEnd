@@ -34,6 +34,7 @@ public class UserService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final ApplicationEventPublisher eventPublisher;
+    private final AuthServiceIntegration authServiceIntegration;
     
     /**
      * 사용자 생성
@@ -47,13 +48,19 @@ public class UserService {
             throw new DoranDoranException(ErrorCode.EMAIL_ALREADY_EXISTS);
         }
         
-        // 1-1. 비밀번호 기초 정책 검사 (최소 8자, 영문/숫자 포함)
+        // 2. 이메일 인증 완료 여부 확인
+        boolean isEmailVerified = authServiceIntegration.isEmailVerified(request.email());
+        if (!isEmailVerified) {
+            throw new DoranDoranException(ErrorCode.INVALID_REQUEST, "이메일 인증을 먼저 완료해주세요.");
+        }
+        
+        // 3. 비밀번호 기초 정책 검사 (최소 8자, 영문/숫자 포함)
         validateBasicPasswordPolicy(request.password());
         
-        // 2. 비밀번호 암호화
+        // 4. 비밀번호 암호화
         String encodedPassword = passwordEncoder.encode(request.password());
         
-        // 3. 사용자 생성
+        // 5. 사용자 생성 (ACTIVE 상태로 바로 생성)
         User user = User.builder()
             .id(UUID.randomUUID())
             .email(request.email())
@@ -65,13 +72,17 @@ public class UserService {
             .info(request.info() != null ? request.info() : "")
             .status(User.UserStatus.ACTIVE)
             .coachCheck(false)
+            .exitModalDoNotShowAgain(false)
             .build();
         
-        // 4. 데이터베이스 저장
+        // 6. 데이터베이스 저장
         User savedUser = userRepository.save(user);
         log.info("사용자 생성 완료: id={}, email={}", savedUser.getId(), savedUser.getEmail());
         
-        // 5. 사용자 생성 이벤트 발행
+        // 7. 이메일 인증 데이터 삭제 (Redis TTL로 자동 삭제되지만 명시적으로 처리)
+        authServiceIntegration.deleteEmailVerification(request.email());
+        
+        // 8. 사용자 생성 이벤트 발행
         UserCreatedEvent event = UserCreatedEvent.of(
             savedUser.getId(),
             savedUser.getEmail(),
@@ -220,6 +231,11 @@ public class UserService {
             user.updateCoachCheck(request.coachCheck());
         }
         
+        // 나가기 모달 다시 보지 않기 설정 업데이트
+        if (request.exitModalDoNotShowAgain() != null) {
+            user.updateExitModalDoNotShowAgain(request.exitModalDoNotShowAgain());
+        }
+        
         User savedUser = userRepository.save(user);
         
         // 사용자 업데이트 이벤트 발행
@@ -346,6 +362,7 @@ public class UserService {
             convertToDtoStatus(user.getStatus()),
             convertToDtoRole(user.getRole()),
             user.isCoachCheck(),
+            user.isExitModalDoNotShowAgain(),
             user.getCreatedAt(),
             user.getUpdatedAt()
         );
@@ -372,6 +389,7 @@ public class UserService {
             convertToDtoStatus(user.getStatus()),
             convertToDtoRole(user.getRole()),
             user.isCoachCheck(),
+            user.isExitModalDoNotShowAgain(),
             user.getCreatedAt(),
             user.getUpdatedAt()
         );

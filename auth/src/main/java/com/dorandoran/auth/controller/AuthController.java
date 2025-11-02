@@ -33,6 +33,13 @@ import jakarta.servlet.http.HttpServletRequest;
 public class AuthController {
     
     private final AuthService authService;
+    private final com.dorandoran.auth.service.UserIntegrationService userIntegrationService;
+    private final com.dorandoran.auth.service.EmailVerificationRedisService emailVerificationRedisService;
+    private final com.dorandoran.auth.service.EmailService emailService;
+    @org.springframework.beans.factory.annotation.Value("${email.verification.frontend-url:http://localhost:5173}")
+    private String frontendUrl;
+    @org.springframework.beans.factory.annotation.Value("${email.verification.backend-url:http://localhost:8081}")
+    private String backendUrl;
     
     /**
      * 로그인
@@ -183,6 +190,109 @@ public class AuthController {
     @GetMapping("/health")
     public ResponseEntity<String> health() {
         return ResponseEntity.ok("Auth service is running");
+    }
+
+    /**
+     * 이메일 인증 요청
+     */
+    @PostMapping("/email/request-verification")
+    public ResponseEntity<ApiResponse<String>> requestEmailVerification(@RequestBody java.util.Map<String, String> request) {
+        String email = request != null ? request.get("email") : null;
+        log.info("이메일 인증 요청: email={}, request={}", email, request);        
+        try {
+            // 1. 이메일 중복 확인
+            boolean isDuplicate = userIntegrationService.isEmailDuplicate(email);
+            if (isDuplicate) {
+                return ResponseEntity.badRequest()
+                        .body(ApiResponse.error("이미 사용 중인 이메일입니다.", ErrorCode.EMAIL_ALREADY_EXISTS.getCode()));
+            }
+            
+            // 2. 토큰 생성
+            String token = java.util.UUID.randomUUID().toString();
+            
+            // 3. Redis에 인증 요청 정보 저장 (이메일 전송 전에 저장)
+            emailVerificationRedisService.saveVerificationRequest(email, token);
+            log.info("Redis에 이메일 인증 요청 저장 완료: email={}", email);
+            
+            // 4. 이메일 발송
+            String verifyLink = backendUrl + "/api/auth/email/verify?token=" + 
+                    java.net.URLEncoder.encode(token, java.nio.charset.StandardCharsets.UTF_8) +
+                    "&email=" + java.net.URLEncoder.encode(email, java.nio.charset.StandardCharsets.UTF_8);
+            
+            try {
+                emailService.sendVerificationEmail(email, verifyLink);
+                log.info("이메일 인증 요청 완료: email={}", email);
+                return ResponseEntity.ok(ApiResponse.success("sent", "인증 메일이 발송되었습니다."));
+            } catch (Exception e) {
+                // 이메일 전송 실패해도 Redis에는 저장되어 있으므로 사용자가 나중에 재시도 가능
+                log.error("이메일 전송 실패 (Redis에는 저장됨): email={}, error={}", email, e.getMessage());
+                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                        .body(ApiResponse.error("이메일 전송에 실패했습니다. 잠시 후 다시 시도해주세요. (인증 요청은 저장되었습니다.)", ErrorCode.INTERNAL_SERVER_ERROR.getCode()));
+            }
+        } catch (DoranDoranException e) {
+            log.error("이메일 인증 요청 실패: {}", e.getMessage());
+            return ResponseEntity.badRequest().body(ApiResponse.error(e.getMessage(), e.getErrorCode().getCode()));
+        } catch (Exception e) {
+            log.error("이메일 인증 요청 처리 중 오류", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(ApiResponse.error("이메일 인증 요청 처리 중 오류가 발생했습니다.", ErrorCode.INTERNAL_SERVER_ERROR.getCode()));
+        }
+    }
+    
+    /**
+     * 이메일 인증 링크 검증 및 완료 처리
+     */
+    @GetMapping("/email/verify")
+    public void verifyEmail(
+            @RequestParam("token") String token,
+            @RequestParam("email") String email,
+            jakarta.servlet.http.HttpServletResponse response) throws java.io.IOException {
+        log.info("이메일 인증 검증 API 호출: email={}", email);
+        
+        try {
+            // 1. 토큰 검증
+            if (!emailVerificationRedisService.verifyToken(email, token)) {
+                log.warn("토큰 검증 실패: email={}", email);
+                response.sendRedirect(frontendUrl + "/signup?email=" + 
+                        java.net.URLEncoder.encode(email, java.nio.charset.StandardCharsets.UTF_8) +
+                        "&verified=false&error=" + java.net.URLEncoder.encode("인증 링크가 유효하지 않거나 만료되었습니다.", java.nio.charset.StandardCharsets.UTF_8));
+                return;
+            }
+            
+            // 2. Redis에서 인증 완료 처리
+            emailVerificationRedisService.markEmailVerified(email);
+            
+            // 3. 프론트엔드 SignupPage로 리다이렉트
+            log.info("이메일 인증 완료: email={}", email);
+            response.sendRedirect(frontendUrl + "/signup?email=" + 
+                    java.net.URLEncoder.encode(email, java.nio.charset.StandardCharsets.UTF_8) +
+                    "&verified=true");
+        } catch (Exception e) {
+            log.error("이메일 인증 처리 중 오류", e);
+            response.sendRedirect(frontendUrl + "/signup?email=" + 
+                    java.net.URLEncoder.encode(email, java.nio.charset.StandardCharsets.UTF_8) +
+                    "&verified=false&error=" + java.net.URLEncoder.encode("이메일 인증 처리 중 오류가 발생했습니다.", java.nio.charset.StandardCharsets.UTF_8));
+        }
+    }
+    
+    /**
+     * 이메일 인증 완료 여부 확인
+     */
+    @GetMapping("/email/check")
+    public ResponseEntity<ApiResponse<java.util.Map<String, Boolean>>> checkEmailVerified(@RequestParam("email") String email) {
+        log.info("이메일 인증 완료 여부 확인: email={}", email);
+        
+        try {
+            boolean verified = emailVerificationRedisService.isEmailVerified(email);
+            java.util.Map<String, Boolean> result = new java.util.HashMap<>();
+            result.put("verified", verified);
+            
+            return ResponseEntity.ok(ApiResponse.success(result, verified ? "인증이 완료되었습니다." : "인증이 완료되지 않았습니다."));
+        } catch (Exception e) {
+            log.error("이메일 인증 확인 중 오류", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(ApiResponse.error("이메일 인증 확인 중 오류가 발생했습니다.", ErrorCode.INTERNAL_SERVER_ERROR.getCode()));
+        }
     }
     
     /**

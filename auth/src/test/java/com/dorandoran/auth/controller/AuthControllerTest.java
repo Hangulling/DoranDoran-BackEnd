@@ -73,6 +73,7 @@ class AuthControllerTest {
                 UserDto.UserStatus.ACTIVE,
                 UserDto.RoleName.ROLE_USER,
                 false, // coachCheck
+                false, // exitModalDoNotShowAgain
                 LocalDateTime.now(), // createdAt
                 LocalDateTime.now()  // updatedAt
         );

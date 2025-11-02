@@ -53,4 +53,18 @@ public class UserServiceClientFallback implements UserServiceClient {
         // Fallback 로직: 비밀번호 업데이트 실패 처리
         // void 메서드이므로 로그만 남기고 종료
     }
+    
+    @Override
+    public UserDto updateStatus(String userId, String status) {
+        log.warn("User Service 호출 실패 - updateStatus: userId={}, status={}", userId, status);
+        // Fallback 로직: 상태 업데이트 실패 처리
+        return null;
+    }
+    
+    @Override
+    public boolean isEmailDuplicate(String email) {
+        log.warn("User Service 호출 실패 - isEmailDuplicate: email={}", email);
+        // Fallback 로직: 이메일 중복 확인 실패 시 false 반환 (중복이 아닌 것으로 간주)
+        return false;
+    }
 }

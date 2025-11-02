@@ -129,6 +129,6 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
 	}
 	
 	private boolean hasAccessToChatroom(UUID userId, UUID chatroomId) {
-		return chatRoomRepository.existsByUserIdAndIdAndIsDeletedFalse(userId, chatroomId);
+                return chatRoomRepository.existsByUser_IdAndIdAndIsDeletedFalse(userId, chatroomId);
 	}
 }

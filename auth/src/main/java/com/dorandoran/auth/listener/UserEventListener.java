@@ -38,6 +38,7 @@ public class UserEventListener {
             // 3. 보안 정책 적용
             applySecurityPolicies(event.userId());
             
+            // 이메일 인증은 회원가입 전에 완료되므로 여기서 처리하지 않음
             log.info("사용자 생성 이벤트 처리 완료: userId={}", event.userId());
             
         } catch (Exception e) {

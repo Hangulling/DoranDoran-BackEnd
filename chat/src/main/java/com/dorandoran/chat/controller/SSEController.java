@@ -56,7 +56,7 @@ public class SSEController {
 		}
 		
 		// 채팅방 접근 권한 확인
-		if (!chatRoomRepository.existsByUserIdAndIdAndIsDeletedFalse(uid, chatroomId)) {
+                if (!chatRoomRepository.existsByUser_IdAndIdAndIsDeletedFalse(uid, chatroomId)) {
 			log.warn("SSE 접근 거부: userId={}, chatroomId={}", uid, chatroomId);
 			return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
 		}

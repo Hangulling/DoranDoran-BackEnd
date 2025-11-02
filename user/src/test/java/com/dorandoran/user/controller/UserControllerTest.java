@@ -55,10 +55,12 @@ class UserControllerTest {
                 "$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBOsl7iKTVEFDi", // bcrypt hash
                 "https://example.com/profile.jpg",
                 "Hello World",
+                null, // preferences
                 null, // lastConnTime
                 UserDto.UserStatus.ACTIVE,
                 UserDto.RoleName.ROLE_USER,
                 false, // coachCheck
+                false, // exitModalDoNotShowAgain
                 null, // createdAt
                 null  // updatedAt
         );
@@ -81,7 +83,8 @@ class UserControllerTest {
                 "https://example.com/new-profile.jpg",
                 "Updated bio",
                 UserDto.UserStatus.ACTIVE,
-                false
+                false,
+                null
         );
     }
 
@@ -202,10 +205,12 @@ class UserControllerTest {
                 "$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBOsl7iKTVEFDi",
                 "https://example.com/new-profile.jpg",
                 "Updated bio",
+                null, // preferences
                 null, // lastConnTime
                 UserDto.UserStatus.ACTIVE,
                 UserDto.RoleName.ROLE_USER,
                 false, // coachCheck
+                false, // exitModalDoNotShowAgain
                 null, // createdAt
                 null  // updatedAt
         );
@@ -276,10 +281,12 @@ class UserControllerTest {
                 "$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBOsl7iKTVEFDi",
                 "https://example.com/profile.jpg",
                 "Hello World",
+                null, // preferences
                 null, // lastConnTime
                 UserDto.UserStatus.INACTIVE,
                 UserDto.RoleName.ROLE_USER,
                 false, // coachCheck
+                false, // exitModalDoNotShowAgain
                 null, // createdAt
                 null  // updatedAt
         );

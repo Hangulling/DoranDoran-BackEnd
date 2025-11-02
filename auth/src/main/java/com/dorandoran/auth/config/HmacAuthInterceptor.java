@@ -28,7 +28,9 @@ public class HmacAuthInterceptor implements HandlerInterceptor {
     public boolean preHandle(@NonNull HttpServletRequest request, @NonNull HttpServletResponse response, @NonNull Object handler) throws Exception {
         // 공개 엔드포인트는 통과
         String path = request.getRequestURI();
-        if (isExcludedPath(path)) {
+        boolean excluded = isExcludedPath(path);
+        log.debug("HmacAuthInterceptor - path={}, excluded={}", path, excluded);
+        if (excluded) {
             return true;
         }
 
@@ -37,7 +39,7 @@ public class HmacAuthInterceptor implements HandlerInterceptor {
         String sign = request.getHeader("X-Auth-Sign");
 
         if (userId == null || ts == null || sign == null) {
-            log.debug("HMAC 헤더 누락: path={}", path);
+            log.warn("HMAC 헤더 누락: path={}, excluded={}", path, isExcludedPath(path));
             response.setStatus(401);
             return false;
         }
@@ -80,6 +82,7 @@ public class HmacAuthInterceptor implements HandlerInterceptor {
      * 인증 제외 경로 확인
      * - Swagger/Actuator: 개발 및 모니터링 도구
      * - 공개 API: 로그인, 토큰 갱신, 비밀번호 재설정, 헬스체크, 토큰 검증
+     * - 이메일 인증: 회원가입 전 이메일 인증 관련 엔드포인트
      */
     private boolean isExcludedPath(String path) {
         return path.startsWith("/actuator") || 
@@ -91,6 +94,10 @@ public class HmacAuthInterceptor implements HandlerInterceptor {
                path.startsWith("/api/auth/refresh") || 
                path.startsWith("/api/auth/password/reset") || 
                path.startsWith("/api/auth/health") ||
-               path.startsWith("/api/auth/validate");
+               path.startsWith("/api/auth/validate") ||
+               path.startsWith("/api/auth/email/request-verification") ||
+               path.startsWith("/api/auth/email/verify") ||
+               path.startsWith("/api/auth/email/check") ||
+               path.startsWith("/error");  // Spring 에러 핸들링 경로
     }
 }

@@ -259,3 +259,293 @@ private GreetingResponse parseAIResponse(String aiResponse) {
 
 ### 관련 파일
 - `chat/src/main/java/com/dorandoran/chat/service/GreetingService.java`
+
+---
+
+## 2025-10-28: Redis 캐싱 무한 순환 참조 문제 해결
+
+### 문제 발생 일시
+2025-10-28
+
+### 문제 상황
+- 채팅방 생성/조회 시 500 Internal Server Error 발생
+- Jackson 직렬화 중 무한 순환 참조로 인한 중첩 깊이 초과
+- Hibernate 프록시 객체가 `@JsonIgnore`를 무시하여 순환 참조 발생
+
+### 문제 원인 분석
+
+#### 1. Jackson 순환 참조 무한 루프
+**오류 로그**:
+```
+Document nesting depth (1001) exceeds the maximum allowed (1000, from `StreamWriteConstraints.getMaxNestingDepth()`)
+```
+
+**순환 참조 경로**:
+```
+User["chatRooms"] → ChatRoom["user"] → User["chatRooms"] → ChatRoom["user"] → ...
+```
+
+#### 2. Hibernate 프록시 객체 문제
+- `@JsonIgnore` 어노테이션이 Hibernate 프록시 객체에서 무시됨
+- `org.hibernate.collection.spi.PersistentBag`가 실제 엔티티가 아닌 프록시 객체
+- Jackson 직렬화 시 프록시 객체의 필드에 직접 접근하여 순환 참조 생성
+
+#### 3. Redis 캐싱 구현 과정에서 발생한 문제들
+
+**문제 1: Redis 의존성 인식 오류**
+```
+RedisConnectionFactory cannot be resolved to a type
+Jackson2JsonRedisSerializer cannot be resolved to a type
+```
+- IDE/컴파일러가 새로 추가된 Redis 의존성을 인식하지 못함
+
+**문제 2: enableStatistics() 메서드 오류**
+```
+cannot find symbol .enableStatistics()
+```
+- `RedisCacheConfiguration`에 직접 `enableStatistics()` 메서드가 없음
+
+**문제 3: SpEL 표현식 오류**
+```
+org.springframework.expression.spel.SpelEvaluationException: 
+EL1004E: Method call: Method getCurrentIntimacyLevel(java.util.UUID) cannot be found
+```
+- SpEL에서 private 메서드 호출 시도
+
+**문제 4: LocalDateTime 직렬화 오류**
+```
+com.fasterxml.jackson.databind.exc.InvalidDefinitionException: 
+Java 8 date/time type java.time.LocalDateTime not supported by default
+```
+- Jackson이 LocalDateTime 직렬화 모듈이 없음
+
+### 해결 과정
+
+#### 1단계: 기본 Redis 캐싱 구현
+- `build.gradle`에 Redis 의존성 추가
+- `RedisCacheConfig` 클래스 생성
+- Entity 레벨 캐싱 적용 (`@Cacheable` 어노테이션)
+
+#### 2단계: 발생한 문제들 해결
+1. **의존성 인식 문제**: 프로젝트 재빌드로 해결
+2. **enableStatistics() 오류**: `RedisCacheManager.builder`에서 호출하도록 수정
+3. **SpEL 오류**: 메서드를 public으로 변경하고 키 단순화
+4. **LocalDateTime 오류**: `JavaTimeModule` 등록
+
+#### 3단계: 순환 참조 문제 근본 해결
+**핵심 문제**: Entity 캐싱 시 Hibernate 프록시가 `@JsonIgnore`를 무시하여 순환 참조 발생
+
+**해결 전략**: Entity 캐싱 → DTO 캐싱 전환
+
+1. **Repository 레벨 캐싱 제거**
+   - `UserRepository.findByEmail()`, `findById()`의 `@Cacheable` 제거
+   - `ChatbotRepository.findById()`의 `@Cacheable` 제거
+
+2. **새로운 DTO 클래스 생성**
+   - `UserCacheDto`: User 엔티티의 필요한 필드만 포함
+   - `ChatbotCacheDto`: Chatbot 엔티티의 필요한 필드만 포함
+   - `ChatRoomResponse`: `Serializable` 구현
+
+3. **Service 레벨 DTO 기반 캐싱 메서드 추가**
+   - `ChatService.getUserCache()`: UserCacheDto 반환
+   - `ChatService.getChatbotCache()`: ChatbotCacheDto 반환
+   - `ChatService.getChatRoomCache()`: ChatRoomResponse 반환
+   - `ChatService.listRoomsCache()`: List<ChatRoomResponse> 반환
+
+4. **캐시 무효화 로직 추가**
+   - `updateRoom()`: `@CacheEvict(value = {"chatrooms", "roomList"})`
+   - `softDeleteRoom()`: `@CacheEvict(value = {"chatrooms", "roomList"})`
+   - `updateIntimacyLevel()`: `@CacheEvict(value = {"intimacy", "chatrooms", "roomList"})`
+
+5. **Entity 정리**
+   - `Chatbot` 엔티티에서 `@JsonIgnore` 제거 (더 이상 직렬화하지 않음)
+   - `RedisCacheConfig`에 "DTO 캐싱으로 전환 완료" 주석 추가
+
+#### 4단계: 최종 정리
+- DTO 기반 캐싱 메서드들을 제거 (사용자 요청)
+- Repository 레벨 캐싱만 제거하여 순환 참조 문제 해결
+- 기본 Redis 캐싱 설정은 유지
+
+### 해결 원리
+
+#### 1. 순환 참조 차단
+- Repository 레벨에서 Entity 캐싱 제거
+- Entity 직렬화 시점에서 순환 참조 발생 방지
+
+#### 2. 안전한 캐싱 유지
+- String, Integer 등 단순 타입은 안전하게 캐싱
+- `PromptService.buildSystemPrompt()` 캐싱 유지
+- `MultiAgentOrchestrator.getCurrentIntimacyLevel()` 캐싱 유지
+- `ConversationAgent.buildMessageHistory()` 캐싱 유지
+
+### 결과
+
+#### 해결 전
+- 채팅방 생성/조회 시 500 에러 발생
+- Jackson 순환 참조 무한 루프
+- 중첩 깊이 1000 초과 오류
+
+#### 해결 후
+- ✅ 모든 컴파일 오류 해결
+- ✅ Redis 캐싱 정상 작동
+- ✅ **순환 참조 문제 근본 해결**
+- ✅ 빌드 성공 확인
+- ✅ 채팅방 생성/조회 정상 작동
+
+### 교훈
+
+1. **Entity 캐싱의 위험성**: Hibernate 프록시 객체와 Jackson 직렬화의 상호작용 주의
+2. **@JsonIgnore의 한계**: Hibernate 프록시에서는 무시될 수 있음
+3. **DTO 캐싱의 안전성**: 연관관계가 없는 DTO는 순환 참조 불가능
+4. **단계적 문제 해결**: 작은 문제부터 해결하고 근본 원인 파악
+5. **캐싱 전략의 중요성**: 어떤 데이터를 캐싱할지 신중히 결정
+
+### 관련 파일
+- `chat/src/main/java/com/dorandoran/chat/repository/UserRepository.java`
+- `chat/src/main/java/com/dorandoran/chat/repository/ChatbotRepository.java`
+- `chat/src/main/java/com/dorandoran/chat/service/dto/UserCacheDto.java`
+- `chat/src/main/java/com/dorandoran/chat/service/dto/ChatbotCacheDto.java`
+- `chat/src/main/java/com/dorandoran/chat/service/dto/ChatRoomResponse.java`
+- `chat/src/main/java/com/dorandoran/chat/config/RedisCacheConfig.java`
+- `chat/src/main/java/com/dorandoran/chat/entity/Chatbot.java`
+
+---
+
+## 2025-11-02: 이메일 인증 Redis 저장 시 LocalDateTime 직렬화 문제 해결
+
+### 문제 발생 일시
+2025-11-02
+
+### 문제 상황
+- 이메일 인증 요청 시 500 Internal Server Error 발생
+- Redis에 인증 요청 정보 저장 시 `InvalidDefinitionException` 발생
+- Jackson이 `LocalDateTime`을 직렬화하지 못함
+
+### 문제 원인 분석
+
+#### 1. LocalDateTime 직렬화 오류
+**오류 로그**:
+```
+com.fasterxml.jackson.databind.exc.InvalidDefinitionException: 
+Java 8 date/time type `java.time.LocalDateTime` not supported by default: 
+add Module "com.fasterxml.jackson.datatype:jackson-datatype-jsr310" to enable handling 
+(through reference chain: com.dorandoran.auth.service.EmailVerificationRedisService$VerificationData["createdAt"])
+```
+
+**문제 원인**:
+- `EmailVerificationRedisService`에서 `VerificationData` 객체에 `LocalDateTime` 필드(`createdAt`, `expiresAt`) 포함
+- `ObjectMapper`를 기본 생성자로 생성하여 Java 8 시간 타입 지원 모듈 미등록
+- Redis에 JSON으로 저장할 때 `LocalDateTime` 직렬화 실패
+
+#### 2. Gmail SMTP 인증 실패 (추가 문제)
+- `Authentication failed: 535-5.7.8 Username and Password not accepted`
+- 잘못된 Gmail 계정 또는 App Password 사용
+
+### 해결 과정
+
+#### 1단계: LocalDateTime 직렬화 문제 해결
+
+**문제**: 기본 `ObjectMapper`는 Java 8 시간 타입을 직렬화하지 못함
+
+**해결 방법**:
+```java
+// EmailVerificationRedisService.java
+@Service
+@Slf4j
+public class EmailVerificationRedisService {
+
+    private final RedisTemplate<String, String> redisTemplate;
+    private final ObjectMapper objectMapper;
+    
+    // ObjectMapper 초기화 (생성자에서 JavaTimeModule 등록)
+    public EmailVerificationRedisService(RedisTemplate<String, String> redisTemplate) {
+        this.redisTemplate = redisTemplate;
+        this.objectMapper = new ObjectMapper();
+        this.objectMapper.registerModule(new JavaTimeModule());
+        this.objectMapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
+    }
+}
+```
+
+**필요한 의존성**:
+- `com.fasterxml.jackson.datatype:jackson-datatype-jsr310` (Spring Boot에 기본 포함됨)
+
+#### 2단계: 이메일 전송 실패 시 데이터 보존
+
+**문제**: 이메일 전송 실패 시 Redis에 저장된 데이터도 함께 실패 처리
+
+**해결 방법**:
+```java
+// AuthController.java
+@PostMapping("/email/request-verification")
+public ResponseEntity<ApiResponse<String>> requestEmailVerification(@RequestBody Map<String, String> request) {
+    try {
+        // 1. 이메일 중복 확인
+        // 2. 토큰 생성
+        // 3. Redis에 인증 요청 정보 저장 (이메일 전송 전에 저장)
+        emailVerificationRedisService.saveVerificationRequest(email, token);
+        
+        // 4. 이메일 발송 (실패해도 Redis 데이터는 유지)
+        try {
+            emailService.sendVerificationEmail(email, verifyLink);
+            return ResponseEntity.ok(ApiResponse.success("sent", "인증 메일이 발송되었습니다."));
+        } catch (Exception e) {
+            // 이메일 전송 실패해도 Redis에는 저장되어 있으므로 사용자가 나중에 재시도 가능
+            log.error("이메일 전송 실패 (Redis에는 저장됨): email={}, error={}", email, e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(ApiResponse.error("이메일 전송에 실패했습니다. 잠시 후 다시 시도해주세요. (인증 요청은 저장되었습니다.)", ErrorCode.INTERNAL_SERVER_ERROR.getCode()));
+        }
+    } catch (Exception e) {
+        // ...
+    }
+}
+```
+
+#### 3단계: Gmail SMTP 설정 수정
+
+**문제**: 잘못된 Gmail 계정 사용
+
+**해결 방법**:
+- Gmail 계정을 `kdhdaniel0506@gmail.com`에서 `zipizigy121@gmail.com`으로 변경
+- Docker 컨테이너 환경 변수 업데이트
+
+### 해결 원리
+
+#### 1. JavaTimeModule의 역할
+- `JavaTimeModule`: Java 8 시간 타입(`LocalDateTime`, `LocalDate`, `ZonedDateTime` 등)을 JSON으로 직렬화/역직렬화하는 모듈
+- 기본 `ObjectMapper`에는 포함되지 않으므로 명시적으로 등록 필요
+
+#### 2. WRITE_DATES_AS_TIMESTAMPS 비활성화
+- 기본값: `true` (날짜를 타임스탬프 숫자로 저장)
+- 비활성화 시: ISO 8601 형식 문자열로 저장 (`"2025-11-02T10:36:31"`)
+- 가독성 향상 및 다른 시스템과의 호환성 개선
+
+#### 3. 이메일 전송 실패 대응 전략
+- Redis 저장을 이메일 전송 전에 수행
+- 이메일 전송 실패 시에도 Redis 데이터는 유지
+- 사용자가 나중에 재시도 가능
+
+### 결과
+
+#### 해결 전
+- 이메일 인증 요청 시 500 에러 발생
+- Redis 저장 실패로 인한 `InvalidDefinitionException`
+- `LocalDateTime` 직렬화 불가
+
+#### 해결 후
+- ✅ `LocalDateTime` 직렬화 정상 작동
+- ✅ Redis에 인증 요청 정보 정상 저장
+- ✅ 이메일 전송 실패 시에도 데이터 보존
+- ✅ Gmail SMTP 정상 작동
+
+### 교훈
+
+1. **Java 8 시간 타입 직렬화**: `ObjectMapper`에 `JavaTimeModule` 등록 필수
+2. **의존성 확인**: Spring Boot에 기본 포함되어 있지만 모듈 등록은 필요
+3. **오류 처리 전략**: 외부 서비스(SMTP) 실패 시에도 내부 데이터는 보존
+4. **단계별 문제 해결**: 직렬화 문제 → SMTP 문제 순서로 해결
+
+### 관련 파일
+- `auth/src/main/java/com/dorandoran/auth/service/EmailVerificationRedisService.java`
+- `auth/src/main/java/com/dorandoran/auth/controller/AuthController.java`
+- `auth/src/main/java/com/dorandoran/auth/service/EmailService.java`

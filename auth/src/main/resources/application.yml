@@ -36,6 +36,18 @@ spring:
           time_zone: UTC
     database-platform: org.hibernate.dialect.PostgreSQLDialect
 
+  mail:
+    host: ${SPRING_MAIL_HOST:smtp.gmail.com}
+    port: ${SPRING_MAIL_PORT:587}
+    username: ${SPRING_MAIL_USERNAME}
+    password: ${SPRING_MAIL_PASSWORD}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+
 # JWT 설정
 application:
   security:
@@ -43,6 +55,12 @@ application:
       secret-key: 404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970
       access-token-expiration: 3600000  # 1시간
       refresh-token-expiration: 604800000  # 7일
+
+email:
+  verification:
+    expiration-minutes: 5
+    frontend-url: ${FRONTEND_URL:http://localhost:5173}
+    backend-url: ${BACKEND_URL:http://localhost:8081}
 
 # 서비스 간 통신 설정
 user:
@@ -81,7 +99,7 @@ logging:
 gateway:
   jwt:
     hmac-secret: 404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970
-    skew-ms: 180000
+    skew-ms: 3600000
 
 # SpringDoc OpenAPI 설정
 springdoc:
