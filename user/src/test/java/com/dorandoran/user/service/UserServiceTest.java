@@ -154,7 +154,8 @@ class UserServiceTest {
             "new-profile.jpg",
             "수정된 정보",
             UserDto.UserStatus.ACTIVE,
-            true
+            true,
+            null
         );
 
         when(userRepository.findById(any(UUID.class))).thenReturn(Optional.of(testUser));
@@ -441,7 +442,8 @@ class UserServiceTest {
             "new-profile.jpg",
             "수정된 정보",
             UserDto.UserStatus.ACTIVE,
-            true
+            true,
+            null
         );
 
         when(userRepository.findById(any(UUID.class))).thenReturn(Optional.of(testUser));

@@ -7,13 +7,13 @@ spring:
   
   # Auth 서비스 공유 데이터베이스 설정
   datasource:
-    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://shared-db:5432/dorandoran}
-    username: ${SPRING_DATASOURCE_USERNAME:doran}git
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://dorandoran-shared-db:5432/dorandoran}
+    username: ${SPRING_DATASOURCE_USERNAME:doran}
     password: ${SPRING_DATASOURCE_PASSWORD:doran}
     driver-class-name: org.postgresql.Driver
     hikari:
-      maximum-pool-size: 10
-      minimum-idle: 5
+      maximum-pool-size: 30
+      minimum-idle: 15
       connection-timeout: 30000
       idle-timeout: 600000
       max-lifetime: 1800000
@@ -48,6 +48,29 @@ spring:
           max-idle: 8
           min-idle: 0
 
+  mail:
+    host: ${SPRING_MAIL_HOST:smtp.gmail.com}
+    port: ${SPRING_MAIL_PORT:587}
+    username: ${SPRING_MAIL_USERNAME}
+    password: ${SPRING_MAIL_PASSWORD}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+            required: true
+          connectiontimeout: 5000
+          timeout: 5000
+          writetimeout: 5000
+          debug: true
+
+email:
+  verification:
+    expiration-minutes: 5
+    frontend-url: ${FRONTEND_URL:http://localhost:5173}
+    backend-url: ${BACKEND_URL:http://localhost:8081}
+
 # JWT 설정
 application:
   security:
@@ -66,17 +89,17 @@ resilience4j:
   circuitbreaker:
     instances:
       user-service:
-        failure-rate-threshold: 50
-        wait-duration-in-open-state: 30s
-        sliding-window-size: 10
-        minimum-number-of-calls: 5
-        permitted-number-of-calls-in-half-open-state: 3
+        failure-rate-threshold: 70
+        wait-duration-in-open-state: 8s
+        sliding-window-size: 50
+        minimum-number-of-calls: 20
+        permitted-number-of-calls-in-half-open-state: 5
   retry:
     instances:
       user-service:
-        max-attempts: 3
-        wait-duration: 1s
-        exponential-backoff-multiplier: 2
+        max-attempts: 2
+        wait-duration: 300ms
+        exponential-backoff-multiplier: 1.8
   timelimiter:
     instances:
       user-service:
@@ -87,6 +110,9 @@ logging:
   level:
     com.dorandoran.auth: DEBUG
     org.springframework.security: DEBUG
+    org.springframework.mail: DEBUG
+    com.sun.mail: DEBUG
+    jakarta.mail: DEBUG
   pattern:
     console: "%d{yyyy-MM-dd HH:mm:ss} - %msg%n"
 
@@ -94,7 +120,7 @@ logging:
 gateway:
   jwt:
     hmac-secret: 404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970
-    skew-ms: 180000
+    skew-ms: 3600000
 
 # Actuator 설정
 management:

@@ -26,7 +26,9 @@ public record UpdateUserRequest(
     
     UserDto.UserStatus status,
     
-    Boolean coachCheck
+    Boolean coachCheck,
+    
+    Boolean exitModalDoNotShowAgain
 ) {
     
     /**

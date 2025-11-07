@@ -56,7 +56,7 @@ public class SSEController {
 		}
 		
 		// 채팅방 접근 권한 확인
-		if (!chatRoomRepository.existsByUserIdAndIdAndIsDeletedFalse(uid, chatroomId)) {
+                if (!chatRoomRepository.existsByUser_IdAndIdAndIsDeletedFalse(uid, chatroomId)) {
 			log.warn("SSE 접근 거부: userId={}, chatroomId={}", uid, chatroomId);
 			return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
 		}
@@ -68,7 +68,14 @@ public class SSEController {
 		checkAndSendGreeting(chatroomId, uid);
 		
 		log.info("SSE 연결 성공: userId={}, chatroomId={}", uid, chatroomId);
-		return ResponseEntity.ok(emitter);
+		
+		// CORS 헤더 추가 (SSE 스트림용 - Gateway에서 처리하지만 명시적으로 추가)
+		// Gateway의 CORS 필터가 스트리밍 응답에도 적용되도록 함
+		return ResponseEntity.ok()
+				.header("Cache-Control", "no-cache")
+				.header("Connection", "keep-alive")
+				.header("X-Accel-Buffering", "no") // Nginx buffering 비활성화 (필요시)
+				.body(emitter);
 	}
 	
 	/**

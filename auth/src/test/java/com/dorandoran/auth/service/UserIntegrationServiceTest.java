@@ -44,10 +44,12 @@ class UserIntegrationServiceTest {
             "encodedPassword",
             "profile.jpg",
             "테스트 사용자",
+            null, // preferences
             LocalDateTime.now(),
             UserDto.UserStatus.ACTIVE,
             UserDto.RoleName.ROLE_USER,
-            false,
+            false, // coachCheck
+            false, // exitModalDoNotShowAgain
             LocalDateTime.now(),
             LocalDateTime.now()
         );

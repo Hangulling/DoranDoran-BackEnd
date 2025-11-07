@@ -44,6 +44,7 @@ CREATE TABLE user_schema.app_user
     status    character varying(20) NOT NULL DEFAULT ''ACTIVE'',
     role    character varying(20) NOT NULL DEFAULT ''ROLE_USER'',
     coach_check    boolean NOT NULL DEFAULT FALSE,
+    exit_modal_do_not_show_again    boolean NOT NULL DEFAULT FALSE,
     created_at    timestamp without time zone NOT NULL DEFAULT NOW(),
     updated_at    timestamp without time zone NOT NULL DEFAULT NOW()
 );
@@ -60,6 +61,7 @@ COMMENT ON COLUMN user_schema.app_user.last_conn_time IS ''마지막 연결 시�
 COMMENT ON COLUMN user_schema.app_user.status IS ''사용자 상태 (ACTIVE, INACTIVE, SUSPENDED)'';
 COMMENT ON COLUMN user_schema.app_user.role IS ''사용자 역할 (ROLE_USER, ROLE_ADMIN)'';
 COMMENT ON COLUMN user_schema.app_user.coach_check IS ''코치 체크 여부'';
+COMMENT ON COLUMN user_schema.app_user.exit_modal_do_not_show_again IS ''나가기 모달 다시 보지 않기 여부'';
 COMMENT ON COLUMN user_schema.app_user.created_at IS ''생성 시간'';
 COMMENT ON COLUMN user_schema.app_user.updated_at IS ''수정 시간'';
 COMMENT ON TABLE user_schema.app_user IS ''사용자 정보'';

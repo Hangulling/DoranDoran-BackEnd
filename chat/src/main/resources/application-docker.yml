@@ -1,3 +1,7 @@
+server:
+  port: 8083
+  address: 0.0.0.0
+
 spring:
   application:
     name: chat-service
@@ -12,13 +16,13 @@ spring:
   
   # Chat 서비스 공유 데이터베이스 설정
   datasource:
-    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://shared-db:5432/dorandoran}
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://dorandoran-shared-db:5432/dorandoran}
     username: ${SPRING_DATASOURCE_USERNAME:doran}
     password: ${SPRING_DATASOURCE_PASSWORD:doran}
     driver-class-name: org.postgresql.Driver
     hikari:
-      maximum-pool-size: 20  # 동시 처리 능력 향상
-      minimum-idle: 5  # 최소 유휴 연결 증가
+      maximum-pool-size: 50  # 동시 처리 능력 향상
+      minimum-idle: 25  # 최소 유휴 연결 증가
       connection-timeout: 20000  # 연결 대기 시간 단축
       idle-timeout: 300000  # 유휴 연결 타임아웃
       max-lifetime: 600000  # 연결 최대 수명 단축 (10분)
@@ -49,7 +53,7 @@ spring:
   # Redis 설정 (Docker 프로필)
   data:
     redis:
-      host: ${SPRING_REDIS_HOST:redis}
+      host: ${SPRING_REDIS_HOST:dorandoran-redis}
       port: ${SPRING_REDIS_PORT:6379}
       timeout: 2000ms
       lettuce:
@@ -76,7 +80,7 @@ ai:
 gateway:
   jwt:
     hmac-secret: 404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970
-    skew-ms: 180000
+    skew-ms: 3600000
 
 # Actuator 설정
 management:
