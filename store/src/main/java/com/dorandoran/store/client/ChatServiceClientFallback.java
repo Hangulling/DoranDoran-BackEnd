@@ -15,11 +15,10 @@ import java.util.UUID;
 public class ChatServiceClientFallback implements ChatServiceClient {
 
   @Override
-  public ChatRoomDto getChatRoom(UUID chatroomId, UUID userId) {
+  public ChatRoomDto getChatRoom(UUID chatroomId, UUID userId, boolean skipAuthCheck) {
     log.warn("Chat Service 호출 실패 - Fallback 실행: chatroomId={}, userId={}",
         chatroomId, userId);
 
-    // Fallback 응답: name = "Unknown"
     return ChatRoomDto.builder()
         .id(chatroomId)
         .name("Unknown")

@@ -319,7 +319,6 @@ public class StorageService {
     String cacheKey = CHATROOM_NAME_PREFIX + chatroomId;
 
     try {
-      // 1단계: Redis 캐시 조회
       String cachedName = redisTemplate.opsForValue().get(cacheKey);
 
       if (cachedName != null) {
@@ -329,12 +328,11 @@ public class StorageService {
 
       log.debug("❌ Cache MISS: chatroomId={}", chatroomId);
 
-      // 2단계: Feign 호출
-      ChatRoomDto chatRoom = chatServiceClient.getChatRoom(chatroomId, userId);
+      // ✅ skipAuthCheck=true로 권한 체크 생략
+      ChatRoomDto chatRoom = chatServiceClient.getChatRoom(chatroomId, userId, true);
 
       if (chatRoom != null && chatRoom.getName() != null) {
         String chatroomName = chatRoom.getName();
-        // 3단계: Redis에 저장 (TTL 10분)
         redisTemplate.opsForValue().set(cacheKey, chatroomName, CACHE_TTL);
         log.info("✅ Cache SAVED: chatroomId={}", chatroomId);
         return chatroomName;

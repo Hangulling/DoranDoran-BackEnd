@@ -428,7 +428,10 @@ public class ChatController {
         @PathVariable UUID chatroomId,
 
         @Parameter(description = "사용자 ID (선택)")
-        @RequestParam(required = false) UUID userId) {
+        @RequestParam(required = false) UUID userId,
+
+        @Parameter(description = "권한 체크 스킵 (내부 서비스 호출용)")
+        @RequestParam(required = false, defaultValue = "false") boolean skipAuthCheck) {
 
         // SecurityContext에서 우선 추출
         UUID uid = extractUserIdFromSecurityContext();
@@ -436,8 +439,9 @@ public class ChatController {
             uid = userId;
         }
 
-        // 권한 확인 (요청한 사용자의 채팅방인지)
-        if (uid != null && !chatRoomRepository.existsByUserIdAndIdAndIsDeletedFalse(uid, chatroomId)) {
+        // ✅ skipAuthCheck=true면 권한 체크 생략 (Store Service 전용)
+        if (!skipAuthCheck && uid != null &&
+            !chatRoomRepository.existsByUserIdAndIdAndIsDeletedFalse(uid, chatroomId)) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         }
 

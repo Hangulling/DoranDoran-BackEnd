@@ -30,6 +30,7 @@ public interface ChatServiceClient {
   @GetMapping("/api/chat/chatrooms/{chatroomId}")
   ChatRoomDto getChatRoom(
       @PathVariable("chatroomId") UUID chatroomId,
-      @RequestParam("userId") UUID userId
+      @RequestParam("userId") UUID userId,
+      @RequestParam(value = "skipAuthCheck", defaultValue = "true") boolean skipAuthCheck
   );
 }
