@@ -521,7 +521,7 @@ public class ChatController {
         return ResponseEntity.ok(converted);
     }
 
-    
+
     @Operation(summary = "채팅방 수정", description = "채팅방의 이름/설명/아카이브를 수정합니다.")
     @PatchMapping("/rooms/{roomId}")
     public ResponseEntity<ChatRoomResponse> updateRoom(@PathVariable("roomId") UUID roomId,

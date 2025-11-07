@@ -15,17 +15,18 @@ public class ResilienceConfig {
     @Bean
     public CircuitBreakerConfig circuitBreakerConfig() {
         return CircuitBreakerConfig.custom()
-            .failureRateThreshold(50)
-            .waitDurationInOpenState(Duration.ofSeconds(30))
-            .slidingWindowSize(20)
-            .permittedNumberOfCallsInHalfOpenState(5)
+            .failureRateThreshold(60)
+            .waitDurationInOpenState(Duration.ofSeconds(10))
+            .slidingWindowSize(30)
+            .minimumNumberOfCalls(15)
+            .permittedNumberOfCallsInHalfOpenState(3)
             .build();
     }
 
     @Bean
     public TimeLimiterConfig timeLimiterConfig() {
         return TimeLimiterConfig.custom()
-            .timeoutDuration(Duration.ofSeconds(30))
+            .timeoutDuration(Duration.ofSeconds(15))
             .build();
     }
 }

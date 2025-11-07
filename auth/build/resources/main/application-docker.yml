@@ -12,8 +12,8 @@ spring:
     password: ${SPRING_DATASOURCE_PASSWORD:doran}
     driver-class-name: org.postgresql.Driver
     hikari:
-      maximum-pool-size: 10
-      minimum-idle: 5
+      maximum-pool-size: 30
+      minimum-idle: 15
       connection-timeout: 30000
       idle-timeout: 600000
       max-lifetime: 1800000
@@ -89,17 +89,17 @@ resilience4j:
   circuitbreaker:
     instances:
       user-service:
-        failure-rate-threshold: 50
-        wait-duration-in-open-state: 30s
-        sliding-window-size: 10
-        minimum-number-of-calls: 5
-        permitted-number-of-calls-in-half-open-state: 3
+        failure-rate-threshold: 70
+        wait-duration-in-open-state: 8s
+        sliding-window-size: 50
+        minimum-number-of-calls: 20
+        permitted-number-of-calls-in-half-open-state: 5
   retry:
     instances:
       user-service:
-        max-attempts: 3
-        wait-duration: 1s
-        exponential-backoff-multiplier: 2
+        max-attempts: 2
+        wait-duration: 300ms
+        exponential-backoff-multiplier: 1.8
   timelimiter:
     instances:
       user-service:

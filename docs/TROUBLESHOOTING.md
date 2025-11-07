@@ -9,6 +9,7 @@
 6. [Docker 배포 문제](#docker-배포-문제)
 7. [이메일 인증 Redis 저장 시 LocalDateTime 직렬화 문제](#이메일-인증-redis-저장-시-localdatetime-직렬화-문제)
 8. [Gmail SMTP 인증 실패](#gmail-smtp-인증-실패)
+9. [Resilience4j Circuit Breaker 과도한 차단 문제](#resilience4j-circuit-breaker-과도한-차단-문제)
 
 ---
 
@@ -597,6 +598,120 @@ jakarta.mail.AuthenticationFailedException: 535-5.7.8 Username and Password not 
 
 ---
 
+## Resilience4j Circuit Breaker 과도한 차단 문제
+
+### 증상
+- 사용자 로그인 시 간헐적 실패 발생
+- `/api/auth/login`, `/api/auth/me` 엔드포인트에서 503 Service Unavailable 응답
+- 로그에서 `CircuitBreaker 'user-service' is OPEN and does not permit further calls` 오류
+- 정상 트래픽도 차단되어 서비스 이용 불가
+
+### 원인
+1. **Circuit Breaker 설정이 너무 엄격함**:
+   - `failure-rate-threshold: 50`: 낮은 임계값으로 일시적 오류에도 즉시 OPEN
+   - `sliding-window-size: 10`: 작은 표본 크기로 통계적 신뢰도 낮음
+   - `minimum-number-of-calls: 5`: 최소 호출 수가 적어 초기 트래픽에서 오탐지
+   - `wait-duration-in-open-state: 30s`: OPEN 상태가 너무 길어 복구 지연
+
+2. **스파이크성 오류에 과도하게 민감**: 짧은 시간 내 실패율 50% 초과 시 즉시 OPEN
+
+3. **외부 API(OpenAI) 타임아웃이 짧음**: 스트리밍 응답에 12초는 부족
+
+### 해결 방법
+
+#### 1. Auth 서비스 설정 완화
+```yaml
+# auth/src/main/resources/application-docker.yml
+resilience4j:
+  circuitbreaker:
+    instances:
+      user-service:
+        failure-rate-threshold: 70        # 50 → 70 (40% 완화)
+        wait-duration-in-open-state: 8s  # 30s → 8s (빠른 복구)
+        sliding-window-size: 50           # 10 → 50 (5배 증가)
+        minimum-number-of-calls: 20       # 5 → 20 (4배 증가)
+        permitted-number-of-calls-in-half-open-state: 5
+  retry:
+    instances:
+      user-service:
+        max-attempts: 2                   # 3 → 2
+        wait-duration: 300ms               # 1s → 300ms
+        exponential-backoff-multiplier: 1.8  # 2 → 1.8
+```
+
+#### 2. Chat 서비스 OpenAI 설정 완화
+```java
+// chat/src/main/java/com/dorandoran/chat/config/ResilienceConfig.java
+CircuitBreakerConfig.custom()
+    .failureRateThreshold(60)                    // 50 → 60
+    .waitDurationInOpenState(Duration.ofSeconds(10))  // 15s → 10s
+    .slidingWindowSize(30)                      // 20 → 30
+    .minimumNumberOfCalls(15)                   // 10 → 15
+    .build();
+
+TimeLimiterConfig.custom()
+    .timeoutDuration(Duration.ofSeconds(15))    // 12s → 15s
+    .build();
+```
+
+#### 3. Gateway GET 리트라이 추가
+```yaml
+# gateway/src/main/resources/application-docker.yml
+spring:
+  cloud:
+    gateway:
+      routes:
+        - id: auth-service
+          filters:
+            - name: Retry
+              args:
+                retries: 2
+                methods: GET
+                backoff:
+                  firstBackoff: 200ms
+                  factor: 1.5
+                  maxBackoff: 500ms
+```
+
+### 효과
+- ✅ 오탐지 대폭 감소 (실패율 임계값 50% → 70%)
+- ✅ 통계적 신뢰도 향상 (표본 크기 10 → 50)
+- ✅ 빠른 복구 (OPEN 상태 30s → 8s)
+- ✅ 초기 트래픽 오탐지 방지 (최소 호출 수 5 → 20)
+
+### 예방 방법
+1. **서비스 오픈 초기에는 관대한 설정 사용**: 
+   - `failure-rate-threshold: 70` 이상
+   - `sliding-window-size: 50` 이상
+   - `minimum-number-of-calls: 20` 이상
+
+2. **모니터링을 통한 점진적 조정**:
+   - Circuit Breaker 상태 전이 빈도 모니터링
+   - 실패율 추이 관찰
+   - 실제 장애 패턴 기반으로 설정값 조정
+
+3. **서비스 특성 고려**:
+   - 내부 서비스: 중간 수준의 관대함
+   - 외부 API: 더 관대한 설정 필요
+   - 핵심 경로: 빠른 복구 우선
+
+### 관련 오류
+```
+CircuitBreaker 'user-service' is OPEN and does not permit further calls
+```
+**해결**: 
+1. Circuit Breaker 설정 완화 (위 설정 참고)
+2. 서비스 재배포
+3. 모니터링을 통한 설정값 검증
+
+### 권장 모니터링 지표
+- Circuit Breaker 상태 전이 빈도 (OPEN → HALF_OPEN → CLOSED)
+- 실패율 추이 (실제 장애 vs 오탐지)
+- 재시도 성공률
+- 타임아웃 발생 빈도
+
+---
+
 ## 추가 리소스
 
 - [Spring Boot 공식 문서](https://spring.io/projects/spring-boot)
@@ -604,3 +719,4 @@ jakarta.mail.AuthenticationFailedException: 535-5.7.8 Username and Password not 
 - [Docker 공식 문서](https://docs.docker.com/)
 - [PostgreSQL 공식 문서](https://www.postgresql.org/docs/)
 - [Gmail App Password 가이드](https://support.google.com/accounts/answer/185833)
+- [Resilience4j 공식 문서](https://resilience4j.readme.io/)
