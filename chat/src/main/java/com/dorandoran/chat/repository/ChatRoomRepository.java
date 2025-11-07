@@ -29,4 +29,7 @@ public interface ChatRoomRepository extends JpaRepository<ChatRoom, UUID> {
     
     // 사용자가 특정 채팅방에 접근 권한이 있는지 확인
     boolean existsByUser_IdAndIdAndIsDeletedFalse(UUID userId, UUID chatroomId);
+
+    // 사용자가 특정 채팅방에 접근 권한이 있는지 확인 - 보관함 사용
+    boolean existsByUserIdAndIdAndIsDeletedFalse(UUID userId, UUID chatroomId);
 }

@@ -19,7 +19,7 @@ spring:
   # Redis 설정
   data:
     redis:
-      host: ${SPRING_REDIS_HOST:dorandoran-redis}
+      host: ${SPRING_REDIS_HOST:redis}
       port: ${SPRING_REDIS_PORT:6379}
       timeout: 2000ms
       lettuce:
@@ -58,7 +58,7 @@ spring:
                   factor: 2
                   maxBackoff: 500ms
                   basedOnPreviousValue: true
-        
+
         # User 서비스 라우팅
         - id: user-service
           uri: http://dorandoran-user:8082

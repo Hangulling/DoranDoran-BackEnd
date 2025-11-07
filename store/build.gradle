@@ -30,4 +30,8 @@ dependencies {
 
     // Lombok은 common에서 제공, annotationProcessor만 필요
     annotationProcessor 'org.projectlombok:lombok'
+
+    // Redis
+    implementation 'org.springframework.boot:spring-boot-starter-data-redis'
+    implementation 'org.springframework.boot:spring-boot-starter-cache'
 }
