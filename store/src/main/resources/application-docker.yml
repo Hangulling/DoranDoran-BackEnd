@@ -44,6 +44,12 @@ spring:
           useUnicode: true
     database-platform: org.hibernate.dialect.PostgreSQLDialect
 
+  # Redis
+  data:
+    redis:
+      host: redis  # Docker 환경
+      port: 6379
+
 server:
   port: 8084
   address: 0.0.0.0
