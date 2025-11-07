@@ -12,10 +12,12 @@ import com.dorandoran.store.exception.UnauthorizedAccessException;
 import com.dorandoran.store.repository.StoreRepository;
 import com.dorandoran.store.util.BotTypeMapper;
 import feign.FeignException;
+import java.time.Duration;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -35,6 +37,12 @@ public class StorageService {
 
   private final StoreRepository storeRepository;
   private final ChatServiceClient chatServiceClient;  // 채팅방 정보 획득
+  private final RedisTemplate<String, String> redisTemplate;  // Redis 캐싱용
+
+  // Redis 캐시 키 접두사
+  private static final String CHATROOM_NAME_PREFIX = "chatroom:name:";
+  // 캐시 TTL: 10분
+  private static final Duration CACHE_TTL = Duration.ofMinutes(10);
 
   /**
    * 표현 보관하기
@@ -125,30 +133,8 @@ public class StorageService {
       log.info("해당 채팅방의 보관함이 비어있음: chatroomId={}", chatroomId);
     }
 
-    // 방별 조회는 같은 채팅방이므로 한 번만 조회
-    String chatroomName = "Unknown";
-    try {
-      ChatRoomDto chatRoom = chatServiceClient.getChatRoom(chatroomId, userId);
-      if (chatRoom != null && chatRoom.getName() != null) {
-        chatroomName = chatRoom.getName();
-      } else {
-        log.warn("채팅방 정보가 null: chatroomId={}", chatroomId);
-      }
-    } catch (FeignException.NotFound e) {
-      log.warn("채팅방을 찾을 수 없음: chatroomId={}", chatroomId);
-      chatroomName = "Deleted Room";
-    } catch (FeignException.Forbidden e) {
-      log.warn("채팅방 접근 권한 없음: chatroomId={}, userId={}", chatroomId, userId);
-      chatroomName = "Forbidden";
-    } catch (FeignException.ServiceUnavailable e) {
-      log.warn("Chat Service 일시적 장애: chatroomId={}", chatroomId);
-      chatroomName = "Unavailable";
-    } catch (FeignException e) {
-      log.warn("Feign 통신 오류: chatroomId={}, status={}, message={}",
-          chatroomId, e.status(), e.getMessage());
-    } catch (Exception e) {
-      log.error("채팅방 이름 조회 중 예상치 못한 오류: chatroomId={}", chatroomId, e);
-    }
+    // 방별 조회는 같은 채팅방이므로 한 번만 조회 - 캐시 사용
+    String chatroomName = getChatroomNameWithCache(chatroomId, userId);
 
     final String finalChatroomName = chatroomName;
     return stores.stream()
@@ -172,29 +158,7 @@ public class StorageService {
         .findByUserIdAndChatroomIdAndIsDeletedFalseOrderByCreatedAtDesc(userId, chatroomId, pageable);
 
     // 방별 조회는 같은 채팅방이므로 한 번만 조회
-    String chatroomName = "Unknown";
-    try {
-      ChatRoomDto chatRoom = chatServiceClient.getChatRoom(chatroomId, userId);
-      if (chatRoom != null && chatRoom.getName() != null) {
-        chatroomName = chatRoom.getName();
-      } else {
-        log.warn("채팅방 정보가 null: chatroomId={}", chatroomId);
-      }
-    } catch (FeignException.NotFound e) {
-      log.warn("채팅방을 찾을 수 없음: chatroomId={}", chatroomId);
-      chatroomName = "Deleted Room";
-    } catch (FeignException.Forbidden e) {
-      log.warn("채팅방 접근 권한 없음: chatroomId={}, userId={}", chatroomId, userId);
-      chatroomName = "Forbidden";
-    } catch (FeignException.ServiceUnavailable e) {
-      log.warn("Chat Service 일시적 장애: chatroomId={}", chatroomId);
-      chatroomName = "Unavailable";
-    } catch (FeignException e) {
-      log.warn("Feign 통신 오류: chatroomId={}, status={}, message={}",
-          chatroomId, e.status(), e.getMessage());
-    } catch (Exception e) {
-      log.error("채팅방 이름 조회 중 예상치 못한 오류: chatroomId={}", chatroomId, e);
-    }
+    String chatroomName = getChatroomNameWithCache(chatroomId, userId);
 
     final String finalChatroomName = chatroomName;
     return stores.map(store -> {
@@ -299,48 +263,93 @@ public class StorageService {
    * 채팅방 이름을 조회하여 StorageListResponse에 추가
    * Feign Client 예외 처리 포함
    */
+//  private StorageListResponse enrichWithChatroomName(Store store) {
+//    StorageListResponse response = StorageListResponse.from(store);
+//
+//    try {
+//      // userId를 함께 전달하여 권한 체크
+//      ChatRoomDto chatRoom = chatServiceClient.getChatRoom(
+//          store.getChatroomId(),
+//          store.getUserId()  // ← 추가
+//      );
+//
+//      if (chatRoom != null && chatRoom.getName() != null) {
+//        response.setChatroomNameFromClient(chatRoom.getName());
+//      } else {
+//        log.warn("채팅방 정보가 null: chatroomId={}", store.getChatroomId());
+//        response.setChatroomNameFromClient("Unknown");
+//      }
+//
+//    } catch (FeignException.NotFound e) {
+//      log.warn("채팅방을 찾을 수 없음: chatroomId={}", store.getChatroomId());
+//      response.setChatroomNameFromClient("Deleted Room");
+//
+//    } catch (FeignException.Forbidden e) {
+//      // 403 Forbidden 처리 추가
+//      log.warn("채팅방 접근 권한 없음: chatroomId={}, userId={}",
+//          store.getChatroomId(), store.getUserId());
+//      response.setChatroomNameFromClient("Forbidden");
+//
+//    } catch (FeignException.ServiceUnavailable e) {
+//      log.warn("Chat Service 일시적 장애: chatroomId={}", store.getChatroomId());
+//      response.setChatroomNameFromClient("Unavailable");
+//
+//    } catch (FeignException e) {
+//      log.warn("Feign 통신 오류: chatroomId={}, status={}, message={}",
+//          store.getChatroomId(), e.status(), e.getMessage());
+//      response.setChatroomNameFromClient("Unknown");
+//
+//    } catch (Exception e) {
+//      log.error("채팅방 이름 조회 중 예상치 못한 오류: chatroomId={}", store.getChatroomId(), e);
+//      response.setChatroomNameFromClient("Unknown");
+//    }
+//
+//    return response;
+//  }
+
   private StorageListResponse enrichWithChatroomName(Store store) {
     StorageListResponse response = StorageListResponse.from(store);
+    String chatroomName = getChatroomNameWithCache(store.getChatroomId(), store.getUserId());
+    response.setChatroomNameFromClient(chatroomName);
+    return response;
+  }
+
+  // 새로운 메서드 추가
+  private String getChatroomNameWithCache(UUID chatroomId, UUID userId) {
+    String cacheKey = CHATROOM_NAME_PREFIX + chatroomId;
 
     try {
-      // userId를 함께 전달하여 권한 체크
-      ChatRoomDto chatRoom = chatServiceClient.getChatRoom(
-          store.getChatroomId(),
-          store.getUserId()  // ← 추가
-      );
+      // 1단계: Redis 캐시 조회
+      String cachedName = redisTemplate.opsForValue().get(cacheKey);
 
-      if (chatRoom != null && chatRoom.getName() != null) {
-        response.setChatroomNameFromClient(chatRoom.getName());
-      } else {
-        log.warn("채팅방 정보가 null: chatroomId={}", store.getChatroomId());
-        response.setChatroomNameFromClient("Unknown");
+      if (cachedName != null) {
+        log.debug("✅ Cache HIT: chatroomId={}", chatroomId);
+        return cachedName;
       }
 
+      log.debug("❌ Cache MISS: chatroomId={}", chatroomId);
+
+      // 2단계: Feign 호출
+      ChatRoomDto chatRoom = chatServiceClient.getChatRoom(chatroomId, userId);
+
+      if (chatRoom != null && chatRoom.getName() != null) {
+        String chatroomName = chatRoom.getName();
+        // 3단계: Redis에 저장 (TTL 10분)
+        redisTemplate.opsForValue().set(cacheKey, chatroomName, CACHE_TTL);
+        log.info("✅ Cache SAVED: chatroomId={}", chatroomId);
+        return chatroomName;
+      } else {
+        return "Unknown";
+      }
     } catch (FeignException.NotFound e) {
-      log.warn("채팅방을 찾을 수 없음: chatroomId={}", store.getChatroomId());
-      response.setChatroomNameFromClient("Deleted Room");
-
+      return "Deleted Room";
     } catch (FeignException.Forbidden e) {
-      // 403 Forbidden 처리 추가
-      log.warn("채팅방 접근 권한 없음: chatroomId={}, userId={}",
-          store.getChatroomId(), store.getUserId());
-      response.setChatroomNameFromClient("Forbidden");
-
+      return "Forbidden";
     } catch (FeignException.ServiceUnavailable e) {
-      log.warn("Chat Service 일시적 장애: chatroomId={}", store.getChatroomId());
-      response.setChatroomNameFromClient("Unavailable");
-
-    } catch (FeignException e) {
-      log.warn("Feign 통신 오류: chatroomId={}, status={}, message={}",
-          store.getChatroomId(), e.status(), e.getMessage());
-      response.setChatroomNameFromClient("Unknown");
-
+      return "Unavailable";
     } catch (Exception e) {
-      log.error("채팅방 이름 조회 중 예상치 못한 오류: chatroomId={}", store.getChatroomId(), e);
-      response.setChatroomNameFromClient("Unknown");
+      return "Unknown";
     }
-
-    return response;
   }
 
   /**
@@ -356,29 +365,7 @@ public class StorageService {
         .findByUserIdAndChatroomIdWithCursor(userId, chatroomId, lastId, pageable);
 
     // 방별 조회는 같은 채팅방이므로 한 번만 조회
-    String chatroomName = "Unknown";
-    try {
-      ChatRoomDto chatRoom = chatServiceClient.getChatRoom(chatroomId, userId);
-      if (chatRoom != null && chatRoom.getName() != null) {
-        chatroomName = chatRoom.getName();
-      } else {
-        log.warn("채팅방 정보가 null: chatroomId={}", chatroomId);
-      }
-    } catch (FeignException.NotFound e) {
-      log.warn("채팅방을 찾을 수 없음: chatroomId={}", chatroomId);
-      chatroomName = "Deleted Room";
-    } catch (FeignException.Forbidden e) {
-      log.warn("채팅방 접근 권한 없음: chatroomId={}, userId={}", chatroomId, userId);
-      chatroomName = "Forbidden";
-    } catch (FeignException.ServiceUnavailable e) {
-      log.warn("Chat Service 일시적 장애: chatroomId={}", chatroomId);
-      chatroomName = "Unavailable";
-    } catch (FeignException e) {
-      log.warn("Feign 통신 오류: chatroomId={}, status={}, message={}",
-          chatroomId, e.status(), e.getMessage());
-    } catch (Exception e) {
-      log.error("채팅방 이름 조회 중 예상치 못한 오류: chatroomId={}", chatroomId, e);
-    }
+    String chatroomName = getChatroomNameWithCache(chatroomId, userId);
 
     final String finalChatroomName = chatroomName;
     return stores.map(store -> {
