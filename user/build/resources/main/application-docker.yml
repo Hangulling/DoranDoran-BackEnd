@@ -63,11 +63,16 @@ logging:
   pattern:
     console: "%d{yyyy-MM-dd HH:mm:ss} - %msg%n"
 
+# 서비스 간 통신 설정
+auth:
+  service:
+    url: ${AUTH_SERVICE_URL:http://dorandoran-auth:8081}
+
 # Gateway HMAC 검증 설정
 gateway:
   jwt:
     hmac-secret: 404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970
-    skew-ms: 180000
+    skew-ms: 3600000
 
 # Actuator 설정
 management:

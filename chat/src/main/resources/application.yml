@@ -142,6 +142,6 @@ management:
 gateway:
   jwt:
     hmac-secret: 404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970
-    skew-ms: 180000
+    skew-ms: 3600000
 
 # Actuator 설정은 application-docker.yml에서 관리

@@ -21,6 +21,7 @@ public record UserDto(
     UserStatus status,
     RoleName role,
     boolean coachCheck,
+    boolean exitModalDoNotShowAgain,
     LocalDateTime createdAt,
     LocalDateTime updatedAt
 ) {
@@ -29,9 +30,9 @@ public record UserDto(
     public UserDto(UUID id, String email, String firstName, String lastName, String name,
                    String passwordHash, String picture, String info, String preferences,
                    LocalDateTime lastConnTime, UserStatus status, RoleName role,
-                   boolean coachCheck, LocalDateTime createdAt, LocalDateTime updatedAt) {
+                   boolean coachCheck, boolean exitModalDoNotShowAgain, LocalDateTime createdAt, LocalDateTime updatedAt) {
         this(id.toString(), email, firstName, lastName, name, passwordHash, picture, info, 
-             preferences, lastConnTime, status, role, coachCheck, createdAt, updatedAt);
+             preferences, lastConnTime, status, role, coachCheck, exitModalDoNotShowAgain, createdAt, updatedAt);
     }
     
     /**

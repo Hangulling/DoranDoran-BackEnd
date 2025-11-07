@@ -30,6 +30,9 @@ spring:
   
   cloud:
     gateway:
+      httpclient:
+        connect-timeout: 45000  # 연결 타임아웃 (45초)
+        response-timeout: 300s  # 응답 타임아웃 (SSE용 10분)
       routes:
         # Auth 서비스 라우팅
         - id: auth-service
@@ -88,12 +91,15 @@ gateway:
       - /api/auth/refresh
       - /api/auth/password/reset
       - /api/auth/health
+      - /api/auth/email/request-verification
+      - /api/auth/email/verify
+      - /api/auth/email/check
       - /api/users/health
       - /api/users
       - /api/batch
   jwt:
     hmac-secret: 404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970
-    skew-ms: 180000
+    skew-ms: 3600000
 
 # Actuator 설정
 management:

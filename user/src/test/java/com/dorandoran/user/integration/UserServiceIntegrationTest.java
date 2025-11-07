@@ -70,7 +70,8 @@ class UserServiceIntegrationTest {
             "new-profile.jpg",
             "수정된 정보",
             UserDto.UserStatus.ACTIVE,
-            true
+            true,
+            null
         );
 
         // When

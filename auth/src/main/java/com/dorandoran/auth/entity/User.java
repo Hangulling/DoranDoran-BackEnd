@@ -68,6 +68,10 @@ public class User {
     @Builder.Default
     private boolean coachCheck = false;
     
+    @Column(name = "exit_modal_do_not_show_again", nullable = false)
+    @Builder.Default
+    private boolean exitModalDoNotShowAgain = false;
+    
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
@@ -140,5 +144,12 @@ public class User {
      */
     public void updatePassword(String passwordHash) {
         this.passwordHash = passwordHash;
+    }
+    
+    /**
+     * 나가기 모달 다시 보지 않기 설정 업데이트
+     */
+    public void updateExitModalDoNotShowAgain(boolean exitModalDoNotShowAgain) {
+        this.exitModalDoNotShowAgain = exitModalDoNotShowAgain;
     }
 }

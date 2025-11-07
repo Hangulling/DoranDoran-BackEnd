@@ -28,7 +28,7 @@ jwt:
 gateway:
   jwt:
     hmac-secret: test-hmac-secret-for-testing
-    skew-ms: 180000
+    skew-ms: 3600000
 
 # 로깅 설정
 logging:

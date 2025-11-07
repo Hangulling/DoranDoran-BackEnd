@@ -46,6 +46,11 @@ services:
       - SPRING_JPA_HIBERNATE_DEFAULT_SCHEMA=auth_schema
       - SPRING_REDIS_HOST=redis
       - SPRING_REDIS_PORT=6379
+      - SPRING_MAIL_HOST=${SPRING_MAIL_HOST}
+      - SPRING_MAIL_PORT=${SPRING_MAIL_PORT}
+      - SPRING_MAIL_USERNAME=${SPRING_MAIL_USERNAME}
+      - SPRING_MAIL_PASSWORD=${SPRING_MAIL_PASSWORD}
+      - FRONTEND_URL=${FRONTEND_URL}
     depends_on:
       shared-db:
         condition: service_healthy

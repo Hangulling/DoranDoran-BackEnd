@@ -71,6 +71,7 @@ public class JwtAuthFilter implements WebFilter {
      * - Actuator: 모니터링 및 헬스체크
      * - 공개 API: 로그인, 토큰 갱신, 비밀번호 재설정, 헬스체크
      * - 회원가입: 사용자 등록 관련 API
+     * - 이메일 인증: 이메일 인증 관련 API (인증 없이 접근 가능)
      */
     private boolean isExcludedPath(String path) {
         return path.startsWith("/actuator") || 
@@ -79,6 +80,9 @@ public class JwtAuthFilter implements WebFilter {
                path.startsWith("/api/auth/refresh") ||
                path.startsWith("/api/auth/password/reset") ||
                path.startsWith("/api/auth/health") ||
+               path.startsWith("/api/auth/email/request-verification") ||
+               path.startsWith("/api/auth/email/verify") ||
+               path.startsWith("/api/auth/email/check") ||
                path.equals("/api/users") ||  // POST /api/users (회원가입) 제외
                path.startsWith("/api/users/register") ||
                path.startsWith("/api/users/health") ||

@@ -7,6 +7,8 @@
 4. [AI 프롬프트 파싱 오류](#ai-프롬프트-파싱-오류)
 5. [데이터베이스 연결 문제](#데이터베이스-연결-문제)
 6. [Docker 배포 문제](#docker-배포-문제)
+7. [이메일 인증 Redis 저장 시 LocalDateTime 직렬화 문제](#이메일-인증-redis-저장-시-localdatetime-직렬화-문제)
+8. [Gmail SMTP 인증 실패](#gmail-smtp-인증-실패)
 
 ---
 
@@ -462,9 +464,143 @@ psql -h dorandoran-postgres.cpw00a6ga2uv.us-east-2.rds.amazonaws.com -U doran -d
 
 ---
 
+## 이메일 인증 Redis 저장 시 LocalDateTime 직렬화 문제
+
+### 증상
+- 이메일 인증 요청 시 500 Internal Server Error 발생
+- Redis에 인증 요청 정보 저장 실패
+- 로그에서 `InvalidDefinitionException: Java 8 date/time type LocalDateTime not supported` 오류
+
+### 원인
+- `ObjectMapper`에 `JavaTimeModule`이 등록되지 않음
+- `LocalDateTime` 필드를 가진 `VerificationData` 객체를 JSON으로 직렬화 시도 시 실패
+
+### 해결 방법
+
+#### ObjectMapper에 JavaTimeModule 등록
+```java
+// EmailVerificationRedisService.java
+@Service
+@Slf4j
+public class EmailVerificationRedisService {
+
+    private final RedisTemplate<String, String> redisTemplate;
+    private final ObjectMapper objectMapper;
+    
+    // 생성자에서 JavaTimeModule 등록
+    public EmailVerificationRedisService(RedisTemplate<String, String> redisTemplate) {
+        this.redisTemplate = redisTemplate;
+        this.objectMapper = new ObjectMapper();
+        
+        // Java 8 시간 타입 지원 모듈 등록
+        this.objectMapper.registerModule(new JavaTimeModule());
+        
+        // 날짜를 타임스탬프가 아닌 ISO 8601 형식으로 저장
+        this.objectMapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
+    }
+}
+```
+
+#### 필요한 import
+```java
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import com.fasterxml.jackson.databind.SerializationFeature;
+```
+
+### 예방 방법
+- Java 8 시간 타입을 직렬화하는 모든 `ObjectMapper`에 `JavaTimeModule` 등록 필수
+- Spring Boot의 기본 `ObjectMapper`는 이미 등록되어 있지만, 커스텀 `ObjectMapper`는 수동 등록 필요
+
+### 관련 오류
+```
+com.fasterxml.jackson.databind.exc.InvalidDefinitionException: 
+Java 8 date/time type `java.time.LocalDateTime` not supported by default: 
+add Module "com.fasterxml.jackson.datatype:jackson-datatype-jsr310" to enable handling
+```
+**해결**: `objectMapper.registerModule(new JavaTimeModule())` 추가
+
+---
+
+## Gmail SMTP 인증 실패
+
+### 증상
+- 이메일 인증 메일 전송 시 500 Internal Server Error 발생
+- `Authentication failed: 535-5.7.8 Username and Password not accepted` 오류
+- Gmail SMTP 서버 연결은 되지만 인증 실패
+
+### 원인
+1. **잘못된 Gmail 계정 사용**: 등록된 계정과 다른 계정 사용
+2. **App Password 문제**: 
+   - App Password가 만료되었거나 잘못됨
+   - 2단계 인증이 활성화되지 않음
+   - App Password 생성 오류
+3. **환경 변수 설정 오류**: Docker 컨테이너에 잘못된 값 설정
+
+### 해결 방법
+
+#### 1. Gmail App Password 확인 및 생성
+1. Google 계정 보안 페이지 접속: https://myaccount.google.com/security
+2. **2단계 인증 활성화** (App Password 사용을 위해 필수)
+3. **App Password 생성**: https://myaccount.google.com/apppasswords
+   - "앱 선택" → "기타(사용자 지정 이름)" 선택
+   - 이름 입력: `DoranDoran SMTP`
+   - 생성된 16자리 비밀번호 복사 (공백 제거)
+
+#### 2. Docker 환경 변수 업데이트
+```bash
+docker stop dorandoran-auth
+docker rm dorandoran-auth
+
+docker run -d --name dorandoran-auth \
+  --network dorandoran-network \
+  -p 8081:8081 \
+  --restart=unless-stopped \
+  -e SPRING_PROFILES_ACTIVE=docker \
+  -e SPRING_MAIL_HOST='smtp.gmail.com' \
+  -e SPRING_MAIL_PORT='587' \
+  -e SPRING_MAIL_USERNAME='your-email@gmail.com' \
+  -e SPRING_MAIL_PASSWORD='your-app-password' \
+  # ... 기타 환경 변수
+  dorandoran-auth:latest
+```
+
+#### 3. 이메일 전송 실패 시 데이터 보존 (개선)
+```java
+// 이메일 전송 전에 Redis에 저장
+emailVerificationRedisService.saveVerificationRequest(email, token);
+
+try {
+    emailService.sendVerificationEmail(email, verifyLink);
+    return ResponseEntity.ok(ApiResponse.success("sent", "인증 메일이 발송되었습니다."));
+} catch (Exception e) {
+    // 이메일 전송 실패해도 Redis에는 저장되어 있으므로 재시도 가능
+    log.error("이메일 전송 실패 (Redis에는 저장됨): email={}, error={}", email, e.getMessage());
+    return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+            .body(ApiResponse.error("이메일 전송에 실패했습니다. 잠시 후 다시 시도해주세요.", ErrorCode.INTERNAL_SERVER_ERROR.getCode()));
+}
+```
+
+### 예방 방법
+1. **올바른 Gmail 계정 사용**: 실제 사용할 계정으로 App Password 생성
+2. **환경 변수 확인**: Docker 컨테이너 실행 전 환경 변수 값 확인
+3. **로깅 강화**: SMTP 인증 실패 시 상세한 로그 출력
+4. **오류 처리**: 이메일 전송 실패 시에도 Redis 데이터는 보존하여 재시도 가능
+
+### 관련 오류
+```
+jakarta.mail.AuthenticationFailedException: 535-5.7.8 Username and Password not accepted
+```
+**해결**: 
+1. Gmail App Password 확인 및 재생성
+2. Docker 환경 변수 업데이트
+3. 컨테이너 재시작
+
+---
+
 ## 추가 리소스
 
 - [Spring Boot 공식 문서](https://spring.io/projects/spring-boot)
 - [Hibernate 공식 문서](https://hibernate.org/orm/documentation/)
 - [Docker 공식 문서](https://docs.docker.com/)
 - [PostgreSQL 공식 문서](https://www.postgresql.org/docs/)
+- [Gmail App Password 가이드](https://support.google.com/accounts/answer/185833)

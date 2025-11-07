@@ -119,6 +119,7 @@ public class AuthService {
                 user.status(),
                 user.role(),
                 user.coachCheck(),
+                user.exitModalDoNotShowAgain(),
                 user.createdAt(),
                 user.updatedAt()
             );

@@ -33,12 +33,12 @@ scrape_configs:
       - targets: ['dorandoran-user:8082']
     scrape_interval: 5s
       
-  # Chat Service 모니터링 (Micrometer 설정 문제로 비활성화)
-  # - job_name: 'chat-service'
-  #   metrics_path: '/actuator/prometheus'
-  #   static_configs:
-  #     - targets: ['dorandoran-chat:8083']
-  #   scrape_interval: 5s
+  # Chat Service 모니터링
+  - job_name: 'chat-service'
+    metrics_path: '/actuator/prometheus'
+    static_configs:
+      - targets: ['dorandoran-chat:8083']
+    scrape_interval: 5s
       
   # Store Service 모니터링
   - job_name: 'store-service'

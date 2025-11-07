@@ -133,19 +133,17 @@ public class UserController {
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "잘못된 이메일 형식")
     })
     @GetMapping("/check-email/{email}")
-    public ResponseEntity<ApiResponse<Boolean>> checkEmailDuplicate(
+    public ResponseEntity<Boolean> checkEmailDuplicate(
             @Parameter(description = "확인할 이메일 주소", required = true)
             @PathVariable String email) {
         log.info("이메일 중복확인 요청: email={}", email);
         
         try {
             boolean isDuplicate = userService.isEmailDuplicate(email);
-            String message = isDuplicate ? "이미 사용 중인 이메일입니다." : "사용 가능한 이메일입니다.";
-            return ResponseEntity.ok(ApiResponse.success(isDuplicate, message));
+            return ResponseEntity.ok(isDuplicate);
         } catch (Exception e) {
             log.error("이메일 중복확인 실패: email={}, error={}", email, e.getMessage());
-            return ResponseEntity.badRequest()
-                    .body(ApiResponse.error("이메일 중복확인에 실패했습니다: " + e.getMessage()));
+            return ResponseEntity.badRequest().build();
         }
     }
     

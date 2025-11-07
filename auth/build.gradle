@@ -34,6 +34,10 @@ dependencies {
     
     // Redis (토큰 블랙리스트용)
     implementation 'org.springframework.boot:spring-boot-starter-data-redis'
+
+    // Mail (SMTP)
+    implementation 'org.springframework.boot:spring-boot-starter-mail'
+    implementation 'com.sun.mail:jakarta.mail:2.0.1'
     
     // 데이터베이스
     runtimeOnly 'org.postgresql:postgresql:42.7.4'
