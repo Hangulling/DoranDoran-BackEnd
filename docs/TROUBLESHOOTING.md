@@ -7,6 +7,9 @@
 4. [AI 프롬프트 파싱 오류](#ai-프롬프트-파싱-오류)
 5. [데이터베이스 연결 문제](#데이터베이스-연결-문제)
 6. [Docker 배포 문제](#docker-배포-문제)
+7. [이메일 인증 Redis 저장 시 LocalDateTime 직렬화 문제](#이메일-인증-redis-저장-시-localdatetime-직렬화-문제)
+8. [Gmail SMTP 인증 실패](#gmail-smtp-인증-실패)
+9. [Resilience4j Circuit Breaker 과도한 차단 문제](#resilience4j-circuit-breaker-과도한-차단-문제)
 
 ---
 
@@ -462,9 +465,258 @@ psql -h dorandoran-postgres.cpw00a6ga2uv.us-east-2.rds.amazonaws.com -U doran -d
 
 ---
 
+## 이메일 인증 Redis 저장 시 LocalDateTime 직렬화 문제
+
+### 증상
+- 이메일 인증 요청 시 500 Internal Server Error 발생
+- Redis에 인증 요청 정보 저장 실패
+- 로그에서 `InvalidDefinitionException: Java 8 date/time type LocalDateTime not supported` 오류
+
+### 원인
+- `ObjectMapper`에 `JavaTimeModule`이 등록되지 않음
+- `LocalDateTime` 필드를 가진 `VerificationData` 객체를 JSON으로 직렬화 시도 시 실패
+
+### 해결 방법
+
+#### ObjectMapper에 JavaTimeModule 등록
+```java
+// EmailVerificationRedisService.java
+@Service
+@Slf4j
+public class EmailVerificationRedisService {
+
+    private final RedisTemplate<String, String> redisTemplate;
+    private final ObjectMapper objectMapper;
+    
+    // 생성자에서 JavaTimeModule 등록
+    public EmailVerificationRedisService(RedisTemplate<String, String> redisTemplate) {
+        this.redisTemplate = redisTemplate;
+        this.objectMapper = new ObjectMapper();
+        
+        // Java 8 시간 타입 지원 모듈 등록
+        this.objectMapper.registerModule(new JavaTimeModule());
+        
+        // 날짜를 타임스탬프가 아닌 ISO 8601 형식으로 저장
+        this.objectMapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
+    }
+}
+```
+
+#### 필요한 import
+```java
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import com.fasterxml.jackson.databind.SerializationFeature;
+```
+
+### 예방 방법
+- Java 8 시간 타입을 직렬화하는 모든 `ObjectMapper`에 `JavaTimeModule` 등록 필수
+- Spring Boot의 기본 `ObjectMapper`는 이미 등록되어 있지만, 커스텀 `ObjectMapper`는 수동 등록 필요
+
+### 관련 오류
+```
+com.fasterxml.jackson.databind.exc.InvalidDefinitionException: 
+Java 8 date/time type `java.time.LocalDateTime` not supported by default: 
+add Module "com.fasterxml.jackson.datatype:jackson-datatype-jsr310" to enable handling
+```
+**해결**: `objectMapper.registerModule(new JavaTimeModule())` 추가
+
+---
+
+## Gmail SMTP 인증 실패
+
+### 증상
+- 이메일 인증 메일 전송 시 500 Internal Server Error 발생
+- `Authentication failed: 535-5.7.8 Username and Password not accepted` 오류
+- Gmail SMTP 서버 연결은 되지만 인증 실패
+
+### 원인
+1. **잘못된 Gmail 계정 사용**: 등록된 계정과 다른 계정 사용
+2. **App Password 문제**: 
+   - App Password가 만료되었거나 잘못됨
+   - 2단계 인증이 활성화되지 않음
+   - App Password 생성 오류
+3. **환경 변수 설정 오류**: Docker 컨테이너에 잘못된 값 설정
+
+### 해결 방법
+
+#### 1. Gmail App Password 확인 및 생성
+1. Google 계정 보안 페이지 접속: https://myaccount.google.com/security
+2. **2단계 인증 활성화** (App Password 사용을 위해 필수)
+3. **App Password 생성**: https://myaccount.google.com/apppasswords
+   - "앱 선택" → "기타(사용자 지정 이름)" 선택
+   - 이름 입력: `DoranDoran SMTP`
+   - 생성된 16자리 비밀번호 복사 (공백 제거)
+
+#### 2. Docker 환경 변수 업데이트
+```bash
+docker stop dorandoran-auth
+docker rm dorandoran-auth
+
+docker run -d --name dorandoran-auth \
+  --network dorandoran-network \
+  -p 8081:8081 \
+  --restart=unless-stopped \
+  -e SPRING_PROFILES_ACTIVE=docker \
+  -e SPRING_MAIL_HOST='smtp.gmail.com' \
+  -e SPRING_MAIL_PORT='587' \
+  -e SPRING_MAIL_USERNAME='your-email@gmail.com' \
+  -e SPRING_MAIL_PASSWORD='your-app-password' \
+  # ... 기타 환경 변수
+  dorandoran-auth:latest
+```
+
+#### 3. 이메일 전송 실패 시 데이터 보존 (개선)
+```java
+// 이메일 전송 전에 Redis에 저장
+emailVerificationRedisService.saveVerificationRequest(email, token);
+
+try {
+    emailService.sendVerificationEmail(email, verifyLink);
+    return ResponseEntity.ok(ApiResponse.success("sent", "인증 메일이 발송되었습니다."));
+} catch (Exception e) {
+    // 이메일 전송 실패해도 Redis에는 저장되어 있으므로 재시도 가능
+    log.error("이메일 전송 실패 (Redis에는 저장됨): email={}, error={}", email, e.getMessage());
+    return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+            .body(ApiResponse.error("이메일 전송에 실패했습니다. 잠시 후 다시 시도해주세요.", ErrorCode.INTERNAL_SERVER_ERROR.getCode()));
+}
+```
+
+### 예방 방법
+1. **올바른 Gmail 계정 사용**: 실제 사용할 계정으로 App Password 생성
+2. **환경 변수 확인**: Docker 컨테이너 실행 전 환경 변수 값 확인
+3. **로깅 강화**: SMTP 인증 실패 시 상세한 로그 출력
+4. **오류 처리**: 이메일 전송 실패 시에도 Redis 데이터는 보존하여 재시도 가능
+
+### 관련 오류
+```
+jakarta.mail.AuthenticationFailedException: 535-5.7.8 Username and Password not accepted
+```
+**해결**: 
+1. Gmail App Password 확인 및 재생성
+2. Docker 환경 변수 업데이트
+3. 컨테이너 재시작
+
+---
+
+## Resilience4j Circuit Breaker 과도한 차단 문제
+
+### 증상
+- 사용자 로그인 시 간헐적 실패 발생
+- `/api/auth/login`, `/api/auth/me` 엔드포인트에서 503 Service Unavailable 응답
+- 로그에서 `CircuitBreaker 'user-service' is OPEN and does not permit further calls` 오류
+- 정상 트래픽도 차단되어 서비스 이용 불가
+
+### 원인
+1. **Circuit Breaker 설정이 너무 엄격함**:
+   - `failure-rate-threshold: 50`: 낮은 임계값으로 일시적 오류에도 즉시 OPEN
+   - `sliding-window-size: 10`: 작은 표본 크기로 통계적 신뢰도 낮음
+   - `minimum-number-of-calls: 5`: 최소 호출 수가 적어 초기 트래픽에서 오탐지
+   - `wait-duration-in-open-state: 30s`: OPEN 상태가 너무 길어 복구 지연
+
+2. **스파이크성 오류에 과도하게 민감**: 짧은 시간 내 실패율 50% 초과 시 즉시 OPEN
+
+3. **외부 API(OpenAI) 타임아웃이 짧음**: 스트리밍 응답에 12초는 부족
+
+### 해결 방법
+
+#### 1. Auth 서비스 설정 완화
+```yaml
+# auth/src/main/resources/application-docker.yml
+resilience4j:
+  circuitbreaker:
+    instances:
+      user-service:
+        failure-rate-threshold: 70        # 50 → 70 (40% 완화)
+        wait-duration-in-open-state: 8s  # 30s → 8s (빠른 복구)
+        sliding-window-size: 50           # 10 → 50 (5배 증가)
+        minimum-number-of-calls: 20       # 5 → 20 (4배 증가)
+        permitted-number-of-calls-in-half-open-state: 5
+  retry:
+    instances:
+      user-service:
+        max-attempts: 2                   # 3 → 2
+        wait-duration: 300ms               # 1s → 300ms
+        exponential-backoff-multiplier: 1.8  # 2 → 1.8
+```
+
+#### 2. Chat 서비스 OpenAI 설정 완화
+```java
+// chat/src/main/java/com/dorandoran/chat/config/ResilienceConfig.java
+CircuitBreakerConfig.custom()
+    .failureRateThreshold(60)                    // 50 → 60
+    .waitDurationInOpenState(Duration.ofSeconds(10))  // 15s → 10s
+    .slidingWindowSize(30)                      // 20 → 30
+    .minimumNumberOfCalls(15)                   // 10 → 15
+    .build();
+
+TimeLimiterConfig.custom()
+    .timeoutDuration(Duration.ofSeconds(15))    // 12s → 15s
+    .build();
+```
+
+#### 3. Gateway GET 리트라이 추가
+```yaml
+# gateway/src/main/resources/application-docker.yml
+spring:
+  cloud:
+    gateway:
+      routes:
+        - id: auth-service
+          filters:
+            - name: Retry
+              args:
+                retries: 2
+                methods: GET
+                backoff:
+                  firstBackoff: 200ms
+                  factor: 1.5
+                  maxBackoff: 500ms
+```
+
+### 효과
+- ✅ 오탐지 대폭 감소 (실패율 임계값 50% → 70%)
+- ✅ 통계적 신뢰도 향상 (표본 크기 10 → 50)
+- ✅ 빠른 복구 (OPEN 상태 30s → 8s)
+- ✅ 초기 트래픽 오탐지 방지 (최소 호출 수 5 → 20)
+
+### 예방 방법
+1. **서비스 오픈 초기에는 관대한 설정 사용**: 
+   - `failure-rate-threshold: 70` 이상
+   - `sliding-window-size: 50` 이상
+   - `minimum-number-of-calls: 20` 이상
+
+2. **모니터링을 통한 점진적 조정**:
+   - Circuit Breaker 상태 전이 빈도 모니터링
+   - 실패율 추이 관찰
+   - 실제 장애 패턴 기반으로 설정값 조정
+
+3. **서비스 특성 고려**:
+   - 내부 서비스: 중간 수준의 관대함
+   - 외부 API: 더 관대한 설정 필요
+   - 핵심 경로: 빠른 복구 우선
+
+### 관련 오류
+```
+CircuitBreaker 'user-service' is OPEN and does not permit further calls
+```
+**해결**: 
+1. Circuit Breaker 설정 완화 (위 설정 참고)
+2. 서비스 재배포
+3. 모니터링을 통한 설정값 검증
+
+### 권장 모니터링 지표
+- Circuit Breaker 상태 전이 빈도 (OPEN → HALF_OPEN → CLOSED)
+- 실패율 추이 (실제 장애 vs 오탐지)
+- 재시도 성공률
+- 타임아웃 발생 빈도
+
+---
+
 ## 추가 리소스
 
 - [Spring Boot 공식 문서](https://spring.io/projects/spring-boot)
 - [Hibernate 공식 문서](https://hibernate.org/orm/documentation/)
 - [Docker 공식 문서](https://docs.docker.com/)
 - [PostgreSQL 공식 문서](https://www.postgresql.org/docs/)
+- [Gmail App Password 가이드](https://support.google.com/accounts/answer/185833)
+- [Resilience4j 공식 문서](https://resilience4j.readme.io/)

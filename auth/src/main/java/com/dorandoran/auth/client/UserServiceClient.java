@@ -6,6 +6,7 @@ import com.dorandoran.shared.dto.ResetPasswordRequest;
 import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestParam;
 
 /**
  * User Service Feign 클라이언트
@@ -53,4 +54,17 @@ public interface UserServiceClient {
      */
     @org.springframework.web.bind.annotation.PutMapping("/api/users/{userId}/password")
     void updatePassword(@PathVariable("userId") String userId, @org.springframework.web.bind.annotation.RequestBody String newPassword);
+
+    /**
+     * 사용자 상태 업데이트
+     */
+    @org.springframework.web.bind.annotation.PatchMapping("/api/users/{userId}/status")
+    com.dorandoran.shared.dto.UserDto updateStatus(@PathVariable("userId") String userId,
+                                                   @RequestParam("status") String status);
+    
+    /**
+     * 이메일 중복 확인
+     */
+    @GetMapping("/api/users/check-email/{email}")
+    boolean isEmailDuplicate(@PathVariable("email") String email);
 }

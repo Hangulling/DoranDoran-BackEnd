@@ -68,10 +68,12 @@ class AuthServiceTest {
                 "$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBOsl7iKTVEFDi", // bcrypt hash
                 "https://example.com/profile.jpg",
                 "Hello World",
+                null, // preferences
                 null, // lastConnTime
                 UserDto.UserStatus.ACTIVE,
                 UserDto.RoleName.ROLE_USER,
                 false, // coachCheck
+                false, // exitModalDoNotShowAgain
                 null, // createdAt
                 null  // updatedAt
         );
@@ -100,9 +102,9 @@ class AuthServiceTest {
         assertThat(response.getRefreshToken()).isEqualTo("refresh-token");
         assertThat(response.getTokenType()).isEqualTo("Bearer");
         assertThat(response.getExpiresIn()).isEqualTo(3600L);
-        assertThat(response.getUserId()).isEqualTo(userDto.id().toString());
-        assertThat(response.getEmail()).isEqualTo("test@example.com");
-        assertThat(response.getName()).isEqualTo("Test User");
+        assertThat(response.getUser().id()).isEqualTo(userDto.id().toString());
+        assertThat(response.getUser().email()).isEqualTo("test@example.com");
+        assertThat(response.getUser().name()).isEqualTo("Test User");
 
         verify(userIntegrationService, times(1)).getUserByEmail("test@example.com");
         verify(passwordEncoder, times(1)).matches("password123", userDto.passwordHash());
@@ -283,9 +285,9 @@ class AuthServiceTest {
         assertThat(response.getRefreshToken()).isEqualTo("new-refresh-token");
         assertThat(response.getTokenType()).isEqualTo("Bearer");
         assertThat(response.getExpiresIn()).isEqualTo(3600L);
-        assertThat(response.getUserId()).isEqualTo(userDto.id().toString());
-        assertThat(response.getEmail()).isEqualTo("test@example.com");
-        assertThat(response.getName()).isEqualTo("Test User");
+        assertThat(response.getUser().id()).isEqualTo(userDto.id().toString());
+        assertThat(response.getUser().email()).isEqualTo("test@example.com");
+        assertThat(response.getUser().name()).isEqualTo("Test User");
 
         verify(jwtService, times(1)).isTokenValid(refreshToken);
         verify(jwtService, times(1)).extractUserId(refreshToken);

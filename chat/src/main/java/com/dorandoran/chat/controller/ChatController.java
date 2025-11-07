@@ -66,7 +66,7 @@ public class ChatController {
         UUID userId = extractUserIdFromSecurityContext();
         if (userId == null) userId = request.getUserId();
         // 기존 채팅방이 있는지 확인
-        boolean isNewRoom = !chatRoomRepository.findByUserIdAndChatbotIdAndIsDeletedFalse(userId, request.getChatbotId()).isPresent();
+        boolean isNewRoom = !chatRoomRepository.findByUser_IdAndChatbot_IdAndIsDeletedFalse(userId, request.getChatbotId()).isPresent();
         
         ChatRoom room = chatService.getOrCreateRoom(
             userId, 
@@ -118,7 +118,7 @@ public class ChatController {
         if (uid == null) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(null);
         }
-        if (!chatRoomRepository.existsByUserIdAndIdAndIsDeletedFalse(uid, chatroomId)) {
+        if (!chatRoomRepository.existsByUser_IdAndIdAndIsDeletedFalse(uid, chatroomId)) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         }
         Pageable pageable = PageRequest.of(page, size);
@@ -153,7 +153,7 @@ public class ChatController {
         if (senderId == null) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(null);
         }
-        if (!chatRoomRepository.existsByUserIdAndIdAndIsDeletedFalse(senderId, chatroomId)) {
+        if (!chatRoomRepository.existsByUser_IdAndIdAndIsDeletedFalse(senderId, chatroomId)) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         }
         // senderType 검증: API 호출은 사용자 발신만 허용
@@ -456,7 +456,7 @@ public class ChatController {
         UUID uid = extractUserIdFromSecurityContext();
         if (uid == null) uid = request.getUserId();
         if (uid == null) return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
-        boolean isNewRoom = !chatRoomRepository.findByUserIdAndChatbotIdAndIsDeletedFalse(uid, request.getChatbotId()).isPresent();
+        boolean isNewRoom = !chatRoomRepository.findByUser_IdAndChatbot_IdAndIsDeletedFalse(uid, request.getChatbotId()).isPresent();
         ChatRoom room = chatService.getOrCreateRoom(uid, request.getChatbotId(), request.getName(), request.getConcept(), request.getIntimacyLevel());
         // AI 인사말 발송 (임시 주석처리)
         // if (isNewRoom) {
@@ -485,12 +485,44 @@ public class ChatController {
         UUID uid = extractUserIdFromSecurityContext();
         if (uid == null && userId != null) uid = userId;
         if (uid == null) return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
+        System.out.println("[DEBUG] getAllRooms uid=" + uid);
         List<ChatRoom> rooms = chatService.listRooms(uid);
+        System.out.println("[DEBUG] getAllRooms rooms.size=" + (rooms == null ? 0 : rooms.size()));
         List<ChatRoomResponse> response = rooms.stream()
             .limit(4)
             .map(this::toChatRoomResponse)
             .collect(Collectors.toList());
         return ResponseEntity.ok(response);
+    }
+
+    @Operation(summary = "챗봇별 마지막 상호작용 상위 N", description = "방 삭제 여부와 무관하게 사용자-챗봇별 마지막 대화 시간을 반환합니다.")
+    @GetMapping("/chatrooms/last-interactions")
+    public ResponseEntity<List<com.dorandoran.chat.service.dto.LastInteractionResponse>> getLastInteractions(
+            @RequestParam(required = false) UUID userId,
+            @RequestParam(defaultValue = "4") int limit) {
+        UUID uid = extractUserIdFromSecurityContext();
+        if (uid == null && userId != null) uid = userId;
+        if (uid == null) return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
+        if (limit <= 0) limit = 4;
+        var list = chatService.listLastInteractionsByChatbot(uid, limit);
+
+        // 시간대: KST(UTC+9)로 변환하여 응답
+        var kst = java.time.ZoneOffset.ofHours(9);
+        List<com.dorandoran.chat.service.dto.LastInteractionResponse> converted = new java.util.ArrayList<>();
+        for (var item : list) {
+            java.time.OffsetDateTime at = item.getLastInteractionAt();
+            if (at != null) {
+                item.setLastInteractionAt(at.withOffsetSameInstant(kst));
+            }
+            converted.add(item);
+        }
+
+        // 부족분은 빈 객체로 패딩 (예: [{},{},{},{}])
+        while (converted.size() < limit) {
+            converted.add(new com.dorandoran.chat.service.dto.LastInteractionResponse(null, null, null, null));
+        }
+
+        return ResponseEntity.ok(converted);
     }
 
 

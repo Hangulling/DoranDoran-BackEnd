@@ -57,6 +57,7 @@ public class JwtAuthFilter implements WebFilter {
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
             log.debug("Authorization 헤더가 없거나 형식이 잘못됨: path={}", path);
             exchange.getResponse().setStatusCode(HttpStatus.UNAUTHORIZED);
+            addCorsHeadersIfNeeded(exchange);
             return exchange.getResponse().setComplete();
         }
         
@@ -71,6 +72,7 @@ public class JwtAuthFilter implements WebFilter {
      * - Actuator: 모니터링 및 헬스체크
      * - 공개 API: 로그인, 토큰 갱신, 비밀번호 재설정, 헬스체크
      * - 회원가입: 사용자 등록 관련 API
+     * - 이메일 인증: 이메일 인증 관련 API (인증 없이 접근 가능)
      */
     private boolean isExcludedPath(String path) {
         return path.startsWith("/actuator") || 
@@ -79,6 +81,9 @@ public class JwtAuthFilter implements WebFilter {
                path.startsWith("/api/auth/refresh") ||
                path.startsWith("/api/auth/password/reset") ||
                path.startsWith("/api/auth/health") ||
+               path.startsWith("/api/auth/email/request-verification") ||
+               path.startsWith("/api/auth/email/verify") ||
+               path.startsWith("/api/auth/email/check") ||
                path.equals("/api/users") ||  // POST /api/users (회원가입) 제외
                path.startsWith("/api/users/register") ||
                path.startsWith("/api/users/health") ||
@@ -106,6 +111,7 @@ public class JwtAuthFilter implements WebFilter {
                 .onErrorResume(err -> {
                     log.debug("JWT 검증 실패: {}", err.getMessage());
                     exchange.getResponse().setStatusCode(HttpStatus.UNAUTHORIZED);
+                    addCorsHeadersIfNeeded(exchange);
                     return exchange.getResponse().setComplete();
                 });
     }
@@ -190,5 +196,63 @@ public class JwtAuthFilter implements WebFilter {
             result.append(String.format("%02x", b));
         }
         return result.toString();
+    }
+
+    /**
+     * CORS 헤더가 없을 때만 추가 (CorsWebFilter와의 중복 방지)
+     * setComplete() 호출 전에 사용하여 인증 실패 응답에도 CORS 헤더 포함
+     */
+    private void addCorsHeadersIfNeeded(ServerWebExchange exchange) {
+        HttpHeaders headers = exchange.getResponse().getHeaders();
+        
+        // 이미 CORS 헤더가 있으면 추가하지 않음 (CorsWebFilter가 이미 처리한 경우)
+        if (headers.containsKey(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN)) {
+            return;
+        }
+        
+        // Origin 헤더 확인
+        String origin = exchange.getRequest().getHeaders().getFirst(HttpHeaders.ORIGIN);
+        if (origin == null || !isAllowedOrigin(origin)) {
+            return;
+        }
+        
+        // CORS 헤더 추가
+        headers.add(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN, origin);
+        headers.add(HttpHeaders.ACCESS_CONTROL_ALLOW_CREDENTIALS, "true");
+        headers.add(HttpHeaders.ACCESS_CONTROL_ALLOW_METHODS, "*");
+        headers.add(HttpHeaders.ACCESS_CONTROL_ALLOW_HEADERS, "*");
+        headers.add(HttpHeaders.ACCESS_CONTROL_EXPOSE_HEADERS, "*");
+    }
+
+    /**
+     * 허용된 Origin인지 확인
+     * SecurityConfig의 CORS 설정과 동일한 Origin 목록 사용
+     */
+    private boolean isAllowedOrigin(String origin) {
+        // 로컬 개발 환경
+        if ("http://localhost:3000".equals(origin) ||
+            "http://localhost:3001".equals(origin) ||
+            "http://127.0.0.1:3000".equals(origin) ||
+            "http://127.0.0.1:3001".equals(origin)) {
+            return true;
+        }
+        
+        // 프로덕션 도메인
+        if ("https://doran-chat.com".equals(origin) ||
+            "https://www.doran-chat.com".equals(origin) ||
+            "https://doran-chat.vercel.app".equals(origin)) {
+            return true;
+        }
+        
+        // 와일드카드 도메인 패턴 매칭
+        if (origin.startsWith("https://") && origin.endsWith(".doran-chat.com")) {
+            return true;
+        }
+        
+        if (origin.startsWith("https://") && origin.endsWith(".vercel.app")) {
+            return true;
+        }
+        
+        return false;
     }
 }
