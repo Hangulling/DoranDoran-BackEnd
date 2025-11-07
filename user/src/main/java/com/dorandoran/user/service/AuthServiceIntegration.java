@@ -28,6 +28,7 @@ public class AuthServiceIntegration {
         try {
             String url = authServiceUrl + "/api/auth/email/check?email=" + 
                     java.net.URLEncoder.encode(email, java.nio.charset.StandardCharsets.UTF_8);
+            log.debug("Auth 서비스 호출 - 이메일 인증 확인: url={}", url);
             org.springframework.http.HttpHeaders headers = new org.springframework.http.HttpHeaders();
             org.springframework.http.HttpEntity<?> entity = new org.springframework.http.HttpEntity<>(headers);
             org.springframework.core.ParameterizedTypeReference<java.util.Map<String, Object>> responseType = 
@@ -35,22 +36,29 @@ public class AuthServiceIntegration {
             ResponseEntity<java.util.Map<String, Object>> response = restTemplate.exchange(
                     url, org.springframework.http.HttpMethod.GET, entity, responseType);
             
+            log.debug("Auth 서비스 응답 - status={}, body={}", response.getStatusCode(), response.getBody());
+            
             if (response.getStatusCode().is2xxSuccessful()) {
                 java.util.Map<String, Object> body = response.getBody();
                 if (body != null) {
                     Object dataObj = body.get("data");
+                    log.debug("Auth 서비스 응답 파싱 - data={}, data type={}", dataObj, dataObj != null ? dataObj.getClass() : null);
                     if (dataObj instanceof java.util.Map) {
                         java.util.Map<String, Object> data = (java.util.Map<String, Object>) dataObj;
                         Object verifiedObj = data.get("verified");
+                        log.debug("Auth 서비스 응답 파싱 - verified={}, verified type={}", verifiedObj, verifiedObj != null ? verifiedObj.getClass() : null);
                         if (verifiedObj instanceof Boolean) {
-                            return Boolean.TRUE.equals(verifiedObj);
+                            boolean result = Boolean.TRUE.equals(verifiedObj);
+                            log.info("이메일 인증 확인 결과: email={}, verified={}", email, result);
+                            return result;
                         }
                     }
                 }
             }
+            log.warn("이메일 인증 확인 실패 - 응답 파싱 불가: email={}, status={}, body={}", email, response.getStatusCode(), response.getBody());
             return false;
         } catch (Exception e) {
-            log.error("Auth 서비스 호출 실패 - 이메일 인증 확인: email={}, error={}", email, e.getMessage());
+            log.error("Auth 서비스 호출 실패 - 이메일 인증 확인: email={}, error={}", email, e.getMessage(), e);
             throw new RuntimeException("이메일 인증 확인에 실패했습니다.", e);
         }
     }

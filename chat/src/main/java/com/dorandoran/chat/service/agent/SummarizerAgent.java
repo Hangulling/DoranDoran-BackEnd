@@ -9,6 +9,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Schedulers;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -42,11 +44,17 @@ public class SummarizerAgent {
 
             StringBuilder full = new StringBuilder();
             Flux<String> raw = openAIClient.streamRawCompletion(system, user);
-            String fullResponse = raw.flatMap(openAIClient::extractText)
-               .doOnNext(full::append)
-               .collectList()
-               .map(list -> String.join("", list))
-               .block();
+            // blocking 호출을 별도 스레드에서 실행하여 Reactor 체인과 분리
+            // boundedElastic 스케줄러는 blocking 작업에 최적화된 스레드 풀을 제공
+            String fullResponse = Mono.fromCallable(() -> {
+                    return raw.flatMap(openAIClient::extractText)
+                        .doOnNext(full::append)
+                        .collectList()
+                        .map(list -> String.join("", list))
+                        .block();
+                })
+                .subscribeOn(Schedulers.boundedElastic())
+                .block();
 
             // 토큰 수 추정 (대략적)
             inputTokens = estimateTokens(system + user);

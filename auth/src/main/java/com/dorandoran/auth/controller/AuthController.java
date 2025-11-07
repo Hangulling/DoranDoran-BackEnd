@@ -198,7 +198,9 @@ public class AuthController {
     @PostMapping("/email/request-verification")
     public ResponseEntity<ApiResponse<String>> requestEmailVerification(@RequestBody java.util.Map<String, String> request) {
         String email = request != null ? request.get("email") : null;
-        log.info("이메일 인증 요청: email={}, request={}", email, request);        
+        String firstName = request != null ? request.get("firstName") : null;
+        String lastName = request != null ? request.get("lastName") : null;
+        log.info("이메일 인증 요청: email={}, firstName={}, lastName={}", email, firstName, lastName);        
         try {
             // 1. 이메일 중복 확인
             boolean isDuplicate = userIntegrationService.isEmailDuplicate(email);
@@ -214,10 +216,18 @@ public class AuthController {
             emailVerificationRedisService.saveVerificationRequest(email, token);
             log.info("Redis에 이메일 인증 요청 저장 완료: email={}", email);
             
-            // 4. 이메일 발송
+            // 4. 이메일 발송 - 인증 링크에 firstName, lastName 포함
             String verifyLink = backendUrl + "/api/auth/email/verify?token=" + 
                     java.net.URLEncoder.encode(token, java.nio.charset.StandardCharsets.UTF_8) +
                     "&email=" + java.net.URLEncoder.encode(email, java.nio.charset.StandardCharsets.UTF_8);
+            
+            // firstName, lastName이 있으면 쿼리 파라미터에 추가
+            if (firstName != null && !firstName.trim().isEmpty()) {
+                verifyLink += "&firstName=" + java.net.URLEncoder.encode(firstName, java.nio.charset.StandardCharsets.UTF_8);
+            }
+            if (lastName != null && !lastName.trim().isEmpty()) {
+                verifyLink += "&lastName=" + java.net.URLEncoder.encode(lastName, java.nio.charset.StandardCharsets.UTF_8);
+            }
             
             try {
                 emailService.sendVerificationEmail(email, verifyLink);
@@ -241,38 +251,94 @@ public class AuthController {
     
     /**
      * 이메일 인증 링크 검증 및 완료 처리
+     * HTML 페이지를 반환하여 같은 창에서 리디렉션되도록 처리
      */
     @GetMapping("/email/verify")
     public void verifyEmail(
             @RequestParam("token") String token,
             @RequestParam("email") String email,
+            @RequestParam(value = "firstName", required = false) String firstName,
+            @RequestParam(value = "lastName", required = false) String lastName,
             jakarta.servlet.http.HttpServletResponse response) throws java.io.IOException {
-        log.info("이메일 인증 검증 API 호출: email={}", email);
+        log.info("이메일 인증 검증 API 호출: email={}, firstName={}, lastName={}", email, firstName, lastName);
+        
+        response.setContentType("text/html;charset=UTF-8");
+        response.setCharacterEncoding("UTF-8");
         
         try {
             // 1. 토큰 검증
             if (!emailVerificationRedisService.verifyToken(email, token)) {
                 log.warn("토큰 검증 실패: email={}", email);
-                response.sendRedirect(frontendUrl + "/signup?email=" + 
+                String errorMsg = java.net.URLEncoder.encode("인증 링크가 유효하지 않거나 만료되었습니다.", java.nio.charset.StandardCharsets.UTF_8);
+                String redirectUrl = frontendUrl + "/signup?email=" + 
                         java.net.URLEncoder.encode(email, java.nio.charset.StandardCharsets.UTF_8) +
-                        "&verified=false&error=" + java.net.URLEncoder.encode("인증 링크가 유효하지 않거나 만료되었습니다.", java.nio.charset.StandardCharsets.UTF_8));
+                        "&verified=false&error=" + errorMsg;
+                // firstName, lastName이 있으면 리디렉션 URL에 포함
+                if (firstName != null && !firstName.trim().isEmpty()) {
+                    redirectUrl += "&firstName=" + java.net.URLEncoder.encode(firstName, java.nio.charset.StandardCharsets.UTF_8);
+                }
+                if (lastName != null && !lastName.trim().isEmpty()) {
+                    redirectUrl += "&lastName=" + java.net.URLEncoder.encode(lastName, java.nio.charset.StandardCharsets.UTF_8);
+                }
+                writeRedirectHtml(response, redirectUrl, "인증 실패");
                 return;
             }
             
             // 2. Redis에서 인증 완료 처리
             emailVerificationRedisService.markEmailVerified(email);
             
-            // 3. 프론트엔드 SignupPage로 리다이렉트
+            // 3. 프론트엔드 SignupPage로 리다이렉트 (같은 창에서) - firstName, lastName 포함
             log.info("이메일 인증 완료: email={}", email);
-            response.sendRedirect(frontendUrl + "/signup?email=" + 
+            String redirectUrl = frontendUrl + "/signup?email=" + 
                     java.net.URLEncoder.encode(email, java.nio.charset.StandardCharsets.UTF_8) +
-                    "&verified=true");
+                    "&verified=true";
+            // firstName, lastName이 있으면 리디렉션 URL에 포함
+            if (firstName != null && !firstName.trim().isEmpty()) {
+                redirectUrl += "&firstName=" + java.net.URLEncoder.encode(firstName, java.nio.charset.StandardCharsets.UTF_8);
+            }
+            if (lastName != null && !lastName.trim().isEmpty()) {
+                redirectUrl += "&lastName=" + java.net.URLEncoder.encode(lastName, java.nio.charset.StandardCharsets.UTF_8);
+            }
+            writeRedirectHtml(response, redirectUrl, "인증 완료");
         } catch (Exception e) {
             log.error("이메일 인증 처리 중 오류", e);
-            response.sendRedirect(frontendUrl + "/signup?email=" + 
+            String errorMsg = java.net.URLEncoder.encode("이메일 인증 처리 중 오류가 발생했습니다.", java.nio.charset.StandardCharsets.UTF_8);
+            String redirectUrl = frontendUrl + "/signup?email=" + 
                     java.net.URLEncoder.encode(email, java.nio.charset.StandardCharsets.UTF_8) +
-                    "&verified=false&error=" + java.net.URLEncoder.encode("이메일 인증 처리 중 오류가 발생했습니다.", java.nio.charset.StandardCharsets.UTF_8));
+                    "&verified=false&error=" + errorMsg;
+            // firstName, lastName이 있으면 리디렉션 URL에 포함
+            if (firstName != null && !firstName.trim().isEmpty()) {
+                redirectUrl += "&firstName=" + java.net.URLEncoder.encode(firstName, java.nio.charset.StandardCharsets.UTF_8);
+            }
+            if (lastName != null && !lastName.trim().isEmpty()) {
+                redirectUrl += "&lastName=" + java.net.URLEncoder.encode(lastName, java.nio.charset.StandardCharsets.UTF_8);
+            }
+            writeRedirectHtml(response, redirectUrl, "인증 오류");
         }
+    }
+    
+    /**
+     * HTML 페이지를 작성하여 같은 창에서 리디렉션
+     */
+    private void writeRedirectHtml(jakarta.servlet.http.HttpServletResponse response, String redirectUrl, String title) throws java.io.IOException {
+        java.io.PrintWriter writer = response.getWriter();
+        writer.write("<!DOCTYPE html>\n");
+        writer.write("<html lang=\"ko\">\n");
+        writer.write("<head>\n");
+        writer.write("    <meta charset=\"UTF-8\">\n");
+        writer.write("    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n");
+        writer.write("    <title>" + title + "</title>\n");
+        writer.write("    <script>\n");
+        writer.write("        // 같은 창에서 리디렉션\n");
+        writer.write("        window.location.href = '" + redirectUrl.replace("'", "\\'") + "';\n");
+        writer.write("    </script>\n");
+        writer.write("</head>\n");
+        writer.write("<body>\n");
+        writer.write("    <p>리디렉션 중...</p>\n");
+        writer.write("    <p>자동으로 이동하지 않으면 <a href=\"" + redirectUrl.replace("\"", "&quot;") + "\">여기를 클릭하세요</a>.</p>\n");
+        writer.write("</body>\n");
+        writer.write("</html>");
+        writer.flush();
     }
     
     /**
@@ -280,10 +346,17 @@ public class AuthController {
      */
     @GetMapping("/email/check")
     public ResponseEntity<ApiResponse<java.util.Map<String, Boolean>>> checkEmailVerified(@RequestParam("email") String email) {
-        log.info("이메일 인증 완료 여부 확인: email={}", email);
+        // URL 디코딩 처리 (Spring이 자동 디코딩하지 않는 경우 대비)
+        String decodedEmail = email;
+        try {
+            decodedEmail = java.net.URLDecoder.decode(email, java.nio.charset.StandardCharsets.UTF_8);
+        } catch (Exception e) {
+            log.warn("이메일 URL 디코딩 실패, 원본 사용: email={}", email);
+        }
+        log.info("이메일 인증 완료 여부 확인: email={}, decodedEmail={}", email, decodedEmail);
         
         try {
-            boolean verified = emailVerificationRedisService.isEmailVerified(email);
+            boolean verified = emailVerificationRedisService.isEmailVerified(decodedEmail);
             java.util.Map<String, Boolean> result = new java.util.HashMap<>();
             result.put("verified", verified);
             

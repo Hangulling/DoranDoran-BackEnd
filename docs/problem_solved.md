@@ -549,3 +549,214 @@ public ResponseEntity<ApiResponse<String>> requestEmailVerification(@RequestBody
 - `auth/src/main/java/com/dorandoran/auth/service/EmailVerificationRedisService.java`
 - `auth/src/main/java/com/dorandoran/auth/controller/AuthController.java`
 - `auth/src/main/java/com/dorandoran/auth/service/EmailService.java`
+
+---
+
+## 2025-11-03: Resilience4j Circuit Breaker 과도한 차단 문제 해결
+
+### 문제 발생 일시
+2025-11-03
+
+### 문제 상황
+- 사용자 로그인 시 간헐적으로 실패 발생
+- Circuit Breaker가 OPEN 상태로 전이되어 정상 트래픽도 차단
+- 로그에서 `CircuitBreaker 'user-service' is OPEN and does not permit further calls` 오류 발생
+- `/api/auth/login`, `/api/auth/me` 엔드포인트에서 503 Service Unavailable 응답
+
+### 문제 원인 분석
+
+#### 1. Circuit Breaker 설정이 너무 엄격함
+**기존 설정 (Auth → User 서비스)**:
+```yaml
+resilience4j:
+  circuitbreaker:
+    instances:
+      user-service:
+        failure-rate-threshold: 50        # 실패율 50% 이상 시 OPEN
+        wait-duration-in-open-state: 30s  # 30초 동안 OPEN 상태 유지
+        sliding-window-size: 10          # 최근 10개 호출 기준
+        minimum-number-of-calls: 5        # 최소 5회 호출 후 평가
+        permitted-number-of-calls-in-half-open-state: 3
+  retry:
+    instances:
+      user-service:
+        max-attempts: 3                  # 최대 3회 재시도
+        wait-duration: 1s                 # 1초 대기
+        exponential-backoff-multiplier: 2
+```
+
+**문제점**:
+- `failure-rate-threshold: 50`: 낮은 임계값으로 인해 일시적 오류에도 즉시 OPEN
+- `sliding-window-size: 10`: 작은 표본 크기로 통계적 신뢰도 낮음
+- `minimum-number-of-calls: 5`: 최소 호출 수가 적어 초기 트래픽에서 오탐지 가능
+- `wait-duration-in-open-state: 30s`: OPEN 상태가 너무 길어 복구 지연
+
+#### 2. 스파이크성 오류에 과도하게 민감
+- 사용자 서비스의 일시적 지연이나 네트워크 문제 발생 시
+- 짧은 시간 내 실패율이 50%를 초과하면 즉시 OPEN
+- 정상 트래픽까지 차단되어 사용자 경험 저하
+
+#### 3. Chat 서비스의 OpenAI 통신 설정도 엄격함
+**기존 설정 (Chat → OpenAI)**:
+```java
+CircuitBreakerConfig.custom()
+    .failureRateThreshold(50)
+    .waitDurationInOpenState(Duration.ofSeconds(15))
+    .slidingWindowSize(20)
+    .minimumNumberOfCalls(10)
+    .timeoutDuration(Duration.ofSeconds(12))  // 타임아웃이 짧음
+```
+
+**문제점**:
+- OpenAI API는 외부 서비스로 일시적 지연이 자주 발생
+- 타임아웃 12초는 스트리밍 응답에서 부족할 수 있음
+- 실패율 임계값이 낮아 정상적인 응답 지연도 오탐지 가능
+
+### 해결 과정
+
+#### 1단계: 문제 상황 분석 및 관대한 설정 검토
+- 60~70 동시 사용자 기준으로 최적 설정 검토
+- 서비스 오픈 초기에는 더 관대한 설정 필요
+- 실제 장애 패턴 관찰 후 점진적 조정 계획 수립
+
+#### 2단계: Auth 서비스 Circuit Breaker 설정 완화
+**변경된 설정**:
+```yaml
+resilience4j:
+  circuitbreaker:
+    instances:
+      user-service:
+        failure-rate-threshold: 70        # 50 → 70 (40% 완화)
+        wait-duration-in-open-state: 8s   # 30s → 8s (빠른 복구)
+        sliding-window-size: 50            # 10 → 50 (5배 증가)
+        minimum-number-of-calls: 20        # 5 → 20 (4배 증가)
+        permitted-number-of-calls-in-half-open-state: 5  # 3 → 5
+  retry:
+    instances:
+      user-service:
+        max-attempts: 2                   # 3 → 2 (재시도 감소)
+        wait-duration: 300ms              # 1s → 300ms (빠른 재시도)
+        exponential-backoff-multiplier: 1.8  # 2 → 1.8 (덜 공격적)
+  timelimiter:
+    instances:
+      user-service:
+        timeout-duration: 5s               # 유지
+```
+
+**효과**:
+- 실패율 70% 이상일 때만 OPEN → 오탐지 감소
+- 최근 50개 호출 기준 → 통계적 신뢰도 향상
+- 최소 20회 호출 후 평가 → 초기 트래픽에서 오탐지 방지
+- OPEN 상태 8초 → 빠른 복구 시도
+
+#### 3단계: Chat 서비스 OpenAI 설정 완화
+**변경된 설정**:
+```java
+CircuitBreakerConfig.custom()
+    .failureRateThreshold(60)                    // 50 → 60
+    .waitDurationInOpenState(Duration.ofSeconds(10))  // 15s → 10s
+    .slidingWindowSize(30)                      // 20 → 30
+    .minimumNumberOfCalls(15)                  // 10 → 15
+    .permittedNumberOfCallsInHalfOpenState(3)
+    .build();
+
+TimeLimiterConfig.custom()
+    .timeoutDuration(Duration.ofSeconds(15))    // 12s → 15s
+    .build();
+```
+
+**효과**:
+- 실패율 60% 이상일 때만 OPEN → 외부 API 지연에 더 관대
+- 타임아웃 15초로 증가 → 스트리밍 응답 여유 확보
+- 더 많은 표본 수로 통계적 신뢰도 향상
+
+#### 4단계: Gateway 서비스에 GET 리트라이 추가
+**추가된 설정**:
+```yaml
+spring:
+  cloud:
+    gateway:
+      routes:
+        - id: auth-service
+          filters:
+            - name: Retry
+              args:
+                retries: 2
+                methods: GET
+                backoff:
+                  firstBackoff: 200ms
+                  factor: 1.5
+                  maxBackoff: 500ms
+        - id: user-service
+          filters:
+            - name: Retry
+              args:
+                retries: 2
+                methods: GET
+                backoff:
+                  firstBackoff: 200ms
+                  factor: 1.5
+                  maxBackoff: 500ms
+```
+
+**효과**:
+- 간헐적 네트워크 문제에 대해 GET 요청만 자동 재시도
+- POST/PUT 등 멱등성이 없는 메서드는 재시도하지 않아 안전성 보장
+
+### 해결 원리
+
+#### 1. 오탐지 감소
+- **더 높은 실패율 임계값**: 50% → 70%로 증가하여 일시적 오류에 덜 민감
+- **더 큰 표본 크기**: 10 → 50으로 증가하여 통계적 신뢰도 향상
+- **더 많은 최소 호출 수**: 5 → 20으로 증가하여 초기 트래픽에서 오탐지 방지
+
+#### 2. 빠른 복구
+- **짧은 OPEN 상태 지속 시간**: 30s → 8s로 감소하여 빠른 복구 시도
+- **HALF_OPEN 상태에서 더 많은 테스트**: 3 → 5로 증가하여 복구 신뢰도 향상
+
+#### 3. 과도한 재시도 방지
+- **재시도 횟수 감소**: 3회 → 2회로 감소하여 부하 완화
+- **재시도 대기 시간 단축**: 1s → 300ms로 감소하여 빠른 응답
+- **덜 공격적인 백오프**: multiplier 2.0 → 1.8로 조정
+
+### 결과
+
+#### 해결 전
+- 사용자 로그인 시 간헐적 실패 발생
+- Circuit Breaker가 자주 OPEN 상태로 전이
+- 정상 트래픽도 차단되어 503 에러 발생
+- 사용자 경험 저하
+
+#### 해결 후
+- ✅ Circuit Breaker 오탐지 대폭 감소
+- ✅ 정상 트래픽 차단 최소화
+- ✅ 빠른 복구로 서비스 가용성 향상
+- ✅ 재시도 로직 최적화로 부하 완화
+
+### 교훈
+
+1. **서비스 오픈 초기 설정 전략**: 보수적인(엄격한) 설정보다 관대한 설정으로 시작
+2. **통계적 신뢰도**: 작은 표본 크기는 오탐지를 유발할 수 있음
+3. **점진적 조정**: 실제 장애 패턴을 관찰한 후 설정값을 점진적으로 조정
+4. **모니터링의 중요성**: Circuit Breaker 상태 전이를 모니터링하여 설정값 검증
+5. **서비스 특성 고려**: 외부 API(OpenAI)는 내부 서비스보다 더 관대한 설정 필요
+
+### 권장 사항
+
+#### 서비스 오픈 초기 권장 설정 (60~70 동시 사용자 기준)
+- `failure-rate-threshold`: 70 (일시적 오류에 덜 민감)
+- `sliding-window-size`: 50 이상 (충분한 표본)
+- `minimum-number-of-calls`: 20 이상 (초기 오탐지 방지)
+- `wait-duration-in-open-state`: 8~10s (빠른 복구)
+- `max-attempts`: 2회 (과도한 재시도 방지)
+
+#### 모니터링 지표
+- Circuit Breaker 상태 전이 빈도 (OPEN → HALF_OPEN → CLOSED)
+- 실패율 추이 (실제 장애 vs 오탐지)
+- 재시도 성공률
+- 타임아웃 발생 빈도
+
+### 관련 파일
+- `auth/src/main/resources/application-docker.yml`
+- `chat/src/main/java/com/dorandoran/chat/config/ResilienceConfig.java`
+- `gateway/src/main/resources/application-docker.yml`

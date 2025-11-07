@@ -19,7 +19,7 @@ spring:
   # Redis 설정
   data:
     redis:
-      host: ${SPRING_REDIS_HOST:redis}
+      host: ${SPRING_REDIS_HOST:dorandoran-redis}
       port: ${SPRING_REDIS_PORT:6379}
       timeout: 2000ms
       lettuce:
@@ -32,7 +32,15 @@ spring:
     gateway:
       httpclient:
         connect-timeout: 45000  # 연결 타임아웃 (45초)
-        response-timeout: 300s  # 응답 타임아웃 (SSE용 10분)
+        response-timeout: 600s  # 응답 타임아웃 (SSE용 10분)
+        pool:
+          type: ELASTIC
+          max-connections: 500
+          max-idle-time: 30s
+        # Netty 타임아웃 설정 (SSE용)
+        options:
+          SO_KEEPALIVE: true
+          TCP_NODELAY: true
       routes:
         # Auth 서비스 라우팅
         - id: auth-service
@@ -41,13 +49,31 @@ spring:
             - Path=/api/auth/**
           filters:
             - RewritePath=/api/auth/(?<segment>.*), /api/auth/$\{segment}
+            - name: Retry
+              args:
+                retries: 2
+                methods: GET
+                backoff:
+                  firstBackoff: 200ms
+                  factor: 2
+                  maxBackoff: 500ms
+                  basedOnPreviousValue: true
         
         # User 서비스 라우팅
         - id: user-service
           uri: http://dorandoran-user:8082
           predicates:
             - Path=/api/users/**
-          filters: []
+          filters:
+            - name: Retry
+              args:
+                retries: 2
+                methods: GET
+                backoff:
+                  firstBackoff: 200ms
+                  factor: 2
+                  maxBackoff: 500ms
+                  basedOnPreviousValue: true
         
         # Chat 서비스 라우팅
         - id: chat-service

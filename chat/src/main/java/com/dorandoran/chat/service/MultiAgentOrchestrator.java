@@ -12,6 +12,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Schedulers;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -185,21 +186,32 @@ public class MultiAgentOrchestrator {
                 // === 후처리: 요약/키워드 생성 및 progress_data 병합 저장 ===
                 try {
                     // 이전 요약(compact) 추출
-                    String previousSummaryCompact = null;
                     IntimacyProgress progress = intimacyProgressRepository.findByChatRoomId(chatroomId).orElse(null);
                     ObjectMapper mapper = new ObjectMapper();
+                    final String previousSummaryCompact; // final로 선언하여 lambda에서 사용 가능하도록
                     if (progress != null && progress.getProgressData() != null && !progress.getProgressData().isBlank()) {
                         ObjectNode rootPrev = (ObjectNode) mapper.readTree(progress.getProgressData());
                         if (rootPrev.has("summaryHistory") && rootPrev.get("summaryHistory").isArray() && rootPrev.get("summaryHistory").size() > 0) {
                             JsonNode last = rootPrev.get("summaryHistory").get(rootPrev.get("summaryHistory").size() - 1);
                             if (last.has("summary")) {
                                 previousSummaryCompact = last.get("summary").toString();
+                            } else {
+                                previousSummaryCompact = null;
                             }
+                        } else {
+                            previousSummaryCompact = null;
                         }
+                    } else {
+                        previousSummaryCompact = null;
                     }
 
                     // Summarizer 실행 (최근 K=20)
-                    SummarizerAgent.SummaryResult sr = summarizerAgent.summarize(chatroomId, 20, previousSummaryCompact);
+                    // blocking 호출을 별도 스레드에서 실행하여 Reactor 체인과 분리
+                    SummarizerAgent.SummaryResult sr = Mono.fromCallable(() -> 
+                            summarizerAgent.summarize(chatroomId, 20, previousSummaryCompact)
+                        )
+                        .subscribeOn(Schedulers.boundedElastic())
+                        .block();
 
                     // progress_data 병합
                     ObjectNode root = (progress != null && progress.getProgressData() != null && !progress.getProgressData().isBlank())

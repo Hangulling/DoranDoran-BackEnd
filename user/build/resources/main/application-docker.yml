@@ -15,13 +15,13 @@ spring:
   
   # User 서비스 공유 데이터베이스 설정
   datasource:
-    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://shared-db:5432/dorandoran}
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://dorandoran-shared-db:5432/dorandoran}
     username: ${SPRING_DATASOURCE_USERNAME:doran}
     password: ${SPRING_DATASOURCE_PASSWORD:doran}
     driver-class-name: org.postgresql.Driver
     hikari:
-      maximum-pool-size: 10
-      minimum-idle: 5
+      maximum-pool-size: 30
+      minimum-idle: 15
       connection-timeout: 30000
       idle-timeout: 600000
       max-lifetime: 1800000
@@ -47,7 +47,7 @@ spring:
   # Redis 설정 (Docker 프로필)
   data:
     redis:
-      host: ${SPRING_REDIS_HOST:redis}
+      host: ${SPRING_REDIS_HOST:dorandoran-redis}
       port: ${SPRING_REDIS_PORT:6379}
       timeout: 2000ms
       lettuce:
