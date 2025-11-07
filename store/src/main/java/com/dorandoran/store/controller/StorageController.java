@@ -165,6 +165,46 @@ public class StorageController {
   }
 
   /**
+   * 챗봇 타입별 보관함 조회 (Cursor 기반 - 무한스크롤용)
+   */
+  @GetMapping("/bot-type/{botType}/cursor")
+  @Operation(summary = "챗봇 타입별 보관함 조회 (Cursor 페이징)", description = "특정 챗봇 타입의 보관함을 Cursor 기반으로 조회 (무한스크롤)")
+  public ResponseEntity<Page<StorageListResponse>> getBookmarksByBotTypeWithCursor(
+      @Parameter(description = "사용자 ID", required = true)
+      @RequestHeader(value = "X-User-Id", required = false) String userIdHeader,
+
+      @Parameter(description = "챗봇 타입 (friend, honey, coworker, senior)", required = true)
+      @PathVariable String botType,
+
+      @Parameter(description = "마지막 조회 ID (null이면 처음부터)")
+      @RequestParam(required = false) UUID lastId,
+
+      @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC)
+      Pageable pageable) {
+
+    UUID userId = parseUserIdHeader(userIdHeader);
+    if (userId == null) {
+      log.warn("X-User-Id header is missing or invalid");
+      return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
+    }
+
+    log.info("GET /api/store/bookmarks/bot-type/{}/cursor - userId: {}, lastId: {}",
+        botType, userId, lastId);
+
+    // botType 유효성 검증
+    if (!botType.matches("^(friend|honey|coworker|senior)$")) {
+      log.warn("유효하지 않은 botType: {}", botType);
+      return ResponseEntity.badRequest().build();
+    }
+
+    // StorageService의 Cursor 기반 메서드 호출
+    Page<StorageListResponse> response = storageService.getBookmarksByBotTypeWithCursor(
+        userId, botType, lastId, pageable);
+
+    return ResponseEntity.ok(response);
+  }
+
+  /**
    * 보관함 삭제
    */
   @DeleteMapping("/{bookmarkId}")
