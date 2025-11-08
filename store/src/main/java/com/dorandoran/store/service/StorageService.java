@@ -11,6 +11,9 @@ import com.dorandoran.store.exception.DuplicateBookmarkException;
 import com.dorandoran.store.exception.UnauthorizedAccessException;
 import com.dorandoran.store.repository.StoreRepository;
 import com.dorandoran.store.util.BotTypeMapper;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import feign.FeignException;
 import java.time.Duration;
 import lombok.RequiredArgsConstructor;
@@ -36,11 +39,12 @@ import java.util.stream.Collectors;
 public class StorageService {
 
   private final StoreRepository storeRepository;
-  private final ChatServiceClient chatServiceClient;  // 채팅방 정보 획득
+//  private final ChatServiceClient chatServiceClient;  // 채팅방 정보 획득 - 미사용
   private final RedisTemplate<String, String> redisTemplate;  // Redis 캐싱용
+  private final ObjectMapper objectMapper;  //JSON 직렬화/역직렬화용
 
-  // Redis 캐시 키 접두사
-  private static final String CHATROOM_NAME_PREFIX = "chatroom:name:";
+  // 캐시 키 접두사
+  private static final String BOOKMARKS_BY_BOTTYPE_PREFIX = "storage:bookmarks:";
   // 캐시 TTL: 10분
   private static final Duration CACHE_TTL = Duration.ofMinutes(10);
 
@@ -84,6 +88,9 @@ public class StorageService {
 
     Store saved = storeRepository.save(store);
     log.info("표현 보관 완료: storeId={}", saved.getId());
+
+//    캐시 무효화
+    invalidateBookmarkCache(userId, botType);
 
     return BookmarkResponse.from(saved, "표현이 보관함에 저장되었습니다");
   }
@@ -133,8 +140,9 @@ public class StorageService {
       log.info("해당 채팅방의 보관함이 비어있음: chatroomId={}", chatroomId);
     }
 
-    // 방별 조회는 같은 채팅방이므로 한 번만 조회 - 캐시 사용
-    String chatroomName = getChatroomNameWithCache(chatroomId, userId);
+    // 방별 조회는 같은 채팅방이므로 첫 번째 store의 botType 사용
+    String chatroomName = stores.isEmpty() ? "Unknown"
+        : BotTypeMapper.getChatroomName(stores.get(0).getBotType());
 
     final String finalChatroomName = chatroomName;
     return stores.stream()
@@ -157,8 +165,9 @@ public class StorageService {
     Page<Store> stores = storeRepository
         .findByUserIdAndChatroomIdAndIsDeletedFalseOrderByCreatedAtDesc(userId, chatroomId, pageable);
 
-    // 방별 조회는 같은 채팅방이므로 한 번만 조회
-    String chatroomName = getChatroomNameWithCache(chatroomId, userId);
+    // 방별 조회는 같은 채팅방이므로 첫 번째 store의 botType 사용
+    String chatroomName = stores.isEmpty() ? "Unknown"
+        : BotTypeMapper.getChatroomName(stores.getContent().get(0).getBotType());
 
     final String finalChatroomName = chatroomName;
     return stores.map(store -> {
@@ -175,6 +184,26 @@ public class StorageService {
   public List<StorageListResponse> getBookmarksByBotType(UUID userId, String botType) {
     log.info("챗봇 타입별 보관함 조회: userId={}, botType={}", userId, botType);
 
+    // ✅ 1. Redis 캐시에서 먼저 조회
+    String cacheKey = buildCacheKey(userId, botType);
+    try {
+      String cachedData = redisTemplate.opsForValue().get(cacheKey);
+
+      if (cachedData != null) {
+        log.info("✅ Cache HIT: userId={}, botType={}", userId, botType);
+        List<StorageListResponse> cachedBookmarks = objectMapper.readValue(
+            cachedData,
+            new TypeReference<List<StorageListResponse>>() {}
+        );
+        return cachedBookmarks;
+      }
+
+      log.info("❌ Cache MISS: userId={}, botType={}", userId, botType);
+    } catch (JsonProcessingException e) {
+      log.error("캐시 역직렬화 실패: userId={}, botType={}", userId, botType, e);
+    }
+
+    // ✅ 2. DB에서 조회
     List<Store> stores = storeRepository
         .findByUserIdAndBotTypeAndIsDeletedFalseOrderByCreatedAtDesc(userId, botType);
 
@@ -182,9 +211,20 @@ public class StorageService {
       log.info("해당 챗봇 타입의 보관함이 비어있음: botType={}", botType);
     }
 
-    return stores.stream()
+    List<StorageListResponse> bookmarks = stores.stream()
         .map(store -> enrichWithChatroomName(store))
         .collect(Collectors.toList());
+
+    // ✅ 3. Redis에 캐시 저장
+    try {
+      String jsonData = objectMapper.writeValueAsString(bookmarks);
+      redisTemplate.opsForValue().set(cacheKey, jsonData, CACHE_TTL);
+      log.info("✅ Cache SAVED: userId={}, botType={}, count={}", userId, botType, bookmarks.size());
+    } catch (JsonProcessingException e) {
+      log.error("캐시 직렬화 실패: userId={}, botType={}", userId, botType, e);
+    }
+
+    return bookmarks;
   }
 
   /**
@@ -222,10 +262,16 @@ public class StorageService {
       throw new IllegalStateException("이미 삭제된 항목입니다");
     }
 
+    // 삭제 전 botType 저장 (캐시 무효화용)
+    String botType = store.getBotType();
+
     // 소프트 삭제
     store.setIsDeleted(true);
     store.setDeletedAt(LocalDateTime.now());
     storeRepository.save(store);
+
+    // 캐시 무효화
+    invalidateBookmarkCache(userId, botType);
 
     log.info("보관함 삭제 완료: bookmarkId={}", bookmarkId);
   }
@@ -258,96 +304,17 @@ public class StorageService {
     return storeRepository.countByUserIdAndIsDeletedFalse(userId);
   }
 
-
   /**
-   * 채팅방 이름을 조회하여 StorageListResponse에 추가
-   * Feign Client 예외 처리 포함
+   * Chat Service 호출 제거, botType을 chatroomName으로 변환
    */
-//  private StorageListResponse enrichWithChatroomName(Store store) {
-//    StorageListResponse response = StorageListResponse.from(store);
-//
-//    try {
-//      // userId를 함께 전달하여 권한 체크
-//      ChatRoomDto chatRoom = chatServiceClient.getChatRoom(
-//          store.getChatroomId(),
-//          store.getUserId()  // ← 추가
-//      );
-//
-//      if (chatRoom != null && chatRoom.getName() != null) {
-//        response.setChatroomNameFromClient(chatRoom.getName());
-//      } else {
-//        log.warn("채팅방 정보가 null: chatroomId={}", store.getChatroomId());
-//        response.setChatroomNameFromClient("Unknown");
-//      }
-//
-//    } catch (FeignException.NotFound e) {
-//      log.warn("채팅방을 찾을 수 없음: chatroomId={}", store.getChatroomId());
-//      response.setChatroomNameFromClient("Deleted Room");
-//
-//    } catch (FeignException.Forbidden e) {
-//      // 403 Forbidden 처리 추가
-//      log.warn("채팅방 접근 권한 없음: chatroomId={}, userId={}",
-//          store.getChatroomId(), store.getUserId());
-//      response.setChatroomNameFromClient("Forbidden");
-//
-//    } catch (FeignException.ServiceUnavailable e) {
-//      log.warn("Chat Service 일시적 장애: chatroomId={}", store.getChatroomId());
-//      response.setChatroomNameFromClient("Unavailable");
-//
-//    } catch (FeignException e) {
-//      log.warn("Feign 통신 오류: chatroomId={}, status={}, message={}",
-//          store.getChatroomId(), e.status(), e.getMessage());
-//      response.setChatroomNameFromClient("Unknown");
-//
-//    } catch (Exception e) {
-//      log.error("채팅방 이름 조회 중 예상치 못한 오류: chatroomId={}", store.getChatroomId(), e);
-//      response.setChatroomNameFromClient("Unknown");
-//    }
-//
-//    return response;
-//  }
-
   private StorageListResponse enrichWithChatroomName(Store store) {
     StorageListResponse response = StorageListResponse.from(store);
-    String chatroomName = getChatroomNameWithCache(store.getChatroomId(), store.getUserId());
+
+    // botType을 chatroomName으로 변환
+    String chatroomName = BotTypeMapper.getChatroomName(store.getBotType());
     response.setChatroomNameFromClient(chatroomName);
+
     return response;
-  }
-
-  // 새로운 메서드 추가
-  private String getChatroomNameWithCache(UUID chatroomId, UUID userId) {
-    String cacheKey = CHATROOM_NAME_PREFIX + chatroomId;
-
-    try {
-      String cachedName = redisTemplate.opsForValue().get(cacheKey);
-
-      if (cachedName != null) {
-        log.debug("✅ Cache HIT: chatroomId={}", chatroomId);
-        return cachedName;
-      }
-
-      log.debug("❌ Cache MISS: chatroomId={}", chatroomId);
-
-      // ✅ skipAuthCheck=true로 권한 체크 생략
-      ChatRoomDto chatRoom = chatServiceClient.getChatRoom(chatroomId, userId, true);
-
-      if (chatRoom != null && chatRoom.getName() != null) {
-        String chatroomName = chatRoom.getName();
-        redisTemplate.opsForValue().set(cacheKey, chatroomName, CACHE_TTL);
-        log.info("✅ Cache SAVED: chatroomId={}", chatroomId);
-        return chatroomName;
-      } else {
-        return "Unknown";
-      }
-    } catch (FeignException.NotFound e) {
-      return "Deleted Room";
-    } catch (FeignException.Forbidden e) {
-      return "Forbidden";
-    } catch (FeignException.ServiceUnavailable e) {
-      return "Unavailable";
-    } catch (Exception e) {
-      return "Unknown";
-    }
   }
 
   /**
@@ -362,8 +329,9 @@ public class StorageService {
     Page<Store> stores = storeRepository
         .findByUserIdAndChatroomIdWithCursor(userId, chatroomId, lastId, pageable);
 
-    // 방별 조회는 같은 채팅방이므로 한 번만 조회
-    String chatroomName = getChatroomNameWithCache(chatroomId, userId);
+    // 방별 조회는 같은 채팅방이므로 첫 번째 store의 botType 사용
+    String chatroomName = stores.isEmpty() ? "Unknown"
+        : BotTypeMapper.getChatroomName(stores.getContent().get(0).getBotType());
 
     final String finalChatroomName = chatroomName;
     return stores.map(store -> {
@@ -371,5 +339,24 @@ public class StorageService {
       response.setChatroomNameFromClient(finalChatroomName);
       return response;
     });
+  }
+
+
+  // ========== 캐시 관련 메서드 추가 ==========
+
+  /**
+   * 캐시 키 생성
+   */
+  private String buildCacheKey(UUID userId, String botType) {
+    return BOOKMARKS_BY_BOTTYPE_PREFIX + userId + ":" + botType;
+  }
+
+  /**
+   * 캐시 무효화
+   */
+  private void invalidateBookmarkCache(UUID userId, String botType) {
+    String cacheKey = buildCacheKey(userId, botType);
+    redisTemplate.delete(cacheKey);
+    log.info("✅ Cache DELETED: userId={}, botType={}", userId, botType);
   }
 }

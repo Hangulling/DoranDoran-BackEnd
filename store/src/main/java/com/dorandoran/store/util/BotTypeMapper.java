@@ -79,4 +79,19 @@ public class BotTypeMapper {
   public static Map<UUID, String> getAllMappings() {
     return new HashMap<>(CHATBOT_TYPE_MAP);
   }
+
+  /**
+   * botType을 chatroomName으로 변환
+   *
+   * @param botType 봇 타입 (friend, honey, coworker, senior)
+   * @return chatroomName (Friend, Honey, Coworker, Senior)
+   */
+  public static String getChatroomName(String botType) {
+    if (botType == null || botType.isEmpty()) {
+      return "Unknown";
+    }
+
+    // 첫 글자만 대문자로 변환: friend → Friend
+    return botType.substring(0, 1).toUpperCase() + botType.substring(1);
+  }
 }
