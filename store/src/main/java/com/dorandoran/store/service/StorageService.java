@@ -228,6 +228,23 @@ public class StorageService {
   }
 
   /**
+   * 챗봇 타입별 보관함 조회 (Cursor 기반 - 무한스크롤용)
+   */
+  @Transactional(readOnly = true)
+  public Page<StorageListResponse> getBookmarksByBotTypeWithCursor(
+      UUID userId, String botType, UUID lastId, Pageable pageable) {
+    log.info("챗봇 타입별 보관함 Cursor 조회: userId={}, botType={}, lastId={}, size={}",
+        userId, botType, lastId, pageable.getPageSize());
+
+    // 방금 추가한 Repository 메서드를 호출
+    Page<Store> stores = storeRepository
+        .findByUserIdAndBotTypeWithCursor(userId, botType, lastId, pageable);
+
+    // 채팅방 이름 부가 정보 추가는 개별적으로 처리
+    return stores.map(this::enrichWithChatroomName);
+  }
+
+  /**
    * Cursor 기반 페이징 조회
    */
   @Transactional(readOnly = true)

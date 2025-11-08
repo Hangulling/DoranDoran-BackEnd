@@ -86,4 +86,24 @@ public interface StoreRepository extends JpaRepository<Store, UUID> {
       @Param("chatroomId") UUID chatroomId,
       @Param("lastId") UUID lastId,
       Pageable pageable);
+
+  /**
+   * 챗봇 타입별 Cursor 기반 페이징 조회 (무한스크롤용)
+   * @param userId 사용자 ID
+   * @param botType 챗봇 타입
+   * @param lastId 마지막 조회 ID (null이면 처음부터)
+   * @param pageable 페이지 정보
+   */
+  @Query("SELECT s FROM Store s WHERE s.userId = :userId " +
+      "AND s.botType = :botType " +
+      "AND s.isDeleted = false " +
+      "AND (:lastId IS NULL OR s.createdAt < " +
+      "(SELECT s2.createdAt FROM Store s2 WHERE s2.id = :lastId)) " +
+      "ORDER BY s.createdAt DESC, s.id DESC")
+  Page<Store> findByUserIdAndBotTypeWithCursor(
+      @Param("userId") UUID userId,
+      @Param("botType") String botType,
+      @Param("lastId") UUID lastId,
+      Pageable pageable
+  );
 }
