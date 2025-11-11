@@ -8,6 +8,7 @@ import com.dorandoran.chat.repository.billing.AiUsageEventRepository;
 import com.dorandoran.chat.repository.billing.MonthlyUserCostRepository;
 import com.dorandoran.chat.repository.UserRepository;
 import com.dorandoran.chat.repository.ChatRoomRepository;
+import com.dorandoran.chat.exception.ResourceNotFoundException;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -33,7 +34,7 @@ public class BillingService {
         User user = userRepository.findById(userId)
             .orElseThrow(() -> new RuntimeException("User not found: " + userId));
         ChatRoom chatRoom = chatRoomRepository.findById(chatroomId)
-            .orElseThrow(() -> new RuntimeException("ChatRoom not found: " + chatroomId));
+            .orElseThrow(() -> new ResourceNotFoundException("ChatRoom not found: " + chatroomId));
         
         AiUsageEvent event = AiUsageEvent.builder()
             .id(UUID.randomUUID())

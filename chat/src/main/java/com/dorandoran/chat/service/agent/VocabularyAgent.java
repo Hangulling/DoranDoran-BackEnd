@@ -10,7 +10,6 @@ import reactor.core.publisher.Mono;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.UUID;
 
 /**
  * 어휘 추출 Agent
@@ -23,11 +22,11 @@ public class VocabularyAgent {
     private final OpenAIClient openAIClient;
     private final ObjectMapper objectMapper;
 
-    public Mono<VocabularyAgentResponse> extractDifficultWords(String userMessage, int userLevel) {
+    public Mono<VocabularyAgentResponse> extractDifficultWords(String userMessage) {
         log.info("=== VocabularyAgent.extractDifficultWords() 호출됨 ===");
-        log.info("=== VocabularyAgent 파라미터 - userMessage='{}', userLevel={} ===", userMessage, userLevel);
+        log.info("=== VocabularyAgent 파라미터 - userMessage='{}' ===", userMessage);
         
-        String systemPrompt = buildVocabularyPrompt(userLevel);
+        String systemPrompt = buildVocabularyPrompt();
         log.info("=== VocabularyAgent systemPrompt: {} ===", systemPrompt);
         
         log.info("=== VocabularyAgent OpenAI API 호출 시작 ===");
@@ -40,7 +39,7 @@ public class VocabularyAgent {
             .doOnError(error -> log.error("VocabularyAgent 파싱 오류", error));
     }
     
-    private String buildVocabularyPrompt(int userLevel) {
+    private String buildVocabularyPrompt() {
         return """
             **ver 0.4**
 
@@ -52,7 +51,6 @@ public class VocabularyAgent {
 
             **입력 정보:**
 
-            - 학습자 레벨: {userLevel}
             - 분석 대상 문장 (AI 챗봇 응답): "{content}"
 
             **난이도 정의 (상황 독립적):**
@@ -61,29 +59,46 @@ public class VocabularyAgent {
             - 2 (중급): 한자어 기반의 일반 어휘, 복합 동사, 관용 표현, 일반적인 사회/업무 용어. (예: 참고, 요청, 말씀, ~시죠)
             - 3 (고급): 복잡한 한자 숙어, 신조어/속어, 고도의 완곡/문어체 표현, 비즈니스 전문 용어. (예: 결재, 품의, 송구스럽습니다, 국룰)
 
-            **어휘(단어) 추출 기준:**
+            **어휘(단어/표현) 추출 기준:**
 
-            1. 반드시 "{content}"에 포함된 단어만 추출할 것
-            2. 어휘 난이도가 '중급(2단계)' 이상인 단어/표현만 추출할 것 (난이도 1인 단어 추출 절대 금지.)
-            3. 항상 1개의 단어만 반환할 것
-            4. `context` 필드의 `ko`와 `en` 설명은 부드럽고 친근한 톤앤매너를 사용하여 학습자에게 친절하게 설명할 것
-            5. `context` 필드의 `ko` 설명은 100자 이내로 작성할 것
-            6. 어려운 어휘가 없을 경우, 빈 객체 (`{}`)를 반환할 것
-            7. 추출된 단어는 실제 문장에서 사용된 형태 그대로 추출할 것
-            8. 만약 추출 대상의 단어가 직전 사용자 입력(userMessage)에 이미 등장한 단어라면 그 단어는 건너뛰고 설명하지 않을 것
-            9. **중요**: 학습자 레벨이 낮을수록 더 많은 단어를 추출하도록 유연하게 판단할 것
+            1. 반드시 "{content}"에 포함된 단어/표현만 추출할 것
+            2. 어휘 난이도가 2 또는 3인 단어/표현만 추출할 것 (난이도 1인 단어 추출 절대 금지)
+            3. 항상 1개의 단어/표현만 반환할 것
+            4. **표현(구) 우선 추출**: 관용 표현, 문법적 표현, 구문이 있는 경우 표현 전체를 추출할 것
+               - 문법적 표현 예시: '~을 것 같아', '~아야 할 것 같아', '~지 않을까', '~아야 해', '~아도 돼' 등
+               - 관용 표현 예시: '~에 대해', '~을 위해', '~을 바탕으로' 등
+               - 표현이 있는 경우 표현 전체를 추출하고, 표현이 없는 경우 핵심 단어만 추출
+            5. `context` 필드의 `ko`와 `en` 설명은 부드럽고 친근한 톤앤매너를 사용하여 학습자에게 친절하게 설명할 것
+            6. `context` 필드의 `ko` 설명은 100자 이내로 작성할 것
+            7. 어려운 어휘가 없을 경우, 빈 객체 (`{}`)를 반환할 것
+            8. 추출된 단어/표현은 실제 문장에서 사용된 형태 그대로 추출할 것
+            9. 만약 추출 대상의 단어/표현이 직전 사용자 입력(userMessage)에 이미 등장한 단어/표현이라면 그 단어/표현은 건너뛰고 설명하지 않을 것
 
-            **JSON 형식(단어 있을 경우):**
+            **context 설명 기준 (하이브리드 방식):**
+
+            추출된 항목이 표현(구)인지 단어인지에 따라 설명 방식을 다르게 작성하세요:
+
+            **[표현(구) 전체인 경우]**
+            - 표현의 의미와 사용 맥락 중심으로 설명
+            - 구성 요소 간단 설명 (필요시)
+            - 예시: "'나을 것 같아'는 추측을 나타내는 표현으로, '더 좋을 것 같다'는 의미예요. '낫다'의 미래형 '나을'과 추측 표현 '것 같아'가 결합된 형태예요."
+
+            **[단어인 경우]**
+            - 동사원형 기준 변형 설명 포함
+            - 의미와 사용 예시
+            - 예시: "'나을'은 '낫다'의 미래형으로, '더 좋아질'이라는 의미예요. '상태가 개선되다' 또는 '더 좋아지다'를 나타내는 동사예요."
+
+            **JSON 형식(단어/표현 있을 경우):**
 
             다음 JSON 형식으로 정확히 답변하세요:
 
             [
             {
-            "word": "추출된 단어",
+            "word": "추출된 단어 또는 표현",
             "difficulty": 2,
             "context": {
-            "roma": "어휘의 정확한 로마자 표기 (예: Gyeoljae)",
-            "ko": "새로운 톤앤매너로 100자 이내 작성된 한국어 설명이에요.",
+            "roma": "어휘의 정확한 로마자 표기 (예: Gyeoljae, Naeul geot gata)",
+            "ko": "하이브리드 방식에 따라 작성된 한국어 설명 (100자 이내)",
             "en": "English explanation written in a friendly and consistent tone."
             }
             }
@@ -91,11 +106,12 @@ public class VocabularyAgent {
 
             **주의사항:**
 
-            - 항상 1개의 단어만 반환할 것
+            - 항상 1개의 단어/표현만 반환할 것
             - 어려운 어휘가 없으면 빈 배열 ({})을 반환할 것
             - JSON 형식 외의 텍스트는 출력하지 말 것
             - `context`의 `ko`, `en` 필드는 부드럽고 친근한 톤앤매너를 지켜서 작성할 것
             - `context` 필드의 `ko` 설명은 100자 이내로 작성할 것
+            - 표현(구)인 경우 표현 전체를 추출하고, 표현이 없는 경우에만 단어를 추출할 것
 
             **예시 시나리오:**
 
@@ -141,7 +157,28 @@ public class VocabularyAgent {
             }
             ]
 
-            **[시나리오 3: 어려운 어휘가 있는 경우 (새로운 톤앤매너 예시)]**
+            **[시나리오 3: 표현 전체 추출 (문법적 표현)]**
+            입력 정보:
+
+            {
+            "content": "그게 더 나을 것 같아."
+            }
+
+            응답 형식:
+
+            [
+            {
+            "word": "나을 것 같아",
+            "difficulty": 2,
+            "context": {
+            "roma": "Naeul geot gata",
+            "ko": "'나을 것 같아'는 추측을 나타내는 표현으로, '더 좋을 것 같다'는 의미예요. '낫다'의 미래형 '나을'과 추측 표현 '것 같아'가 결합된 형태로, 상황이 개선될 가능성을 말할 때 사용해요.",
+            "en": "'Naeul geot gata' is an expression that shows speculation, meaning 'it seems like it will be better.' It combines the future form 'naeul' of the verb 'natda' (to get better) with the speculation expression 'geot gata' (seems like)."
+            }
+            }
+            ]
+
+            **[시나리오 4: 단어 추출 (동사원형 설명 포함)]**
             입력 정보:
 
             {
@@ -156,13 +193,13 @@ public class VocabularyAgent {
             "difficulty": 2,
             "context": {
             "roma": "Geomto",
-            "ko": "검토는 어떤 내용이나 계획에 대해 '자세하게 살펴보고 문제가 없는지 확인한다'는 뜻이에요. 회사에서 문서를 처리할 때 자주 사용하는 표현이라고 해요.",
-            "en": "Geomto means 'to review in detail and check for any problems' with content or a plan. People say it is a phrase frequently used when handling documents at work."
+            "ko": "'검토'는 '검토하다'의 명사형으로, 어떤 내용이나 계획에 대해 '자세하게 살펴보고 문제가 없는지 확인한다'는 뜻이에요. 회사에서 문서를 처리할 때 자주 사용하는 단어예요.",
+            "en": "Geomto is the noun form of 'geomtohada' (to review), meaning 'to examine in detail and check for any problems' with content or a plan. It is a word frequently used when handling documents at work."
             }
             }
             ]
 
-            **[시나리오 4: 어려운 어휘가 없는 경우]**
+            **[시나리오 5: 어려운 어휘가 없는 경우]**
             입력 정보:
 
             {

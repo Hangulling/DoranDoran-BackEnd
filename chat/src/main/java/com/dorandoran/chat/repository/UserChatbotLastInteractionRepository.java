@@ -1,16 +1,22 @@
 package com.dorandoran.chat.repository;
 
+import com.dorandoran.chat.entity.UserChatbotLastInteraction;
+import com.dorandoran.chat.entity.UserChatbotLastInteractionId;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
-import org.springframework.data.repository.Repository;
 import org.springframework.data.repository.query.Param;
+import org.springframework.stereotype.Repository;
 
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.UUID;
 
-public interface UserChatbotLastInteractionRepository extends Repository<Object, UUID> {
+@Repository
+public interface UserChatbotLastInteractionRepository extends JpaRepository<UserChatbotLastInteraction, UserChatbotLastInteractionId> {
 
     // upsert: userId, chatbotId 기준으로 last_interaction_at / last_room_id 갱신
+    @Modifying
     @Query(value = """
         INSERT INTO chat_schema.user_chatbot_last_interaction
             (user_id, chatbot_id, last_interaction_at, last_room_id)

@@ -55,9 +55,7 @@ public class MultiAgentOrchestrator {
      * 기존 Multi-Agent 처리 로직
      */
     private void processWithAgents(UUID chatroomId, UUID userId, Message userMessage, String content) {
-        int userLevel = getCurrentIntimacyLevel(chatroomId);
-        
-        log.info("Multi-Agent 처리 시작: chatroomId={}, userId={}, userLevel={}", chatroomId, userId, userLevel);
+        log.info("Multi-Agent 처리 시작: chatroomId={}, userId={}", chatroomId, userId);
         
         // Phase 1: 병렬 실행 (Intimacy, Vocabulary, Conversation)
         log.info("=== Phase 1: Parallel execution started ===");
@@ -108,9 +106,9 @@ public class MultiAgentOrchestrator {
                         
                         // VocabularyAgent 실행
                         log.debug("=== VocabularyAgent 호출 시작 (챗봇 응답 분석) ===");
-                        log.debug("VocabularyAgent 파라미터 - botResponse='{}', userLevel={}", actualContent, userLevel);
+                        log.debug("VocabularyAgent 파라미터 - botResponse='{}'", actualContent);
                         
-                        vocabularyAgent.extractDifficultWords(actualContent, userLevel)
+                        vocabularyAgent.extractDifficultWords(actualContent)
                             .doOnNext(vocabResp -> {
                                 log.info("VocabularyAgent 결과 수집 완료: wordsCount={}", vocabResp.words().size());
                                 

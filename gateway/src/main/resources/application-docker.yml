@@ -126,6 +126,11 @@ gateway:
   jwt:
     hmac-secret: 404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970
     skew-ms: 3600000
+  security:
+    blacklist:
+      # 차단할 IP 주소 목록 (쉼표로 구분)
+      # 예: ips: "172.104.24.172, 192.168.1.100"
+      ips: "172.104.24.172"
 
 # Actuator 설정
 management:
