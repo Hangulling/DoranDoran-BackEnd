@@ -73,7 +73,12 @@ public class UserService {
             .status(User.UserStatus.ACTIVE)
             .coachCheck(false)
             .exitModalDoNotShowAgain(false)
+            .oauthProvider(null)
+            .oauthId(null)
             .build();
+        
+        // 5-1. 인증 방법 검증
+        user.validateAuthMethod();
         
         // 6. 데이터베이스 저장
         User savedUser = userRepository.save(user);
@@ -141,6 +146,86 @@ public class UserService {
             .orElseThrow(() -> new DoranDoranException(ErrorCode.USER_NOT_FOUND));
         
         return convertToDtoWithPassword(user);
+    }
+    
+    /**
+     * OAuth 사용자 조회
+     */
+    public UserDto findByOAuth(String provider, String oauthId) {
+        log.info("OAuth 사용자 조회: provider={}, oauthId={}", provider, oauthId);
+        
+        try {
+            User.OAuthProvider oauthProvider = User.OAuthProvider.valueOf(provider.toUpperCase());
+            User user = userRepository.findByOauthProviderAndOauthId(oauthProvider, oauthId)
+                    .orElseThrow(() -> new DoranDoranException(ErrorCode.USER_NOT_FOUND));
+            
+            return convertToDto(user);
+        } catch (IllegalArgumentException e) {
+            log.error("지원하지 않는 OAuth 제공자: provider={}", provider);
+            throw new DoranDoranException(ErrorCode.INVALID_REQUEST, "지원하지 않는 OAuth 제공자입니다.");
+        }
+    }
+    
+    /**
+     * OAuth 사용자 생성
+     */
+    @Transactional
+    public UserDto createOAuthUser(String email, String firstName, String lastName, String name,
+                                   String picture, String provider, String oauthId) {
+        log.info("OAuth 사용자 생성 요청: email={}, provider={}", email, provider);
+        
+        // 1. 이메일 중복 검사
+        if (userRepository.existsByEmail(email)) {
+            throw new DoranDoranException(ErrorCode.EMAIL_ALREADY_EXISTS);
+        }
+        
+        // 2. OAuth ID 중복 검사
+        try {
+            User.OAuthProvider oauthProvider = User.OAuthProvider.valueOf(provider.toUpperCase());
+            if (userRepository.findByOauthProviderAndOauthId(oauthProvider, oauthId).isPresent()) {
+                throw new DoranDoranException(ErrorCode.INVALID_REQUEST, "이미 등록된 OAuth 계정입니다.");
+            }
+            
+            // 3. 사용자 생성 (ACTIVE 상태로 바로 생성)
+            User user = User.builder()
+                    .id(UUID.randomUUID())
+                    .email(email)
+                    .firstName(firstName != null ? firstName : "")
+                    .lastName(lastName != null ? lastName : "")
+                    .name(name != null ? name : (firstName + " " + lastName).trim())
+                    .passwordHash(null) // OAuth 사용자는 비밀번호 없음
+                    .picture(picture)
+                    .info("")
+                    .status(User.UserStatus.ACTIVE)
+                    .coachCheck(false)
+                    .exitModalDoNotShowAgain(false)
+                    .oauthProvider(oauthProvider)
+                    .oauthId(oauthId)
+                    .build();
+            
+            // 4. 인증 방법 검증
+            user.validateAuthMethod();
+            
+            // 5. 데이터베이스 저장
+            User savedUser = userRepository.save(user);
+            log.info("OAuth 사용자 생성 완료: id={}, email={}, provider={}", savedUser.getId(), savedUser.getEmail(), provider);
+            
+            // 6. 사용자 생성 이벤트 발행
+            UserCreatedEvent event = UserCreatedEvent.of(
+                    savedUser.getId(),
+                    savedUser.getEmail(),
+                    savedUser.getFirstName(),
+                    savedUser.getLastName(),
+                    savedUser.getName()
+            );
+            eventPublisher.publishEvent(event);
+            log.info("OAuth 사용자 생성 이벤트 발행: userId={}", savedUser.getId());
+            
+            return convertToDto(savedUser);
+        } catch (IllegalArgumentException e) {
+            log.error("지원하지 않는 OAuth 제공자: provider={}", provider);
+            throw new DoranDoranException(ErrorCode.INVALID_REQUEST, "지원하지 않는 OAuth 제공자입니다.");
+        }
     }
     
     /**

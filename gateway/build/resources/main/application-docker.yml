@@ -19,7 +19,7 @@ spring:
   # Redis 설정
   data:
     redis:
-      host: ${SPRING_REDIS_HOST:dorandoran-redis}
+      host: ${SPRING_REDIS_HOST:redis}
       port: ${SPRING_REDIS_PORT:6379}
       timeout: 2000ms
       lettuce:
@@ -58,7 +58,7 @@ spring:
                   factor: 2
                   maxBackoff: 500ms
                   basedOnPreviousValue: true
-        
+
         # User 서비스 라우팅
         - id: user-service
           uri: http://dorandoran-user:8082
@@ -88,7 +88,7 @@ spring:
           predicates:
             - Path=/api/store/**
           filters: []
-        
+
         # Batch 서비스 라우팅
         - id: batch-service
           uri: http://dorandoran-batch:8085
@@ -126,6 +126,11 @@ gateway:
   jwt:
     hmac-secret: 404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970
     skew-ms: 3600000
+  security:
+    blacklist:
+      # 차단할 IP 주소 목록 (쉼표로 구분)
+      # 예: ips: "172.104.24.172, 192.168.1.100"
+      ips: "172.104.24.172"
 
 # Actuator 설정
 management:

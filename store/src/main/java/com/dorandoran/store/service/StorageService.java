@@ -305,15 +305,35 @@ public class StorageService {
         log.info("✅ Cache SAVED: chatroomId={}", chatroomId);
         return chatroomName;
       } else {
-        return "Unknown";
+        // null 응답인 경우 "Deleted Room"으로 캐시하여 반복 호출 방지
+        redisTemplate.opsForValue().set(cacheKey, "Deleted Room", CACHE_TTL);
+        log.warn("채팅방 정보가 null: chatroomId={}", chatroomId);
+        return "Deleted Room";
       }
     } catch (FeignException.NotFound e) {
+      // 404 오류인 경우 "Deleted Room"으로 캐시하여 반복 호출 방지
+      redisTemplate.opsForValue().set(cacheKey, "Deleted Room", CACHE_TTL);
+      log.warn("채팅방을 찾을 수 없음 (404): chatroomId={}", chatroomId);
       return "Deleted Room";
-    } catch (FeignException.Forbidden e) {
-      return "Forbidden";
-    } catch (FeignException.ServiceUnavailable e) {
-      return "Unavailable";
+    } catch (FeignException e) {
+      // FeignException의 status() 메서드로 HTTP 상태 코드 확인
+      int status = e.status();
+      if (status == 404) {
+        redisTemplate.opsForValue().set(cacheKey, "Deleted Room", CACHE_TTL);
+        log.warn("채팅방을 찾을 수 없음 (404): chatroomId={}, status={}", chatroomId, status);
+        return "Deleted Room";
+      } else if (status == 403) {
+        log.warn("채팅방 접근 권한 없음 (403): chatroomId={}, userId={}", chatroomId, userId);
+        return "Forbidden";
+      } else if (status >= 500) {
+        log.warn("Chat Service 오류 ({}): chatroomId={}", status, chatroomId);
+        return "Unavailable";
+      } else {
+        log.warn("Feign 통신 오류: chatroomId={}, status={}, message={}", chatroomId, status, e.getMessage());
+        return "Unknown";
+      }
     } catch (Exception e) {
+      log.error("채팅방 이름 조회 중 예상치 못한 오류: chatroomId={}", chatroomId, e);
       return "Unknown";
     }
   }

@@ -22,6 +22,10 @@ dependencies {
     // JSON
     implementation 'com.fasterxml.jackson.core:jackson-databind'
 
+    // Excel 파일 읽기 (Apache POI)
+    implementation 'org.apache.poi:poi:5.2.5'
+    implementation 'org.apache.poi:poi-ooxml:5.2.5'
+
     // Validation
     implementation 'org.springframework.boot:spring-boot-starter-validation'
 

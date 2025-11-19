@@ -1,0 +1,117 @@
+{
+  "title": "Authentication Monitoring",
+  "uid": "auth-monitoring",
+  "tags": ["dorandoran", "auth", "security"],
+  "style": "dark",
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "panels": [
+    {
+      "id": 1,
+      "type": "timeseries",
+      "title": "Login Attempts",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "Prometheus"
+      },
+      "targets": [
+        {
+          "expr": "rate(http_server_requests_seconds_count{job=\"auth-service\",uri=\"/api/auth/login\"}[5m])",
+          "legendFormat": "Login Requests/sec",
+          "refId": "A"
+        }
+      ],
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0}
+    },
+    {
+      "id": 2,
+      "type": "timeseries",
+      "title": "Login Success/Failure Rate",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "Prometheus"
+      },
+      "targets": [
+        {
+          "expr": "rate(http_server_requests_seconds_count{job=\"auth-service\",uri=\"/api/auth/login\",status=\"200\"}[5m])",
+          "legendFormat": "Success",
+          "refId": "A"
+        },
+        {
+          "expr": "rate(http_server_requests_seconds_count{job=\"auth-service\",uri=\"/api/auth/login\",status=~\"4..\"}[5m])",
+          "legendFormat": "Failure (4xx)",
+          "refId": "B"
+        },
+        {
+          "expr": "rate(http_server_requests_seconds_count{job=\"auth-service\",uri=\"/api/auth/login\",status=~\"5..\"}[5m])",
+          "legendFormat": "Error (5xx)",
+          "refId": "C"
+        }
+      ],
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0}
+    },
+    {
+      "id": 3,
+      "type": "timeseries",
+      "title": "JWT Token Validation",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "Prometheus"
+      },
+      "targets": [
+        {
+          "expr": "rate(http_server_requests_seconds_count{job=\"auth-service\",uri=\"/api/auth/validate\"}[5m])",
+          "legendFormat": "Validation Requests/sec",
+          "refId": "A"
+        }
+      ],
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8}
+    },
+    {
+      "id": 4,
+      "type": "timeseries",
+      "title": "Token Validation Success/Failure",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "Prometheus"
+      },
+      "targets": [
+        {
+          "expr": "rate(http_server_requests_seconds_count{job=\"auth-service\",uri=\"/api/auth/validate\",status=\"200\"}[5m])",
+          "legendFormat": "Success",
+          "refId": "A"
+        },
+        {
+          "expr": "rate(http_server_requests_seconds_count{job=\"auth-service\",uri=\"/api/auth/validate\",status=~\"4..\"}[5m])",
+          "legendFormat": "Unauthorized (4xx)",
+          "refId": "B"
+        }
+      ],
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8}
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "HMAC Authentication Failures",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "Prometheus"
+      },
+      "targets": [
+        {
+          "expr": "rate(http_server_requests_seconds_count{job=~\"user-service|chat-service|store-service\",status=\"401\"}[5m])",
+          "legendFormat": "{{job}} - HMAC Failures",
+          "refId": "A"
+        }
+      ],
+      "gridPos": {"h": 8, "w": 24, "x": 0, "y": 16}
+    }
+  ],
+  "time": {
+    "from": "now-1h",
+    "to": "now"
+  },
+  "refresh": "10s"
+}
+

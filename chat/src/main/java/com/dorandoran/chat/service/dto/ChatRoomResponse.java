@@ -55,7 +55,15 @@ public class ChatRoomResponse implements Serializable {
     
     private static String extractConceptFromSettings(JsonNode settings) {
         if (settings != null && settings.has("concept")) {
-            return settings.get("concept").asText();
+            JsonNode conceptNode = settings.get("concept");
+            // 안전하게 String으로 변환
+            if (conceptNode.isTextual()) {
+                // 대문자로 정규화하여 반환 (일관성 유지)
+                return conceptNode.asText().toUpperCase();
+            } else {
+                // 다른 타입인 경우 기본값 반환
+                return "FRIEND";
+            }
         }
         return "FRIEND"; // 기본값
     }

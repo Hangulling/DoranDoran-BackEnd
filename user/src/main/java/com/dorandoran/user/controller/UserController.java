@@ -93,6 +93,47 @@ public class UserController {
     }
     
     /**
+     * OAuth 사용자 조회
+     */
+    @GetMapping("/oauth/{provider}/{oauthId}")
+    public ResponseEntity<UserDto> getUserByOAuth(
+            @PathVariable String provider,
+            @PathVariable String oauthId) {
+        log.info("OAuth 사용자 조회 요청: provider={}, oauthId={}", provider, oauthId);
+        
+        try {
+            UserDto user = userService.findByOAuth(provider, oauthId);
+            return ResponseEntity.ok(user);
+        } catch (Exception e) {
+            log.error("OAuth 사용자 조회 실패: provider={}, oauthId={}, error={}", provider, oauthId, e.getMessage());
+            return ResponseEntity.notFound().build();
+        }
+    }
+    
+    /**
+     * OAuth 사용자 생성
+     */
+    @PostMapping("/oauth")
+    public ResponseEntity<UserDto> createOAuthUser(
+            @RequestParam("email") String email,
+            @RequestParam("firstName") String firstName,
+            @RequestParam("lastName") String lastName,
+            @RequestParam("name") String name,
+            @RequestParam(value = "picture", required = false) String picture,
+            @RequestParam("provider") String provider,
+            @RequestParam("oauthId") String oauthId) {
+        log.info("OAuth 사용자 생성 요청: email={}, provider={}", email, provider);
+        
+        try {
+            UserDto createdUser = userService.createOAuthUser(email, firstName, lastName, name, picture, provider, oauthId);
+            return ResponseEntity.ok(createdUser);
+        } catch (Exception e) {
+            log.error("OAuth 사용자 생성 실패: email={}, provider={}, error={}", email, provider, e.getMessage());
+            return ResponseEntity.badRequest().build();
+        }
+    }
+    
+    /**
      * 이메일로 사용자 조회
      */
     @GetMapping("/email/{email}")

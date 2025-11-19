@@ -12,7 +12,7 @@
         "type": "stat",
         "targets": [
           {
-            "expr": "up{job=~\"api-gateway|auth-service|user-service|chat-service|batch-service\"}",
+            "expr": "up{job=~\"api-gateway|auth-service|user-service|chat-service|store-service|batch-service\"}",
             "legendFormat": "{{job}}"
           }
         ],

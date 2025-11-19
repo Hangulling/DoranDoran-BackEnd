@@ -9,6 +9,7 @@ import com.dorandoran.auth.repository.LoginAttemptRepository;
 import com.dorandoran.auth.repository.AuthEventRepository;
 import com.dorandoran.auth.dto.LoginRequest;
 import com.dorandoran.auth.dto.LoginResponse;
+import com.dorandoran.auth.dto.OAuthLoginRequest;
 import com.dorandoran.common.exception.DoranDoranException;
 import com.dorandoran.common.exception.ErrorCode;
 import com.dorandoran.shared.dto.UserDto;
@@ -41,6 +42,7 @@ public class AuthService {
     private final LoginAttemptRepository loginAttemptRepository;
     private final AuthEventRepository authEventRepository;
     private final PasswordResetService passwordResetService;
+    private final GoogleOAuthService googleOAuthService;
     
     /**
      * 로그인 (User 서비스 중심 구조)
@@ -141,6 +143,110 @@ public class AuthService {
         }
     }
 
+    /**
+     * OAuth 로그인 (Google)
+     */
+    @Transactional
+    public LoginResponse oauthLogin(OAuthLoginRequest request) {
+        log.info("OAuth 로그인 요청: provider={}", request.provider());
+        
+        try {
+            // 1. Provider 검증
+            if (!"google".equalsIgnoreCase(request.provider())) {
+                throw new DoranDoranException(ErrorCode.INVALID_REQUEST, "지원하지 않는 OAuth 제공자입니다.");
+            }
+            
+            // 2. Google ID Token 검증 및 사용자 정보 추출
+            GoogleOAuthService.GoogleUserInfo googleUserInfo;
+            try {
+                googleUserInfo = googleOAuthService.verifyIdToken(request.idToken());
+            } catch (Exception e) {
+                log.error("Google ID Token 검증 실패: {}", e.getMessage());
+                throw new DoranDoranException(ErrorCode.AUTH_TOKEN_INVALID, "Google ID Token 검증에 실패했습니다.");
+            }
+            
+            // 3. OAuth 사용자 조회 또는 생성
+            UserDto user;
+            try {
+                // 먼저 OAuth ID로 조회 시도
+                user = userIntegrationService.getUserByOAuth(request.provider().toUpperCase(), googleUserInfo.sub());
+            } catch (Exception e) {
+                // OAuth 사용자가 없으면 이메일로 조회 시도
+                try {
+                    user = userIntegrationService.getUserByEmail(googleUserInfo.email());
+                    // 기존 사용자가 있으면 OAuth 정보 연결 (향후 구현)
+                    log.info("기존 사용자 발견: email={}, OAuth 정보 연결 필요", googleUserInfo.email());
+                } catch (Exception ex) {
+                    // 신규 사용자 - 자동 회원가입
+                    log.info("신규 OAuth 사용자 자동 회원가입: email={}", googleUserInfo.email());
+                    user = userIntegrationService.createOAuthUser(
+                            googleUserInfo.email(),
+                            googleUserInfo.firstName(),
+                            googleUserInfo.lastName(),
+                            googleUserInfo.name(),
+                            googleUserInfo.picture(),
+                            request.provider().toUpperCase(),
+                            googleUserInfo.sub()
+                    );
+                }
+            }
+            
+            // 4. 사용자 상태 확인
+            if (user.status() == com.dorandoran.shared.dto.UserDto.UserStatus.INACTIVE) {
+                log.warn("비활성화된 사용자 OAuth 로그인 시도: email={}", googleUserInfo.email());
+                throw new DoranDoranException(ErrorCode.USER_ACCOUNT_DISABLED);
+            }
+            
+            // 5. JWT 토큰 생성
+            String accessToken = jwtService.generateAccessToken(user.id().toString(), user.email(), user.name());
+            String refreshToken = jwtService.generateRefreshToken(user.id().toString(), user.email(), user.name());
+            
+            // 6. User 엔티티 생성 (로그인 시도 기록용)
+            com.dorandoran.auth.entity.User userEntity = com.dorandoran.auth.entity.User.builder()
+                    .id(UUID.fromString(user.id()))
+                    .email(user.email())
+                    .firstName(user.firstName())
+                    .lastName(user.lastName())
+                    .name(user.name())
+                    .passwordHash(user.passwordHash())
+                    .picture(user.picture())
+                    .info(user.info())
+                    .lastConnTime(user.lastConnTime())
+                    .status(com.dorandoran.auth.entity.User.UserStatus.valueOf(user.status().name()))
+                    .role(com.dorandoran.auth.entity.User.RoleName.valueOf(user.role().name()))
+                    .coachCheck(user.coachCheck())
+                    .createdAt(user.createdAt())
+                    .updatedAt(user.updatedAt())
+                    .build();
+            
+            // 7. 성공 시도 기록
+            recordLoginAttemptWithUser(userEntity, user.email(), true);
+            
+            // 8. 리프레시 토큰 저장
+            saveRefreshTokenWithUser(userEntity, refreshToken);
+            
+            // 9. 이벤트 로깅
+            recordAuthEventWithUser(userEntity, "OAUTH_LOGIN");
+            
+            log.info("OAuth 로그인 성공: userId={}, email={}, provider={}", user.id(), user.email(), request.provider());
+            
+            return LoginResponse.builder()
+                    .accessToken(accessToken)
+                    .refreshToken(refreshToken)
+                    .tokenType("Bearer")
+                    .expiresIn(3600L) // 1시간 (초 단위)
+                    .user(user)
+                    .build();
+                    
+        } catch (DoranDoranException e) {
+            log.error("OAuth 로그인 실패: {}", e.getMessage());
+            throw e;
+        } catch (Exception e) {
+            log.error("OAuth 로그인 중 예상치 못한 오류 발생", e);
+            throw new DoranDoranException(ErrorCode.INTERNAL_SERVER_ERROR, "OAuth 로그인 중 오류가 발생했습니다.");
+        }
+    }
+    
     /**
      * 이메일로 사용자 조회(비밀번호 재설정 등 내부 사용)
      */

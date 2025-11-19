@@ -6,30 +6,33 @@ import com.dorandoran.chat.entity.User;
 import com.dorandoran.chat.entity.Chatbot;
 import com.dorandoran.chat.entity.IntimacyProgress;
 import com.dorandoran.chat.repository.ChatRoomRepository;
-import jakarta.persistence.EntityManager;
-import jakarta.persistence.PersistenceContext;
 import com.dorandoran.chat.repository.MessageRepository;
 import com.dorandoran.chat.repository.UserRepository;
 import com.dorandoran.chat.repository.ChatbotRepository;
 import com.dorandoran.chat.repository.IntimacyProgressRepository;
+import com.dorandoran.chat.repository.UserChatbotLastInteractionRepository;
 import jakarta.transaction.Transactional;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
+import com.dorandoran.chat.service.dto.LastInteractionResponse;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.List;
+import java.util.ArrayList;
 
 /**
  * Chat Service 비즈니스 로직 (단순화 스키마 기반)
  */
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class ChatService {
@@ -39,9 +42,8 @@ public class ChatService {
     private final UserRepository userRepository;
     private final ChatbotRepository chatbotRepository;
     private final IntimacyProgressRepository intimacyProgressRepository;
+    private final UserChatbotLastInteractionRepository userChatbotLastInteractionRepository;
     private final ObjectMapper objectMapper;
-    @PersistenceContext
-    private EntityManager entityManager;
     // AI 트리거는 컨트롤러에서 수행하여 순환 의존 제거
 
     /**
@@ -156,11 +158,27 @@ public class ChatService {
             chatRoomRepository.save(room);
         });
 
-        // 사용자-챗봇 마지막 상호작용 upsert (메시지 저장 시점)
-        try {
-            UUID chatbotId = chatRoom.getChatbot().getId();
-            updateLastInteraction(senderId, chatbotId, chatroomId, LocalDateTime.now());
-        } catch (Exception ignored) {}
+        // 사용자 메시지인 경우 user_chatbot_last_interaction 업데이트
+        if ("user".equalsIgnoreCase(senderType)) {
+            try {
+                UUID userId = chatRoom.getUser().getId();
+                UUID chatbotId = chatRoom.getChatbot().getId();
+                OffsetDateTime interactionTime = OffsetDateTime.now();
+                
+                userChatbotLastInteractionRepository.upsert(
+                    userId,
+                    chatbotId,
+                    interactionTime,
+                    chatroomId
+                );
+                log.debug("Updated user_chatbot_last_interaction: userId={}, chatbotId={}, chatroomId={}, time={}", 
+                    userId, chatbotId, chatroomId, interactionTime);
+            } catch (Exception e) {
+                // 로그만 남기고 메시지 저장은 계속 진행
+                log.error("Failed to update user_chatbot_last_interaction: chatroomId={}, senderId={}", 
+                    chatroomId, senderId, e);
+            }
+        }
 
         return saved;
     }
@@ -170,9 +188,7 @@ public class ChatService {
      */
     @Transactional
     public Page<ChatRoom> listRooms(UUID userId, Pageable pageable) {
-        Page<ChatRoom> result = chatRoomRepository.findByUser_IdAndIsDeletedFalseOrderByLastMessageAtDesc(userId, pageable);
-        System.out.println("[DEBUG] listRooms(page) userId=" + userId + ", totalElements=" + result.getTotalElements());
-        return result;
+        return chatRoomRepository.findByUser_IdAndIsDeletedFalseOrderByLastMessageAtDesc(userId, pageable);
     }
 
     /**
@@ -180,80 +196,7 @@ public class ChatService {
      */
     @Transactional
     public List<ChatRoom> listRooms(UUID userId) {
-        List<ChatRoom> result = chatRoomRepository.findByUser_IdAndIsDeletedFalseOrderByLastMessageAtDesc(userId);
-        System.out.println("[DEBUG] listRooms(all) userId=" + userId + ", size=" + (result == null ? 0 : result.size()));
-        return result;
-    }
-
-    /**
-     * 사용자-챗봇 마지막 상호작용 시간을 업데이트 (nullable timestamp 허용)
-     */
-    public void updateLastInteraction(UUID userId, UUID chatbotId, UUID roomId, LocalDateTime timestamp) {
-        if (userId == null) {
-            System.out.println("[WARN] updateLastInteraction skipped: userId is null, chatbotId=" + chatbotId + ", roomId=" + roomId);
-            return;
-        }
-        OffsetDateTime ts = timestamp == null ? null : timestamp.atOffset(java.time.ZoneOffset.UTC);
-        entityManager.createNativeQuery("""
-            INSERT INTO chat_schema.user_chatbot_last_interaction (user_id, chatbot_id, last_interaction_at, last_room_id)
-            VALUES (?1, ?2, ?3, ?4)
-            ON CONFLICT (user_id, chatbot_id) DO UPDATE SET
-              last_interaction_at = GREATEST(EXCLUDED.last_interaction_at, chat_schema.user_chatbot_last_interaction.last_interaction_at),
-              last_room_id = CASE
-                WHEN EXCLUDED.last_interaction_at IS NOT NULL AND (
-                  chat_schema.user_chatbot_last_interaction.last_interaction_at IS NULL OR
-                  EXCLUDED.last_interaction_at >= chat_schema.user_chatbot_last_interaction.last_interaction_at
-                ) THEN EXCLUDED.last_room_id
-                ELSE chat_schema.user_chatbot_last_interaction.last_room_id
-              END
-        """)
-            .setParameter(1, userId)
-            .setParameter(2, chatbotId)
-            .setParameter(3, ts)
-            .setParameter(4, roomId)
-            .executeUpdate();
-    }
-
-    /**
-     * 사용자 기준 챗봇별 최신 상호작용 상위 N 조회
-     */
-    public List<com.dorandoran.chat.service.dto.LastInteractionResponse> listLastInteractionsByChatbot(UUID userId, int limit) {
-        List<Object[]> rows = entityManager.createNativeQuery("""
-            SELECT chatbot_id, last_interaction_at, last_room_id
-            FROM chat_schema.user_chatbot_last_interaction
-            WHERE user_id = ?1
-            ORDER BY last_interaction_at DESC NULLS LAST
-            LIMIT ?2
-        """)
-            .setParameter(1, userId)
-            .setParameter(2, limit)
-            .getResultList();
-        List<com.dorandoran.chat.service.dto.LastInteractionResponse> out = new java.util.ArrayList<>();
-        for (Object[] r : rows) {
-            UUID chatbotId = (UUID) r[0];
-            Object tsObj = r[1];
-            UUID lastRoomId = (UUID) r[2];
-            java.time.OffsetDateTime odt;
-            if (tsObj == null) {
-                odt = null;
-            } else if (tsObj instanceof java.sql.Timestamp t) {
-                odt = t.toInstant().atOffset(java.time.ZoneOffset.UTC);
-            } else if (tsObj instanceof java.time.Instant i) {
-                odt = java.time.OffsetDateTime.ofInstant(i, java.time.ZoneOffset.UTC);
-            } else if (tsObj instanceof java.time.OffsetDateTime o) {
-                odt = o;
-            } else {
-                System.out.println("[WARN] Unknown timestamp type from DB: " + tsObj.getClass());
-                odt = null;
-            }
-            out.add(new com.dorandoran.chat.service.dto.LastInteractionResponse(
-                    chatbotId,
-                    lastRoomId,
-                    odt,
-                    null
-            ));
-        }
-        return out;
+        return chatRoomRepository.findByUser_IdAndIsDeletedFalseOrderByLastMessageAtDesc(userId);
     }
 
     /**
@@ -287,7 +230,7 @@ public class ChatService {
     @Transactional
     public ChatRoom updateRoom(UUID chatroomId, UUID userId, String name, String description, Boolean archived) {
         ChatRoom room = getChatRoomById(chatroomId);
-        if (!chatRoomRepository.existsByUser_IdAndIdAndIsDeletedFalse(userId, chatroomId)) {
+        if (!chatRoomRepository.existsByUserIdAndIdAndIsDeletedFalse(userId, chatroomId)) {
             throw new RuntimeException("Access denied or room deleted: " + chatroomId);
         }
         if (name != null && !name.isBlank()) {
@@ -309,16 +252,9 @@ public class ChatService {
     @Transactional
     public void softDeleteRoom(UUID chatroomId, UUID userId) {
         ChatRoom room = getChatRoomById(chatroomId);
-        if (!chatRoomRepository.existsByUser_IdAndIdAndIsDeletedFalse(userId, chatroomId)) {
+        if (!chatRoomRepository.existsByUserIdAndIdAndIsDeletedFalse(userId, chatroomId)) {
             throw new RuntimeException("Access denied or room already deleted: " + chatroomId);
         }
-        // 방 나가기 시 마지막 메시지 시간으로 집계 테이블 업데이트 (없으면 NULL)
-        LocalDateTime lastTs = messageRepository.findTopByChatRoomIdOrderBySequenceNumberDesc(chatroomId)
-            .map(Message::getCreatedAt)
-            .orElse(null);
-        try {
-            updateLastInteraction(userId, room.getChatbot().getId(), chatroomId, lastTs);
-        } catch (Exception ignored) {}
         room.setIsDeleted(true);
         room.setUpdatedAt(java.time.LocalDateTime.now());
         chatRoomRepository.save(room);
@@ -329,7 +265,7 @@ public class ChatService {
      */
     @Transactional
     public boolean isCoachmarkShown(UUID chatroomId, UUID userId) {
-        if (!chatRoomRepository.existsByUser_IdAndIdAndIsDeletedFalse(userId, chatroomId)) {
+        if (!chatRoomRepository.existsByUserIdAndIdAndIsDeletedFalse(userId, chatroomId)) {
             throw new RuntimeException("Access denied or room deleted: " + chatroomId);
         }
         ChatRoom room = getChatRoomById(chatroomId);
@@ -345,7 +281,7 @@ public class ChatService {
      */
     @Transactional
     public ChatRoom setCoachmarkShown(UUID chatroomId, UUID userId, boolean shown) {
-        if (!chatRoomRepository.existsByUser_IdAndIdAndIsDeletedFalse(userId, chatroomId)) {
+        if (!chatRoomRepository.existsByUserIdAndIdAndIsDeletedFalse(userId, chatroomId)) {
             throw new RuntimeException("Access denied or room deleted: " + chatroomId);
         }
         ChatRoom room = getChatRoomById(chatroomId);
@@ -363,7 +299,7 @@ public class ChatService {
      */
     @Transactional
     public void updateIntimacyLevel(UUID chatroomId, UUID userId, int intimacyLevel) {
-        if (!chatRoomRepository.existsByUser_IdAndIdAndIsDeletedFalse(userId, chatroomId)) {
+        if (!chatRoomRepository.existsByUserIdAndIdAndIsDeletedFalse(userId, chatroomId)) {
             throw new RuntimeException("Access denied or room deleted: " + chatroomId);
         }
         
@@ -481,5 +417,46 @@ public class ChatService {
             default:
                 return UUID.fromString("22222222-2222-2222-2222-222222222221"); // 기본값: FRIEND
         }
+    }
+
+    /**
+     * 챗봇별 마지막 상호작용 상위 N 조회
+     * 방 삭제 여부와 무관하게 사용자-챗봇별 마지막 대화 시간을 반환합니다.
+     */
+    @Transactional
+    public List<LastInteractionResponse> listLastInteractionsByChatbot(UUID userId, int limit) {
+        List<Object[]> results = userChatbotLastInteractionRepository.findTopByUserOrder(userId, limit);
+        List<LastInteractionResponse> responses = new ArrayList<>();
+        
+        for (Object[] row : results) {
+            UUID chatbotId = (UUID) row[0];
+            OffsetDateTime lastInteractionAt = null;
+            if (row[1] != null) {
+                // PostgreSQL의 TIMESTAMPTZ는 java.sql.Timestamp로 반환될 수 있음
+                if (row[1] instanceof java.sql.Timestamp) {
+                    lastInteractionAt = ((java.sql.Timestamp) row[1]).toInstant()
+                        .atOffset(java.time.ZoneOffset.UTC);
+                } else if (row[1] instanceof OffsetDateTime) {
+                    lastInteractionAt = (OffsetDateTime) row[1];
+                }
+            }
+            UUID lastRoomId = (UUID) row[2];
+            
+            // 챗봇 이름 조회
+            String chatbotName = null;
+            Optional<Chatbot> chatbot = chatbotRepository.findById(chatbotId);
+            if (chatbot.isPresent()) {
+                chatbotName = chatbot.get().getName();
+            }
+            
+            LastInteractionResponse response = new LastInteractionResponse();
+            response.setChatbotId(chatbotId);
+            response.setLastRoomId(lastRoomId);
+            response.setLastInteractionAt(lastInteractionAt);
+            response.setChatbotName(chatbotName);
+            responses.add(response);
+        }
+        
+        return responses;
     }
 }

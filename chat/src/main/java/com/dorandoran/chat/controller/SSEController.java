@@ -134,7 +134,16 @@ public class SSEController {
 	 */
 	private String extractConceptFromSettings(JsonNode settings) {
 		if (settings != null && settings.has("concept")) {
-			return settings.get("concept").asText();
+			JsonNode conceptNode = settings.get("concept");
+			// 안전하게 String으로 변환
+			if (conceptNode.isTextual()) {
+				// 대문자로 정규화하여 반환 (일관성 유지)
+				return conceptNode.asText().toUpperCase();
+			} else {
+				// 다른 타입인 경우 기본값 반환
+				log.warn("SSEController: concept이 유효하지 않은 타입입니다. 기본값 FRIEND 사용. type={}", conceptNode.getNodeType());
+				return "FRIEND";
+			}
 		}
 		return "FRIEND"; // 기본값
 	}
