@@ -3,6 +3,7 @@ package com.dorandoran.auth.controller;
 import com.dorandoran.auth.dto.LoginRequest;
 import com.dorandoran.auth.dto.LoginResponse;
 import com.dorandoran.auth.dto.RefreshTokenRequest;
+import com.dorandoran.auth.dto.OAuthLoginRequest;
 import com.dorandoran.auth.service.AuthService;
 import com.dorandoran.common.response.ApiResponse;
 import com.dorandoran.common.exception.DoranDoranException;
@@ -64,6 +65,32 @@ public class AuthController {
             log.error("로그인 중 예상치 못한 오류 발생", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(ApiResponse.error("로그인 중 오류가 발생했습니다.", ErrorCode.INTERNAL_SERVER_ERROR.getCode()));
+        }
+    }
+    
+    /**
+     * OAuth 로그인
+     */
+    @Operation(summary = "OAuth 로그인", description = "Google OAuth 2.0 ID Token으로 로그인하여 JWT 토큰을 발급받습니다.")
+    @ApiResponses(value = {
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "OAuth 로그인 성공"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "잘못된 인증 정보")
+    })
+    @PostMapping("/oauth/login")
+    public ResponseEntity<ApiResponse<LoginResponse>> oauthLogin(@RequestBody OAuthLoginRequest request) {
+        log.info("OAuth 로그인 API 호출: provider={}", request.provider());
+        
+        try {
+            LoginResponse response = authService.oauthLogin(request);
+            return ResponseEntity.ok(ApiResponse.success(response, "OAuth 로그인에 성공했습니다."));
+        } catch (DoranDoranException e) {
+            log.error("OAuth 로그인 실패: {}", e.getMessage());
+            return ResponseEntity.badRequest()
+                    .body(ApiResponse.error(e.getMessage(), e.getErrorCode().getCode()));
+        } catch (Exception e) {
+            log.error("OAuth 로그인 중 예상치 못한 오류 발생", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(ApiResponse.error("OAuth 로그인 중 오류가 발생했습니다.", ErrorCode.INTERNAL_SERVER_ERROR.getCode()));
         }
     }
     

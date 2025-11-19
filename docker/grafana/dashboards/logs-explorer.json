@@ -1,0 +1,112 @@
+{
+  "dashboard": {
+    "id": null,
+    "title": "DoranDoran Logs Explorer",
+    "tags": ["dorandoran", "logs", "loki"],
+    "style": "dark",
+    "timezone": "browser",
+    "panels": [
+      {
+        "id": 1,
+        "title": "Logs by Service",
+        "type": "logs",
+        "targets": [
+          {
+            "expr": "{service=~\"auth|user|chat|store|batch|gateway\"}",
+            "refId": "A",
+            "legendFormat": "{{service}}"
+          }
+        ],
+        "gridPos": {"h": 20, "w": 24, "x": 0, "y": 0},
+        "options": {
+          "dedupStrategy": "none",
+          "enableLogDetails": true,
+          "prettifyLogMessage": false,
+          "showCommonLabels": false,
+          "showLabels": false,
+          "showTime": true,
+          "sortOrder": "Descending",
+          "wrapLogMessage": false
+        }
+      },
+      {
+        "id": 2,
+        "title": "Error Logs",
+        "type": "logs",
+        "targets": [
+          {
+            "expr": "{service=~\"auth|user|chat|store|batch|gateway\"} |= \"ERROR\"",
+            "refId": "A"
+          }
+        ],
+        "gridPos": {"h": 12, "w": 12, "x": 0, "y": 20},
+        "options": {
+          "dedupStrategy": "none",
+          "enableLogDetails": true,
+          "prettifyLogMessage": false,
+          "showCommonLabels": false,
+          "showLabels": false,
+          "showTime": true,
+          "sortOrder": "Descending",
+          "wrapLogMessage": false
+        }
+      },
+      {
+        "id": 3,
+        "title": "Warn Logs",
+        "type": "logs",
+        "targets": [
+          {
+            "expr": "{service=~\"auth|user|chat|store|batch|gateway\"} |= \"WARN\"",
+            "refId": "A"
+          }
+        ],
+        "gridPos": {"h": 12, "w": 12, "x": 12, "y": 20},
+        "options": {
+          "dedupStrategy": "none",
+          "enableLogDetails": true,
+          "prettifyLogMessage": false,
+          "showCommonLabels": false,
+          "showLabels": false,
+          "showTime": true,
+          "sortOrder": "Descending",
+          "wrapLogMessage": false
+        }
+      }
+    ],
+    "time": {
+      "from": "now-1h",
+      "to": "now"
+    },
+    "refresh": "10s",
+    "templating": {
+      "list": [
+        {
+          "name": "service",
+          "type": "query",
+          "datasource": "Loki",
+          "query": "label_values(service)",
+          "current": {
+            "text": "All",
+            "value": "$__all"
+          },
+          "includeAll": true,
+          "multi": true
+        },
+        {
+          "name": "logLevel",
+          "type": "query",
+          "datasource": "Loki",
+          "query": "label_values(level)",
+          "current": {
+            "text": "All",
+            "value": "$__all"
+          },
+          "includeAll": true,
+          "multi": true
+        }
+      ]
+    }
+  }
+}
+

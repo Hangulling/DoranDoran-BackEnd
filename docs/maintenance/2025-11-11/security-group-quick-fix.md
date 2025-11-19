@@ -116,3 +116,8 @@ aws ec2 describe-security-groups `
 **작성자**: AI Assistant  
 **작성일**: 2025년 11월 11일
 
+
+
+
+
+

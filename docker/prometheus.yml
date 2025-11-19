@@ -1,10 +1,18 @@
 global:
   scrape_interval: 15s
   evaluation_interval: 15s
+  external_labels:
+    cluster: 'dorandoran-msa'
+    environment: 'local'
 
 rule_files:
-  # - "first_rules.yml"
-  # - "second_rules.yml"
+  - "prometheus-alerts.yml"
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+            - dd-alertmanager:9093
 
 scrape_configs:
   # Prometheus 자체 모니터링
@@ -54,12 +62,14 @@ scrape_configs:
       - targets: ['dorandoran-batch:8085']
     scrape_interval: 10s
 
-  # PostgreSQL 모니터링 (postgres_exporter 사용 시)
-  # - job_name: 'postgres'
-  #   static_configs:
-  #     - targets: ['postgres-exporter:9187']
+  # PostgreSQL 모니터링
+  - job_name: 'postgres'
+    static_configs:
+      - targets: ['dd-postgres-exporter:9187']
+    scrape_interval: 15s
 
-  # Redis 모니터링 (redis_exporter 사용 시)
-  # - job_name: 'redis'
-  #   static_configs:
-  #     - targets: ['redis-exporter:9121']
+  # Redis 모니터링
+  - job_name: 'redis'
+    static_configs:
+      - targets: ['dd-redis-exporter:9121']
+    scrape_interval: 15s

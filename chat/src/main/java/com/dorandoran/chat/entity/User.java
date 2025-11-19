@@ -42,8 +42,15 @@ public class User {
     @Column(name = "name", nullable = false, length = 50)
     private String name;
     
-    @Column(name = "password_hash", nullable = false, length = 100)
+    @Column(name = "password_hash", nullable = true, length = 100)
     private String passwordHash;
+    
+    @Enumerated(EnumType.STRING)
+    @Column(name = "oauth_provider", length = 20)
+    private OAuthProvider oauthProvider;
+    
+    @Column(name = "oauth_id", length = 255)
+    private String oauthId;
     
     @Column(name = "picture")
     private String picture;
@@ -106,6 +113,16 @@ public class User {
     public enum RoleName {
         ROLE_USER,
         ROLE_ADMIN
+    }
+    
+    /**
+     * OAuth 제공자 열거형
+     */
+    public enum OAuthProvider {
+        GOOGLE,
+        FACEBOOK,
+        KAKAO,
+        NAVER
     }
     
     /**

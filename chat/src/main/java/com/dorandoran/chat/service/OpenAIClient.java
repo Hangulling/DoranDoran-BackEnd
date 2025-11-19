@@ -34,9 +34,18 @@ public class OpenAIClient {
 
     /**
      * OpenAI Chat Completions API (stream=true) 호출 - RAW 라인 스트림
+     * 기본 temperature 0.85 사용
      */
     public Flux<String> streamRawCompletion(String systemPrompt, String userContent) {
-        log.info("OpenAI API 요청 시작");
+        return streamRawCompletion(systemPrompt, userContent, 0.85, aiConfig.getMaxOutputTokens());
+    }
+    
+    /**
+     * OpenAI Chat Completions API (stream=true) 호출 - RAW 라인 스트림
+     * Temperature와 maxTokens를 파라미터로 받는 오버로드
+     */
+    public Flux<String> streamRawCompletion(String systemPrompt, String userContent, Double temperature, Integer maxTokens) {
+        log.info("OpenAI API 요청 시작 (temperature={}, maxTokens={})", temperature, maxTokens);
         
         // 프롬프트 검증 및 로깅
         if (systemPrompt == null || systemPrompt.isBlank()) {
@@ -49,8 +58,8 @@ public class OpenAIClient {
         Map<String, Object> req = Map.of(
             "model", aiConfig.getModel(),
             "stream", true,
-            "max_tokens", aiConfig.getMaxOutputTokens(),
-            "temperature", 0.85,
+            "max_tokens", maxTokens != null ? maxTokens : aiConfig.getMaxOutputTokens(),
+            "temperature", temperature != null ? temperature : 0.85,
             "messages", new Object[]{
                 Map.of(
                     "role", "system",

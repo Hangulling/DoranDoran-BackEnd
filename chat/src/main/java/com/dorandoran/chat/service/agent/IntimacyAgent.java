@@ -1,12 +1,10 @@
 package com.dorandoran.chat.service.agent;
 
 import com.dorandoran.chat.entity.IntimacyProgress;
-import com.dorandoran.chat.entity.Chatbot;
 import com.dorandoran.chat.enums.ChatRoomConcept;
 import com.dorandoran.chat.repository.IntimacyProgressRepository;
 import com.dorandoran.chat.repository.ChatRoomRepository;
 import com.dorandoran.chat.repository.ChatbotRepository;
-import com.dorandoran.chat.service.OpenAIClient;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
@@ -27,14 +25,19 @@ import java.util.UUID;
 @RequiredArgsConstructor
 @Slf4j
 public class IntimacyAgent {
-    private final OpenAIClient openAIClient;
+    private final IntimacyAnalysisAgent analysisAgent;
+    private final IntimacyCorrectionAgent correctionAgent;
     private final IntimacyProgressRepository intimacyProgressRepository;
     private final ChatRoomRepository chatRoomRepository;
     private final ChatbotRepository chatbotRepository;
     private final ObjectMapper objectMapper;
 
+    /**
+     * Facade 패턴: 내부적으로 IntimacyAnalysisAgent + IntimacyCorrectionAgent 조합 사용
+     * 기존 인터페이스 유지 (하위 호환성)
+     */
     public Mono<IntimacyAgentResponse> analyze(UUID chatroomId, String userMessage) {
-        log.info("=== IntimacyAgent.analyze() 호출됨 ===");
+        log.info("=== IntimacyAgent.analyze() 호출됨 (Facade) ===");
         log.info("=== IntimacyAgent 파라미터 - chatroomId={}, userMessage='{}' ===", chatroomId, userMessage);
         
         int currentLevel = intimacyProgressRepository.findByChatRoomId(chatroomId)
@@ -42,120 +45,95 @@ public class IntimacyAgent {
             .orElse(1);
         log.info("=== IntimacyAgent 현재 레벨 조회: {} ===", currentLevel);
         
-        log.info("=== IntimacyAgent: getConceptFromChatRoom 호출 전 - chatroomId={} ===", chatroomId);
         String concept = getConceptFromChatRoom(chatroomId);
-        log.info("=== IntimacyAgent: getConceptFromChatRoom 호출 후 - concept='{}', type={} ===", concept, concept != null ? concept.getClass().getSimpleName() : "null");
-        
-        // concept을 대문자로 정규화 (switch 문에서 대소문자 일치를 위해)
         if (concept != null) {
             concept = concept.toUpperCase();
-            log.info("=== IntimacyAgent: concept 대문자 변환 후 - concept='{}' ===", concept);
         }
+        log.info("=== IntimacyAgent: concept='{}' ===", concept);
         
         // 컨셉별 레벨 검증 및 조정
-        log.info("=== IntimacyAgent: validateIntimacyLevel 호출 전 - concept='{}', currentLevel={} ===", concept, currentLevel);
         currentLevel = validateIntimacyLevel(concept, currentLevel);
-        log.info("=== IntimacyAgent: validateIntimacyLevel 호출 후 - currentLevel={} ===", currentLevel);
+        log.info("=== IntimacyAgent: 검증된 currentLevel={} ===", currentLevel);
         
-        log.info("=== IntimacyAgent: buildIntimacyPrompt 호출 전 - chatroomId={}, currentLevel={}, concept='{}' ===", chatroomId, currentLevel, concept);
-        String systemPrompt = buildIntimacyPrompt(chatroomId, currentLevel, concept);
-        log.info("=== IntimacyAgent: buildIntimacyPrompt 호출 후 - systemPrompt 길이={} ===", systemPrompt != null ? systemPrompt.length() : 0);
+        final int finalCurrentLevel = currentLevel;
+        final String finalConcept = concept;
         
-        log.info("=== IntimacyAgent OpenAI API 호출 시작 ===");
-        final int finalCurrentLevel = currentLevel; // 람다에서 사용하기 위해 final 변수로
-        final String finalConcept = concept; // 람다에서 사용하기 위해 final 변수로
-        return openAIClient.streamRawCompletion(systemPrompt, userMessage)
-            .doOnNext(chunk -> log.trace("IntimacyAgent 스트림 청크: '{}'", chunk))
-            .doOnError(error -> log.error("IntimacyAgent 스트림 오류", error))
-            .collectList()
-            .doOnNext(chunks -> log.info("IntimacyAgent collectList 완료: {} 개 청크", chunks.size()))
-            .doOnError(error -> log.error("IntimacyAgent collectList 오류", error))
-            .map(this::parseIntimacyResponse)
-            .map(response -> {
-                // 사후 검증: 교정이 실제로 필요한지 확인
-                log.info("=== IntimacyAgent 사후 검증 시작 - detectedLevel={}, currentLevel={}, concept='{}' ===", 
-                    response.detectedLevel(), finalCurrentLevel, finalConcept);
+        // 1. IntimacyAnalysisAgent로 분석
+        log.info("=== IntimacyAgent: IntimacyAnalysisAgent 호출 시작 ===");
+        return analysisAgent.analyze(userMessage, finalConcept, finalCurrentLevel)
+            .flatMap(analysisResult -> {
+                log.info("=== IntimacyAgent: IntimacyAnalysisAgent 응답 수신 ===");
+                log.info("  - detectedLevel: {}", analysisResult.detectedLevel());
+                log.info("  - problematicExpressions: {}", analysisResult.problematicExpressions().size());
                 
-                // 1단계: detectedLevel 정규화 (1 또는 3으로)
-                int normalizedDetectedLevel = normalizeDetectedLevel(response.detectedLevel());
-                if (normalizedDetectedLevel != response.detectedLevel()) {
-                    log.info("=== IntimacyAgent: detectedLevel 정규화 {} → {} ===", 
-                        response.detectedLevel(), normalizedDetectedLevel);
-                }
-                
-                // 2단계: 컨셉 제약 위반 검증 (레벨 차이와 관계없이 항상 검증)
-                if (!response.correctedSentence().isEmpty() && !response.correctedSentence().trim().equals(userMessage.trim())) {
-                    boolean isValidStyle = validateSpeechStyleAgainstConcept(
-                        finalConcept,
-                        finalCurrentLevel,
-                        userMessage,
-                        response.correctedSentence()
-                    );
-                    
-                    if (!isValidStyle) {
-                        log.warn("=== IntimacyAgent: 컨셉 제약 위반 감지 - 원문 유지 ===");
-                        log.warn("=== 원문: '{}', 교정문: '{}' ===", userMessage, response.correctedSentence());
+                // 2. IntimacyCorrectionAgent로 교정
+                log.info("=== IntimacyAgent: IntimacyCorrectionAgent 호출 시작 ===");
+                return correctionAgent.generateCorrection(analysisResult, finalConcept, finalCurrentLevel)
+                    .map(correctionResult -> {
+                        log.info("=== IntimacyAgent: IntimacyCorrectionAgent 응답 수신 ===");
+                        log.info("  - correctedSentence: '{}'", correctionResult.correctedSentence());
+                        log.info("  - feedback.ko: '{}'", correctionResult.feedback().ko());
+                        log.info("  - alternativeExpressions: {} 개", correctionResult.alternativeExpressions().size());
                         
-                        // 컨셉 제약 위반 시 원문 유지
+                        // 3. 사후 검증 및 최종 응답 변환
+                        int normalizedDetectedLevel = normalizeDetectedLevel(analysisResult.detectedLevel());
+                        
+                        // 컨셉 제약 위반 검증
+                        if (!correctionResult.correctedSentence().isEmpty() && 
+                            !correctionResult.correctedSentence().trim().equals(userMessage.trim())) {
+                            boolean isValidStyle = validateSpeechStyleAgainstConcept(
+                                finalConcept,
+                                finalCurrentLevel,
+                                userMessage,
+                                correctionResult.correctedSentence()
+                            );
+                            
+                            if (!isValidStyle) {
+                                log.warn("=== IntimacyAgent: 컨셉 제약 위반 감지 - 원문 유지 ===");
+                                return new IntimacyAgentResponse(
+                                    "intimacy",
+                                    normalizedDetectedLevel,
+                                    userMessage,
+                                    new FeedbackText("", ""),
+                                    "",
+                                    correctionResult.alternativeExpressions()
+                                );
+                            }
+                        }
+                        
+                        // 불필요한 교정 검증
+                        String normalizedOriginal = normalizeSentence(userMessage);
+                        String normalizedCorrected = normalizeSentence(correctionResult.correctedSentence());
+                        
+                        if (correctionResult.correctedSentence().isEmpty() || 
+                            normalizedOriginal.equals(normalizedCorrected)) {
+                            log.info("=== IntimacyAgent: 교정 불필요 감지 ===");
+                            return new IntimacyAgentResponse(
+                                "intimacy",
+                                normalizedDetectedLevel,
+                                userMessage,
+                                new FeedbackText("", ""),
+                                "",
+                                correctionResult.alternativeExpressions()
+                            );
+                        }
+                        
+                        // 최종 응답 반환
+                        log.info("=== IntimacyAgent 최종 응답 생성 완료 ===");
                         return new IntimacyAgentResponse(
                             "intimacy",
                             normalizedDetectedLevel,
-                            userMessage, // 원문 유지
-                            new FeedbackText("", ""),
-                            ""
+                            correctionResult.correctedSentence(),
+                            correctionResult.feedback(),
+                            correctionResult.corrections(),
+                            correctionResult.alternativeExpressions()
                         );
-                    }
-                }
-                
-                // 3단계: 불필요한 교정 검증 (레벨 차이와 관계없이)
-                String normalizedOriginal = normalizeSentence(userMessage);
-                String normalizedCorrected = normalizeSentence(response.correctedSentence());
-                
-                // correctedSentence가 비어있지만 feedback이 있는 경우 (불완전한 문장 등)
-                if (response.correctedSentence().isEmpty() || response.correctedSentence().trim().isEmpty()) {
-                    if (!response.feedback().ko().isEmpty() || !response.feedback().en().isEmpty()) {
-                        // 피드백이 있으면 피드백 유지 (불완전한 문장에 대한 피드백)
-                        log.info("=== IntimacyAgent: 빈 교정문이지만 피드백 존재 - 피드백 유지 ===");
-                        return new IntimacyAgentResponse(
-                            "intimacy",
-                            normalizedDetectedLevel,
-                            userMessage, // 원문 유지
-                            response.feedback(), // 피드백 유지
-                            response.corrections()
-                        );
-                    }
-                }
-                
-                // 문장이 동일하거나 correctedSentence가 비어있는 경우
-                if (normalizedOriginal.equals(normalizedCorrected) || 
-                    response.correctedSentence().isEmpty() ||
-                    response.correctedSentence().trim().equals(userMessage.trim())) {
-                    log.info("=== IntimacyAgent: 교정 불필요 감지 - 원문과 동일하거나 빈 교정문 ===");
-                    log.info("=== 원문: '{}', 교정문: '{}' ===", userMessage, response.correctedSentence());
-                    
-                    // 교정이 불필요한 경우 - 빈 피드백 반환
-                    return new IntimacyAgentResponse(
-                        "intimacy",
-                        normalizedDetectedLevel,
-                        userMessage, // 원문 유지
-                        new FeedbackText("", ""),
-                        ""
-                    );
-                }
-                
-                // 교정이 필요한 경우 (컨셉 제약 위반으로 인한 말투 교정) - 정규화된 detectedLevel로 반환
-                log.info("=== IntimacyAgent: 말투 교정 필요 - 정규화된 detectedLevel={}로 반환 ===", normalizedDetectedLevel);
-                return new IntimacyAgentResponse(
-                    "intimacy",
-                    normalizedDetectedLevel,
-                    response.correctedSentence(),
-                    response.feedback(),
-                    response.corrections()
-                );
+                    });
             })
-            .doOnSuccess(response -> log.info("IntimacyAgent 최종 응답: 레벨={}, corrections='{}', feedback.ko='{}'", 
-                response.detectedLevel(), response.corrections(), response.feedback().ko()))
-            .doOnError(error -> log.error("IntimacyAgent 파싱 오류", error));
+            .doOnSuccess(response -> log.info("IntimacyAgent 최종 응답: 레벨={}, corrections='{}', feedback.ko='{}', alternativeExpressions={} 개", 
+                response.detectedLevel(), response.corrections(), response.feedback().ko(), 
+                response.alternativeExpressions().size()))
+            .doOnError(error -> log.error("IntimacyAgent 처리 오류", error));
     }
     
     private String getConceptFromChatRoom(UUID chatroomId) {
@@ -773,7 +751,8 @@ public class IntimacyAgent {
                     """;
                 case "SENIOR" -> """
                     [SENIOR 제약]
-                    - Level 3에서는 절제된 반말만 허용
+                    - 모든 레벨에서 존댓말 유지 (Level 1도 부드러운 존댓말)
+                    - 반말 사용 절대 금지
                     - 과도한 이모티콘, 반말 존칭 혼용, 지나친 장난 금지
                     - 선배에 대한 존중과 예의 유지
                     """;

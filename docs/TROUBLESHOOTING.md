@@ -6,6 +6,8 @@
 3. [AI 프롬프트 파싱 오류](#ai-프롬프트-파싱-오류)
 4. [데이터베이스 연결 문제](#데이터베이스-연결-문제)
 5. [Docker 배포 문제](#docker-배포-문제)
+6. [보안 위협 및 IP 블랙리스트 관리](#보안-위협-및-ip-블랙리스트-관리)
+7. [인증 구조 충돌 문제](#인증-구조-충돌-문제)
 
 ---
 
@@ -340,9 +342,130 @@ psql -h dorandoran-postgres.cpw00a6ga2uv.us-east-2.rds.amazonaws.com -U doran -d
 
 ---
 
+---
+
+## 보안 위협 및 IP 블랙리스트 관리
+
+### 증상
+- Gateway 로그에서 비정상 HTTP 요청 감지 (RTSP/1.0, SIP/2.0, 빈 요청 등)
+- 특정 IP 주소에서 반복적인 공격 시도
+- `Decoding failed: invalid version format` 오류 발생
+
+### 원인
+1. 프로토콜 혼합 공격 (Protocol Confusion Attack)
+2. 비정상 HTTP 요청을 통한 취약점 스캔
+3. Fuzzing 공격 (불법 문자 주입)
+
+### 해결 방법
+
+#### 1. IP 블랙리스트 필터 구현
+```java
+// IpBlacklistFilter.java
+@Component
+public class IpBlacklistFilter implements GlobalFilter, Ordered {
+    private final Set<String> blacklistedIps;
+    
+    @Override
+    public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
+        String clientIp = extractClientIp(exchange.getRequest());
+        if (isBlacklisted(clientIp)) {
+            return handleBlockedRequest(exchange, clientIp);
+        }
+        return chain.filter(exchange);
+    }
+}
+```
+
+#### 2. 블랙리스트 관리 API 사용
+```bash
+# IP 추가
+POST /api/admin/blacklist
+{
+  "ip": "172.104.24.172",
+  "reason": "Protocol confusion attack"
+}
+
+# IP 조회
+GET /api/admin/blacklist
+
+# IP 제거
+DELETE /api/admin/blacklist/172.104.24.172
+```
+
+#### 3. 설정 파일에 IP 등록
+```yaml
+# application.yml
+gateway:
+  security:
+    blacklist:
+      ips: "172.104.24.172, 192.168.1.100"
+```
+
+### 주의사항
+- 블랙리스트 IP는 현재 **메모리에만 저장**됨 (서버 재시작 시 사라짐)
+- 영구 저장을 위해서는 Redis 또는 데이터베이스 연동 필요
+- 관리자 API는 JWT 인증 필요 (하지만 관리자 권한 체크는 아직 없음)
+
+### 관련 문서
+- [IP 172.104.24.172 보안 분석](./maintenance/2025-11-11/ip-172.104.24.172-security-analysis.md)
+- [보안 대응 절차](./maintenance/2025-11-11/security-response-plan.md)
+- [블랙리스트 저장 위치 분석](./maintenance/2025-11-11/blacklist-storage-location.md)
+
+---
+
+## 인증 구조 충돌 문제
+
+### 증상
+- SecurityConfig와 JwtAuthFilter의 정책이 불일치
+- 관리자 API에 일반 사용자도 접근 가능
+- 설정 파일의 `permitAll()`이 실제 동작과 다름
+
+### 원인
+1. SecurityConfig에서 모든 `/api/**` 경로를 `permitAll()`로 설정
+2. JwtAuthFilter가 실제 인증을 담당하지만 정책이 일치하지 않음
+3. 관리자 권한 체크 로직이 없음
+
+### 해결 방법
+
+#### 1. SecurityConfig 정책 수정
+```java
+// 현재 (문제)
+.pathMatchers("/api/**").permitAll()
+
+// 권장 수정
+.pathMatchers("/api/admin/**").authenticated()  // 관리자 API는 인증 필요
+.pathMatchers("/api/auth/**").permitAll()       // Auth API는 허용
+.pathMatchers("/api/**").authenticated()        // 나머지는 인증 필요
+```
+
+#### 2. 관리자 권한 체크 추가
+```java
+// JWT 토큰에서 역할(role) 클레임 확인
+// ROLE_ADMIN 권한이 있는 사용자만 접근 허용
+if (path.startsWith("/api/admin/")) {
+    String role = extractRoleFromToken(token);
+    if (!"ROLE_ADMIN".equals(role)) {
+        exchange.getResponse().setStatusCode(HttpStatus.FORBIDDEN);
+        return exchange.getResponse().setComplete();
+    }
+}
+```
+
+### 현재 상태
+- ✅ JWT 인증은 작동함
+- ❌ 관리자 권한 체크 없음 (일반 사용자도 접근 가능)
+- ⚠️ SecurityConfig 정책이 혼란스러움
+
+### 관련 문서
+- [Phase 2 인증 구조 분석](./maintenance/2025-11-11/phase2-authentication-analysis.md)
+- [보안 상태 점검](./maintenance/2025-11-11/security-status-check.md)
+
+---
+
 ## 추가 리소스
 
 - [Spring Boot 공식 문서](https://spring.io/projects/spring-boot)
 - [Hibernate 공식 문서](https://hibernate.org/orm/documentation/)
 - [Docker 공식 문서](https://docs.docker.com/)
 - [PostgreSQL 공식 문서](https://www.postgresql.org/docs/)
+- [Spring Cloud Gateway 공식 문서](https://spring.io/projects/spring-cloud-gateway)

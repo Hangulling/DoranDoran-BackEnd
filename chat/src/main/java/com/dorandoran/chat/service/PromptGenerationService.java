@@ -209,7 +209,21 @@ public class PromptGenerationService {
 
     /**
      * VocabularyAgent 프롬프트 업데이트
+     * 
+     * @deprecated 이 메서드는 더 이상 사용되지 않습니다.
+     * VocabularyExtractionAgent와 VocabularyExplanationAgent는 하드코딩된 프롬프트를 사용하며,
+     * DB의 vocabulary_system_prompt를 읽지 않습니다.
+     * 
+     * 이 메서드는 DB에 프롬프트를 업데이트하지만, 실제 Agent는 이를 무시하고
+     * VocabularyExtractionAgent.buildExtractionPrompt()와
+     * VocabularyExplanationAgent.buildExplanationPrompt()에서 생성한 하드코딩된 프롬프트를 사용합니다.
+     * 
+     * DB의 vocabulary_system_prompt는 resetChatbotPrompt()에서만 사용됩니다 (기본값 리셋용).
+     * 
+     * @param chatbot 챗봇 엔티티
+     * @param concept 컨셉 (FRIEND, COWORKER 등)
      */
+    @Deprecated
     private void updateVocabularyPrompt(Chatbot chatbot, String concept) {
         // 필터링된 예시 가져오기
         List<VocabularyExampleDto> filteredExamples = filterVocabularyExamples(concept);

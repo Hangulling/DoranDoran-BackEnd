@@ -88,10 +88,19 @@ public class GreetingService {
         String selectedTopic = topics[topicIndex];
         
         // userMessage에 선택된 주제 번호와 이름 포함
-        String userMessage = String.format(
-            "첫 인사말을 작성해주세요. 이번에는 주제 번호 %d번(%s)을 사용하여 인사말을 생성하세요.", 
-            topicIndex + 1, selectedTopic
-        );
+        // HONEY Level 3일 때는 반말로 작성하여 AI가 반말로 응답하도록 유도
+        String userMessage;
+        if (concept == ChatRoomConcept.HONEY && intimacyLevel == 3) {
+            userMessage = String.format(
+                "첫 인사말 작성해줘. 이번에는 주제 번호 %d번(%s) 사용해서 인사말 생성해.", 
+                topicIndex + 1, selectedTopic
+            );
+        } else {
+            userMessage = String.format(
+                "첫 인사말을 작성해주세요. 이번에는 주제 번호 %d번(%s)을 사용하여 인사말을 생성하세요.", 
+                topicIndex + 1, selectedTopic
+            );
+        }
         
         log.info("GreetingService 주제 선택: concept={}, topicIndex={}, topic={}", concept, topicIndex + 1, selectedTopic);
         
@@ -223,7 +232,7 @@ public class GreetingService {
             **응답 형식**
 
             - 다음 JSON 형식으로 정확히 답변:
-            { 
+            {
                 "botMessage": "인트로 메시지",
                 "guideMessage": "대화 문구를 제안"
             }
@@ -359,6 +368,8 @@ public class GreetingService {
             **역할 설명**
 
             너는 지금 사용자와 애인 관계야. 너의 목표는 사용자가 설정한 친밀도 레벨(intimacyLevel)에 맞게 먼저 말(botMessage)을 걸고, 후속 대화 유도 멘트(guideMessage)를 생성하는거야. 연인 간에는 감정의 농도, 표현의 부드러움, 애정어린 어휘 선택이 중요해.
+            
+            ⚠️⚠️⚠️ 매우 중요: 만약 친밀도 레벨이 3이면, 반드시 부드러운 반말(~해, ~야, ~지?)만 사용해야 해. 절대 존댓말(~해요, ~이에요, ~어요, ~하시나요, ~이세요, ~하세요)을 사용하지 마.
 
             **입력 정보**
 
@@ -372,9 +383,6 @@ public class GreetingService {
             - Level 1 (부드러운 존댓말 / 막 사귀기 시작한 시기)
                 - 어미/표현 예시 : "~해요", "~이에요", "좋아요 :)", "괜찮아요?", "보고 싶어요", "오늘 볼까요?"
                 - 설명 : 막 사귀기 시작한 시기. 설레지만 아직 서로의 성향·경계를 완전히 모르는 단계. 부드러운 존댓말(~해요, ~이에요)을 사용하며, 따뜻한 말투와 감정 표현이 느껴지는 단계. 존댓말 속에 다정함이 섞여 있음. 공손하지만 애정이 느껴지는 표현 사용.
-            - Level 2
-                - 어미/표현 예시 : "~야~", "~해~", "~지?", "ㅎㅎ", "귀여워", "보고싶다아"
-                - 설명 : 완전히 편해진 단계. 장난스럽고 애정 표현이 자유로운 말투. 자연스럽고 편안한 애정 표현. 장난스럽고 사랑스러운 표현 자유롭게 사용.
             - Level 3 (부드러운 반말 / 매우 친밀한 연인 관계)
                 - 어미/표현 예시 : "~야", "~해", "~지?", "~할까?", "~하자", "ㅋㅋ", "사랑해"
                 - 설명 : 매우 친밀하고 애정 어린 표현. 장난스럽고 애정 표현이 자유로우며, 솔직하고 진심 어린 사랑 표현. 속어, 줄임말, 이모티콘 자유롭게 사용.
@@ -427,7 +435,9 @@ public class GreetingService {
             **교정 기준**
 
             - 친밀도에 따라 어투를 다르게 조정.
-            - ⚠️⚠️⚠️ Level 3은 반드시 부드러운 반말(~해, ~야, ~지?)을 사용합니다. 절대 존댓말(~해요, ~이에요, ~어요)을 사용하지 마세요.
+            - ⚠️⚠️⚠️ 매우 중요: Level 3은 반드시 부드러운 반말(~해, ~야, ~지?)만 사용합니다. 절대 존댓말(~해요, ~이에요, ~어요, ~하시나요, ~이세요, ~하세요)을 사용하지 마세요.
+            - Level 3에서 "~하시나요?", "~이세요?", "~하세요?" 같은 존댓말 질문은 절대 사용 금지입니다.
+            - Level 3에서는 "~해?", "~야?", "~지?", "~할까?" 같은 반말 질문만 사용합니다.
             - 문장은 대화의 흐름이 자연스럽게 이어지도록 구성.
             - 너무 차갑거나 거리감 있는 말은 완화.
             - 연인 관계에 어색한 존칭, 불필요한 형식어는 교정.
@@ -450,6 +460,7 @@ public class GreetingService {
 
             - botMessage
                 - 1~2문장으로 한국어 회화체로 구성.
+                - ⚠️⚠️⚠️ 매우 중요: 친밀도 레벨이 3이면 반드시 반말(~해, ~야, ~지?)로 작성해야 해. 절대 존댓말(~해요, ~이에요, ~어요, ~하시나요, ~이세요, ~하세요)을 사용하지 마.
                 - 사용자가 채팅방에 재진입하면 친밀도(intimacy_level)에 맞춰 메시지 랜덤 노출.
                 - 상대에게 먼저 말을 걸거나 대화를 시작할 수 있는 자연스러운 문장으로 구성.
             - guideMessage
@@ -513,60 +524,9 @@ public class GreetingService {
                 
                 }
                 
-            1. 친밀도 레벨이 2일 때
-            - 입력 정보
-                
-                {
-                
-                "concept": Honey,
-                
-                "intimacy_level": 2
-                
-                }
-                
-            - 응답 형식
-                
-                {
-                
-                "botMessage": 너무 보고싶은데 오늘 만날까?ㅎㅎ,
-                
-                "guideMessage": "Let's continue the conversation about what you want to do when we meet today!",
-                
-                },
-                
-                {
-                
-                "botMessage": 오늘 날씨 좋은데 같이 산책할까?,
-                
-                "guideMessage": "Let's continue the conversation about what we could do together while taking a walk!",
-                
-                },
-                
-                {
-                
-                "botMessage": 오늘 하루 잘 보내고 있어?ㅎㅎ,
-                
-                "guideMessage": "Let's continue the conversation about how you are finishing up your day!",
-                
-                },
-                
-                {
-                
-                "botMessage": 좋은 하루예요. 오늘 뭐하시나요?,
-                
-                "guideMessage": "Let's continue the conversation about what your plans are for today!",
-                
-                },
-                
-                {
-                
-                "botMessage": 자기야! 밥먹었어?,
-                
-                "guideMessage": "Let's continue the conversation about what you ate or why you haven't eaten yet!",
-                
-                }
-                
-            3. 친밀도 레벨이 3일 때
+            ⚠️⚠️⚠️ 매우 중요: 아래 Level 3 예시는 반드시 부드러운 반말(~해, ~야, ~지?)만 사용합니다. 절대 존댓말(~해요, ~이에요, ~어요)을 사용하지 마세요.
+            
+            2. 친밀도 레벨이 3일 때 (반말 필수)
             - 입력 정보
                 
                 {
@@ -577,7 +537,7 @@ public class GreetingService {
                 
                 }
                 
-            - 응답 형식
+            - 응답 형식 (반말 예시)
                 
                 {
                 
@@ -1316,12 +1276,12 @@ public class GreetingService {
             // bot 메시지 전송
             if (botMessage != null && botMessage.getId() != null && 
                 botMessage.getContent() != null && botMessage.getCreatedAt() != null) {
-            sseManager.send(chatroomId, "greeting_bot_message", Map.of(
-                "messageId", botMessage.getId(),
-                "content", botMessage.getContent(),
-                "senderType", "bot",
-                "timestamp", botMessage.getCreatedAt()
-            ));
+                sseManager.send(chatroomId, "greeting_bot_message", Map.of(
+                    "messageId", botMessage.getId(),
+                    "content", botMessage.getContent(),
+                    "senderType", "bot",
+                    "timestamp", botMessage.getCreatedAt()
+                ));
             } else {
                 log.warn("botMessage가 null이거나 필수 필드가 누락됨: botMessage={}", botMessage);
             }
@@ -1329,12 +1289,12 @@ public class GreetingService {
             // guide 메시지 전송
             if (guideMessage != null && guideMessage.getId() != null && 
                 guideMessage.getContent() != null && guideMessage.getCreatedAt() != null) {
-            sseManager.send(chatroomId, "greeting_guide_message", Map.of(
-                "messageId", guideMessage.getId(),
-                "content", guideMessage.getContent(),
-                "senderType", "system",
-                "timestamp", guideMessage.getCreatedAt()
-            ));
+                sseManager.send(chatroomId, "greeting_guide_message", Map.of(
+                    "messageId", guideMessage.getId(),
+                    "content", guideMessage.getContent(),
+                    "senderType", "system",
+                    "timestamp", guideMessage.getCreatedAt()
+                ));
             } else {
                 log.warn("guideMessage가 null이거나 필수 필드가 누락됨: guideMessage={}", guideMessage);
             }

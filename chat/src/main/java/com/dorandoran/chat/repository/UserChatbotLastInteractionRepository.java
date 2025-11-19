@@ -16,7 +16,7 @@ import java.util.UUID;
 public interface UserChatbotLastInteractionRepository extends JpaRepository<UserChatbotLastInteraction, UserChatbotLastInteractionId> {
 
     // upsert: userId, chatbotId 기준으로 last_interaction_at / last_room_id 갱신
-    @Modifying
+    @Modifying(clearAutomatically = true)
     @Query(value = """
         INSERT INTO chat_schema.user_chatbot_last_interaction
             (user_id, chatbot_id, last_interaction_at, last_room_id)

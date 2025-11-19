@@ -68,7 +68,16 @@ public class MultiAgentOrchestrator {
                     "detectedLevel", resp.detectedLevel(),
                     "correctedSentence", resp.correctedSentence(),
                     "feedback", Map.of("ko", resp.feedback().ko(), "en", resp.feedback().en()),
-                    "corrections", resp.corrections()
+                    "corrections", resp.corrections(),
+                    "alternativeExpressions", resp.alternativeExpressions() != null 
+                        ? resp.alternativeExpressions().stream()
+                            .map(alt -> Map.of(
+                                "expression", alt.expression(),
+                                "tone", alt.tone(),
+                                "example", alt.example()
+                            ))
+                            .toList()
+                        : List.of()
                 ));
                 updateIntimacyProgress(chatroomId, userId, resp);
             })
@@ -106,9 +115,9 @@ public class MultiAgentOrchestrator {
                         
                         // VocabularyAgent 실행
                         log.debug("=== VocabularyAgent 호출 시작 (챗봇 응답 분석) ===");
-                        log.debug("VocabularyAgent 파라미터 - botResponse='{}'", actualContent);
+                        log.debug("VocabularyAgent 파라미터 - botResponse='{}', chatroomId={}", actualContent, chatroomId);
                         
-                        vocabularyAgent.extractDifficultWords(actualContent)
+                        vocabularyAgent.extractDifficultWords(actualContent, chatroomId)
                             .doOnNext(vocabResp -> {
                                 log.info("VocabularyAgent 결과 수집 완료: wordsCount={}", vocabResp.words().size());
                                 
@@ -450,6 +459,18 @@ public class MultiAgentOrchestrator {
             feedback.put("en", intimacyResp.feedback().en());
             intimacy.set("feedback", feedback);
             intimacy.put("corrections", intimacyResp.corrections());
+            // alternativeExpressions 추가
+            ArrayNode alternatives = mapper.createArrayNode();
+            if (intimacyResp.alternativeExpressions() != null) {
+                for (var alt : intimacyResp.alternativeExpressions()) {
+                    ObjectNode altNode = mapper.createObjectNode();
+                    altNode.put("expression", alt.expression());
+                    altNode.put("tone", alt.tone());
+                    altNode.put("example", alt.example());
+                    alternatives.add(altNode);
+                }
+            }
+            intimacy.set("alternativeExpressions", alternatives);
         } else {
             // 기본값
             intimacy.put("detectedLevel", 0);
@@ -459,6 +480,7 @@ public class MultiAgentOrchestrator {
             feedback.put("en", "");
             intimacy.set("feedback", feedback);
             intimacy.put("corrections", "");
+            intimacy.set("alternativeExpressions", mapper.createArrayNode());
         }
         userAnalysis.set("intimacy", intimacy);
         root.set("userMessageAnalysis", userAnalysis);

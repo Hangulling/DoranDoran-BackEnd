@@ -16,6 +16,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -31,6 +32,7 @@ import java.util.ArrayList;
 /**
  * Chat Service 비즈니스 로직 (단순화 스키마 기반)
  */
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class ChatService {
@@ -155,6 +157,28 @@ public class ChatService {
             room.setUpdatedAt(LocalDateTime.now());
             chatRoomRepository.save(room);
         });
+
+        // 사용자 메시지인 경우 user_chatbot_last_interaction 업데이트
+        if ("user".equalsIgnoreCase(senderType)) {
+            try {
+                UUID userId = chatRoom.getUser().getId();
+                UUID chatbotId = chatRoom.getChatbot().getId();
+                OffsetDateTime interactionTime = OffsetDateTime.now();
+                
+                userChatbotLastInteractionRepository.upsert(
+                    userId,
+                    chatbotId,
+                    interactionTime,
+                    chatroomId
+                );
+                log.debug("Updated user_chatbot_last_interaction: userId={}, chatbotId={}, chatroomId={}, time={}", 
+                    userId, chatbotId, chatroomId, interactionTime);
+            } catch (Exception e) {
+                // 로그만 남기고 메시지 저장은 계속 진행
+                log.error("Failed to update user_chatbot_last_interaction: chatroomId={}, senderId={}", 
+                    chatroomId, senderId, e);
+            }
+        }
 
         return saved;
     }

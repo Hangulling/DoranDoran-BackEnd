@@ -105,6 +105,22 @@ ai:
     max-output-tokens: ${OPENAI_MAX_OUTPUT_TOKENS:800}
     price-per1k-input: ${OPENAI_PRICE_IN_PER1K:0.25}
     price-per1k-output: ${OPENAI_PRICE_OUT_PER1K:2.00}
+    # Agent별 설정
+    agents:
+      vocabulary:
+        extraction:
+          temperature: 0.2  # 정확한 추출을 위해 낮게 설정
+          max-tokens: 300
+        explanation:
+          temperature: 0.5  # 자연스러운 설명을 위해 적당히 설정
+          max-tokens: 200
+      intimacy:
+        analysis:
+          temperature: 0.2  # 정확한 분석을 위해 낮게 설정
+          max-tokens: 400
+        correction:
+          temperature: 0.5  # 자연스러운 교정을 위해 적당히 설정
+          max-tokens: 300
 
 # SpringDoc OpenAPI 설정
 springdoc:

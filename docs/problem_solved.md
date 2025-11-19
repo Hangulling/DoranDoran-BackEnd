@@ -259,3 +259,232 @@ private GreetingResponse parseAIResponse(String aiResponse) {
 
 ### 관련 파일
 - `chat/src/main/java/com/dorandoran/chat/service/GreetingService.java`
+
+---
+
+## 보안 위협 대응 및 IP 블랙리스트 시스템 구현
+
+### 문제 발생 일시
+2025-11-11
+
+### 문제 상황
+- Gateway 로그에서 의심스러운 IP 주소 `172.104.24.172`에서 반복적인 공격 시도 감지
+- 비정상 HTTP 요청 (RTSP/1.0, SIP/2.0, 빈 요청 등) 발생
+- `Decoding failed: invalid version format` 오류 14건 발생
+- 프로토콜 혼합 공격 및 Fuzzing 공격 시도 확인
+
+### 문제 원인 분석
+
+#### 1. 공격 유형 분석
+```
+- 프로토콜 혼합 공격 (Protocol Confusion Attack)
+- Fuzzing 공격 (불법 문자 주입)
+- 빈 요청 공격
+```
+
+#### 2. 공격 패턴
+- **발생 기간**: 2025년 11월 11일 05:02:29 ~ 05:03:10 (약 41초)
+- **총 로그 건수**: 9건
+- **공격 목적**: 서버 취약점 스캔 및 프로토콜 탐지 시도
+
+### 해결 방법
+
+#### Phase 1: 즉시 대응 (난이도: 매우 낮음)
+
+**1. AWS Security Group IP 차단 스크립트 작성**
+- `scripts/security/block-ip-aws.ps1` 생성
+- AWS CLI를 통한 Security Group 관리 자동화
+
+**2. 보안 대응 절차 문서화**
+- `docs/maintenance/2025-11-11/security-response-plan.md` 작성
+- 즉시, 단기, 장기 대응 방안 정리
+
+**3. 보안 모니터링 스크립트 작성**
+- `scripts/security/monitor-suspicious-ips.sh` 생성
+- Gateway 로그에서 의심스러운 IP 패턴 자동 탐지
+
+#### Phase 2: Gateway 레벨 보안 강화 (난이도: 낮음)
+
+**1. IP 블랙리스트 필터 구현**
+```java
+// IpBlacklistFilter.java
+@Component
+public class IpBlacklistFilter implements GlobalFilter, Ordered {
+    private final Set<String> blacklistedIps;
+    
+    @Override
+    public int getOrder() {
+        return -100; // 가장 먼저 실행
+    }
+    
+    @Override
+    public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
+        String clientIp = extractClientIp(exchange.getRequest());
+        if (isBlacklisted(clientIp)) {
+            return handleBlockedRequest(exchange, clientIp);
+        }
+        return chain.filter(exchange);
+    }
+}
+```
+
+**2. 블랙리스트 관리 API 구현**
+```java
+// BlacklistController.java
+@RestController
+@RequestMapping("/api/admin/blacklist")
+public class BlacklistController {
+    // GET /api/admin/blacklist - 블랙리스트 조회
+    // POST /api/admin/blacklist - IP 추가
+    // DELETE /api/admin/blacklist/{ip} - IP 제거
+    // GET /api/admin/blacklist/{ip} - 특정 IP 차단 여부 확인
+}
+```
+
+**3. 설정 파일 업데이트**
+```yaml
+# application.yml
+gateway:
+  security:
+    blacklist:
+      ips: "172.104.24.172"
+```
+
+### 발견된 추가 문제점
+
+#### 1. 인증 구조 충돌
+- **문제**: SecurityConfig의 `permitAll()` 설정과 JwtAuthFilter의 정책 불일치
+- **영향**: 설정이 혼란스럽고 향후 충돌 가능성
+- **해결**: SecurityConfig 정책을 JwtAuthFilter와 일치시키도록 수정 필요
+
+#### 2. 관리자 권한 체크 없음
+- **문제**: 관리자 API에 일반 사용자도 접근 가능 (JWT 토큰만 있으면 OK)
+- **영향**: 심각한 보안 취약점
+- **해결**: JWT 토큰에서 역할(role) 클레임 확인 및 `ROLE_ADMIN` 권한 체크 추가 필요
+
+#### 3. 블랙리스트 영구 저장 없음
+- **문제**: 런타임에 추가한 IP는 서버 재시작 시 사라짐
+- **영향**: 관리자가 추가한 IP가 유지되지 않음
+- **해결**: Redis 또는 데이터베이스를 통한 영구 저장 기능 추가 필요
+
+### 결과
+
+#### 해결 전
+- 의심스러운 IP에서 지속적인 공격 시도
+- Gateway 레벨에서 차단 기능 없음
+- 수동으로만 IP 차단 가능
+
+#### 해결 후
+- Gateway 레벨에서 자동 IP 차단
+- 관리자 API를 통한 런타임 블랙리스트 관리
+- 보안 모니터링 스크립트로 자동 탐지
+
+### 교훈
+
+1. **보안 로그 모니터링**: 정기적인 로그 분석을 통한 위협 조기 발견
+2. **다층 방어**: AWS Security Group + Gateway 필터 + 애플리케이션 레벨 보안
+3. **자동화**: 스크립트를 통한 보안 대응 자동화
+4. **문서화**: 보안 대응 절차를 문서화하여 일관된 대응 보장
+5. **권한 관리**: 관리자 API는 반드시 권한 체크 필요
+
+### 관련 파일
+- `gateway/src/main/java/com/dorandoran/gateway/filter/IpBlacklistFilter.java`
+- `gateway/src/main/java/com/dorandoran/gateway/controller/BlacklistController.java`
+- `scripts/security/block-ip-aws.ps1`
+- `scripts/security/monitor-suspicious-ips.sh`
+- `docs/maintenance/2025-11-11/ip-172.104.24.172-security-analysis.md`
+- `docs/maintenance/2025-11-11/security-response-plan.md`
+- `docs/maintenance/2025-11-11/phase2-authentication-analysis.md`
+- `docs/maintenance/2025-11-11/security-status-check.md`
+- `docs/maintenance/2025-11-11/blacklist-storage-location.md`
+
+---
+
+## 인증 구조 분석 및 개선
+
+### 문제 발생 일시
+2025-11-11
+
+### 문제 상황
+- SecurityConfig와 JwtAuthFilter의 정책 불일치
+- 관리자 API에 일반 사용자도 접근 가능
+- 블랙리스트 IP 저장 위치 및 영구 저장 여부 불명확
+
+### 문제 원인 분석
+
+#### 1. SecurityConfig 정책 불일치
+```java
+// 현재 설정
+.pathMatchers("/api/**").permitAll()  // 모든 API 허용
+
+// 실제 동작
+// JwtAuthFilter가 제외 목록에 없는 경로는 인증 필요
+// SecurityConfig 설정이 무의미함
+```
+
+#### 2. 관리자 권한 체크 없음
+- JWT 토큰만 있으면 누구나 관리자 API 접근 가능
+- 역할(role) 기반 권한 체크 없음
+
+#### 3. 블랙리스트 저장 위치
+- 초기 로드: `application.yml` 설정 파일
+- 런타임 저장: 메모리 (HashSet)
+- 영구 저장: 없음 (서버 재시작 시 사라짐)
+
+### 해결 방법
+
+#### 1. 인증 구조 분석 문서 작성
+- `docs/maintenance/2025-11-11/phase2-authentication-analysis.md`
+- 필터 실행 순서 및 충돌 가능성 상세 분석
+
+#### 2. 보안 상태 점검 문서 작성
+- `docs/maintenance/2025-11-11/security-status-check.md`
+- API 접근 제어 및 관리자 권한 상태 확인
+
+#### 3. 블랙리스트 저장 위치 분석 문서 작성
+- `docs/maintenance/2025-11-11/blacklist-storage-location.md`
+- 현재 저장 방식 및 영구 저장 필요성 분석
+
+### 권장 개선 사항
+
+#### 1. SecurityConfig 정책 수정 (즉시 필요)
+```java
+.pathMatchers("/api/admin/**").authenticated()  // 관리자 API는 인증 필요
+.pathMatchers("/api/auth/**").permitAll()       // Auth API는 허용
+.pathMatchers("/api/**").authenticated()        // 나머지는 인증 필요
+```
+
+#### 2. 관리자 권한 체크 추가 (즉시 필요)
+- JWT 토큰에서 역할(role) 클레임 확인
+- `ROLE_ADMIN` 권한이 있는 사용자만 접근 허용
+
+#### 3. 블랙리스트 영구 저장 (단기 개선)
+- Redis를 활용한 영구 저장 기능 추가
+- 서버 재시작 후에도 런타임에 추가한 IP 유지
+
+### 결과
+
+#### 분석 전
+- 인증 구조의 충돌 가능성 불명확
+- 관리자 권한 체크 필요성 인지하지 못함
+- 블랙리스트 저장 위치 불명확
+
+#### 분석 후
+- 인증 구조의 충돌 지점 명확히 파악
+- 보안 취약점 발견 및 개선 방향 제시
+- 블랙리스트 저장 방식 및 개선 필요성 확인
+
+### 교훈
+
+1. **정기적인 보안 점검**: 인증/인가 구조를 정기적으로 검토
+2. **다층 보안**: 설정 파일, 필터, 컨트롤러 레벨에서 일관된 정책 적용
+3. **권한 관리**: 역할 기반 접근 제어(RBAC) 구현 필요
+4. **데이터 영구성**: 중요한 보안 설정은 영구 저장 필요
+
+### 관련 파일
+- `gateway/src/main/java/com/dorandoran/gateway/config/SecurityConfig.java`
+- `gateway/src/main/java/com/dorandoran/gateway/filter/JwtAuthFilter.java`
+- `gateway/src/main/java/com/dorandoran/gateway/filter/IpBlacklistFilter.java`
+- `docs/maintenance/2025-11-11/phase2-authentication-analysis.md`
+- `docs/maintenance/2025-11-11/security-status-check.md`
+- `docs/maintenance/2025-11-11/blacklist-storage-location.md`
