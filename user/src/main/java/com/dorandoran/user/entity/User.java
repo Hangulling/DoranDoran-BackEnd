@@ -40,8 +40,15 @@ public class User {
     @Column(name = "name", nullable = false, length = 50)
     private String name;
     
-    @Column(name = "password_hash", nullable = false, length = 100)
+    @Column(name = "password_hash", nullable = true, length = 100)
     private String passwordHash;
+    
+    @Enumerated(EnumType.STRING)
+    @Column(name = "oauth_provider", length = 20)
+    private OAuthProvider oauthProvider;
+    
+    @Column(name = "oauth_id", length = 255)
+    private String oauthId;
     
     @Column(name = "picture")
     private String picture;
@@ -85,6 +92,7 @@ public class User {
     private UserProfile profile;
     
     @OneToMany(mappedBy = "user", fetch = FetchType.LAZY, cascade = CascadeType.ALL)
+    @Builder.Default
     private List<UserSetting> settings = new ArrayList<>();
     
     /**
@@ -109,6 +117,16 @@ public class User {
     public enum RoleName {
         ROLE_USER,
         ROLE_ADMIN
+    }
+    
+    /**
+     * OAuth 제공자 열거형
+     */
+    public enum OAuthProvider {
+        GOOGLE,
+        FACEBOOK,
+        KAKAO,
+        NAVER
     }
     
     /**
@@ -155,5 +173,21 @@ public class User {
      */
     public void updateExitModalDoNotShowAgain(boolean exitModalDoNotShowAgain) {
         this.exitModalDoNotShowAgain = exitModalDoNotShowAgain;
+    }
+    
+    /**
+     * 인증 방법 검증
+     * passwordHash가 null이면 반드시 oauthProvider와 oauthId가 있어야 함
+     * oauthProvider가 null이면 반드시 passwordHash가 있어야 함
+     * 
+     * @throws IllegalStateException 인증 방법이 올바르지 않은 경우
+     */
+    public void validateAuthMethod() {
+        boolean hasPassword = passwordHash != null && !passwordHash.trim().isEmpty();
+        boolean hasOAuth = oauthProvider != null && oauthId != null && !oauthId.trim().isEmpty();
+        
+        if (!hasPassword && !hasOAuth) {
+            throw new IllegalStateException("비밀번호 또는 OAuth 인증 정보 중 하나는 반드시 필요합니다.");
+        }
     }
 }

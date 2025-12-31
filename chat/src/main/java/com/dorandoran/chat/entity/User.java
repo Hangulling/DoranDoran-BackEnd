@@ -42,8 +42,15 @@ public class User {
     @Column(name = "name", nullable = false, length = 50)
     private String name;
     
-    @Column(name = "password_hash", nullable = false, length = 100)
+    @Column(name = "password_hash", nullable = true, length = 100)
     private String passwordHash;
+    
+    @Enumerated(EnumType.STRING)
+    @Column(name = "oauth_provider", length = 20)
+    private OAuthProvider oauthProvider;
+    
+    @Column(name = "oauth_id", length = 255)
+    private String oauthId;
     
     @Column(name = "picture")
     private String picture;
@@ -69,10 +76,6 @@ public class User {
     @Column(name = "coach_check", nullable = false)
     @Builder.Default
     private boolean coachCheck = false;
-    
-    @Column(name = "exit_modal_do_not_show_again", nullable = false)
-    @Builder.Default
-    private boolean exitModalDoNotShowAgain = false;
     
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
@@ -113,6 +116,16 @@ public class User {
     }
     
     /**
+     * OAuth 제공자 열거형
+     */
+    public enum OAuthProvider {
+        GOOGLE,
+        FACEBOOK,
+        KAKAO,
+        NAVER
+    }
+    
+    /**
      * 사용자 정보 업데이트
      */
     public void updateInfo(String firstName, String lastName, String name, String picture, String info) {
@@ -149,12 +162,5 @@ public class User {
      */
     public void updatePassword(String passwordHash) {
         this.passwordHash = passwordHash;
-    }
-    
-    /**
-     * 나가기 모달 다시 보지 않기 설정 업데이트
-     */
-    public void updateExitModalDoNotShowAgain(boolean exitModalDoNotShowAgain) {
-        this.exitModalDoNotShowAgain = exitModalDoNotShowAgain;
     }
 }

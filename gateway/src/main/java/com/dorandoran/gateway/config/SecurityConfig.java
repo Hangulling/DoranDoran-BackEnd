@@ -47,18 +47,15 @@ public class SecurityConfig {
         corsConfig.addAllowedOrigin("http://127.0.0.1:3000");
         corsConfig.addAllowedOrigin("http://127.0.0.1:3001");
         
-        // 향후 커스텀 도메인용
-        // corsConfig.addAllowedOrigin("https://www.doran-chat.com");
-    
-
-		// 프로덕션 도메인
-		corsConfig.addAllowedOrigin("https://doran-chat.com");
-		corsConfig.addAllowedOrigin("https://www.doran-chat.com");
-		// 와일드카드 도메인 허용 (Spring 5.3+)
-		corsConfig.addAllowedOrigin("https://*.doran-chat.com");
-		corsConfig.addAllowedOrigin("https://doran-chat.vercel.app");
-		corsConfig.addAllowedOrigin("https://*.vercel.app");
-        corsConfig.addAllowedOrigin("https://*.doran-chat.com");
+        // 프로덕션 도메인
+        corsConfig.addAllowedOrigin("https://doran-chat.com");
+        corsConfig.addAllowedOrigin("https://www.doran-chat.com");
+        corsConfig.addAllowedOrigin("https://doran-chat.vercel.app");
+        
+        // 와일드카드 도메인 허용 (Spring 5.3+)
+        // setAllowedOriginPatterns()를 사용하여 패턴 기반 허용
+        corsConfig.addAllowedOriginPattern("https://*.doran-chat.com");
+        corsConfig.addAllowedOriginPattern("https://*.vercel.app");
 
         corsConfig.addAllowedHeader("*");
         corsConfig.addAllowedMethod("*");

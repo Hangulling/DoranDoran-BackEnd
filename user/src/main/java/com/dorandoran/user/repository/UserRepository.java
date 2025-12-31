@@ -44,4 +44,9 @@ public interface UserRepository extends JpaRepository<User, UUID> {
      */
     @Query("SELECT u FROM User u WHERE u.lastConnTime >= :fromDate ORDER BY u.lastConnTime DESC")
     List<User> findUsersByLastConnectionAfter(@Param("fromDate") LocalDateTime fromDate);
+    
+    /**
+     * OAuth 제공자와 OAuth ID로 사용자 조회
+     */
+    Optional<User> findByOauthProviderAndOauthId(User.OAuthProvider oauthProvider, String oauthId);
 }

@@ -1,0 +1,163 @@
+{
+  "title": "Service Details",
+  "uid": "service-details",
+  "tags": ["dorandoran", "services", "metrics"],
+  "style": "dark",
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "templating": {
+    "list": [
+      {
+        "name": "service",
+        "type": "query",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "Prometheus"
+        },
+        "query": "label_values(up, job)",
+        "current": {
+          "text": "auth-service",
+          "value": "auth-service"
+        },
+        "includeAll": false,
+        "multi": false
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "timeseries",
+      "title": "HTTP Request Rate",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "Prometheus"
+      },
+      "targets": [
+        {
+          "expr": "rate(http_server_requests_seconds_count{job=\"$service\"}[5m])",
+          "legendFormat": "{{method}} {{uri}}",
+          "refId": "A"
+        }
+      ],
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0}
+    },
+    {
+      "id": 2,
+      "type": "timeseries",
+      "title": "Response Time (p95, p50)",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "Prometheus"
+      },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, rate(http_server_requests_seconds_bucket{job=\"$service\"}[5m]))",
+          "legendFormat": "p95",
+          "refId": "A"
+        },
+        {
+          "expr": "histogram_quantile(0.50, rate(http_server_requests_seconds_bucket{job=\"$service\"}[5m]))",
+          "legendFormat": "p50",
+          "refId": "B"
+        }
+      ],
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0}
+    },
+    {
+      "id": 3,
+      "type": "timeseries",
+      "title": "Error Rate",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "Prometheus"
+      },
+      "targets": [
+        {
+          "expr": "rate(http_server_requests_seconds_count{job=\"$service\",status=~\"5..\"}[5m])",
+          "legendFormat": "5xx Errors",
+          "refId": "A"
+        },
+        {
+          "expr": "rate(http_server_requests_seconds_count{job=\"$service\",status=~\"4..\"}[5m])",
+          "legendFormat": "4xx Errors",
+          "refId": "B"
+        }
+      ],
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8}
+    },
+    {
+      "id": 4,
+      "type": "timeseries",
+      "title": "JVM Memory Usage",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "Prometheus"
+      },
+      "targets": [
+        {
+          "expr": "jvm_memory_used_bytes{job=\"$service\",area=\"heap\"}",
+          "legendFormat": "Heap Used",
+          "refId": "A"
+        },
+        {
+          "expr": "jvm_memory_max_bytes{job=\"$service\",area=\"heap\"}",
+          "legendFormat": "Heap Max",
+          "refId": "B"
+        }
+      ],
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8}
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "Database Connection Pool",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "Prometheus"
+      },
+      "targets": [
+        {
+          "expr": "hikaricp_connections_active{job=\"$service\"}",
+          "legendFormat": "Active",
+          "refId": "A"
+        },
+        {
+          "expr": "hikaricp_connections_idle{job=\"$service\"}",
+          "legendFormat": "Idle",
+          "refId": "B"
+        },
+        {
+          "expr": "hikaricp_connections_max{job=\"$service\"}",
+          "legendFormat": "Max",
+          "refId": "C"
+        }
+      ],
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 16}
+    },
+    {
+      "id": 6,
+      "type": "stat",
+      "title": "Service Health",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "Prometheus"
+      },
+      "targets": [
+        {
+          "expr": "up{job=\"$service\"}",
+          "legendFormat": "Status",
+          "refId": "A"
+        }
+      ],
+      "gridPos": {"h": 4, "w": 12, "x": 12, "y": 16}
+    }
+  ],
+  "time": {
+    "from": "now-1h",
+    "to": "now"
+  },
+  "refresh": "10s"
+}
+

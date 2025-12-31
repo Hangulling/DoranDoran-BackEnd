@@ -34,15 +34,32 @@ public class OpenAIClient {
 
     /**
      * OpenAI Chat Completions API (stream=true) 호출 - RAW 라인 스트림
+     * 기본 temperature 0.85 사용
      */
     public Flux<String> streamRawCompletion(String systemPrompt, String userContent) {
-        log.info("OpenAI API 요청 시작");
+        return streamRawCompletion(systemPrompt, userContent, 0.85, aiConfig.getMaxOutputTokens());
+    }
+    
+    /**
+     * OpenAI Chat Completions API (stream=true) 호출 - RAW 라인 스트림
+     * Temperature와 maxTokens를 파라미터로 받는 오버로드
+     */
+    public Flux<String> streamRawCompletion(String systemPrompt, String userContent, Double temperature, Integer maxTokens) {
+        log.info("OpenAI API 요청 시작 (temperature={}, maxTokens={})", temperature, maxTokens);
+        
+        // 프롬프트 검증 및 로깅
+        if (systemPrompt == null || systemPrompt.isBlank()) {
+            log.warn("⚠️⚠️⚠️ OpenAIClient: systemPrompt가 null이거나 비어있습니다! 빈 문자열로 전송됩니다.");
+        } else {
+            log.debug("OpenAIClient: systemPrompt 길이={}, 내용 (처음 200자)={}", 
+                systemPrompt.length(), systemPrompt.substring(0, Math.min(200, systemPrompt.length())));
+        }
         
         Map<String, Object> req = Map.of(
             "model", aiConfig.getModel(),
             "stream", true,
-            "max_tokens", aiConfig.getMaxOutputTokens(),
-            "temperature", 0.85,
+            "max_tokens", maxTokens != null ? maxTokens : aiConfig.getMaxOutputTokens(),
+            "temperature", temperature != null ? temperature : 0.85,
             "messages", new Object[]{
                 Map.of(
                     "role", "system",
@@ -126,9 +143,15 @@ public class OpenAIClient {
      * @return AI 응답 텍스트
      */
     public String simpleCompletion(String systemPrompt, String userMessage) {
-        log.info("OpenAI 동기 호출 시작: systemPrompt={}, userMessage={}", 
-            systemPrompt != null ? systemPrompt.substring(0, Math.min(50, systemPrompt.length())) : "", 
-            userMessage);
+        log.info("=== OpenAIClient.simpleCompletion() ===");
+        log.info("systemPrompt 길이={}자", systemPrompt != null ? systemPrompt.length() : 0);
+        log.info("systemPrompt 내용 (처음 500자): {}", 
+            systemPrompt != null ? systemPrompt.substring(0, Math.min(500, systemPrompt.length())) : "null");
+        if (systemPrompt != null && systemPrompt.length() > 500) {
+            log.info("systemPrompt 내용 (마지막 300자): {}", 
+                systemPrompt.substring(Math.max(0, systemPrompt.length() - 300)));
+        }
+        log.info("userMessage={}", userMessage);
         
         try {
             List<String> chunks = streamRawCompletion(systemPrompt, userMessage)
@@ -137,16 +160,17 @@ public class OpenAIClient {
                 .block(Duration.ofSeconds(30));  // 30초 타임아웃 설정
             
             if (chunks == null || chunks.isEmpty()) {
-                log.warn("OpenAI 응답이 비어있습니다");
+                log.warn("⚠️⚠️⚠️ OpenAI 응답이 비어있습니다");
                 return "";
             }
             
             String result = String.join("", chunks);
-            log.info("OpenAI 동기 호출 완료: length={}", result.length());
+            log.info("OpenAI 동기 호출 완료: 응답 길이={}자", result.length());
+            log.info("OpenAI 응답 내용 (전체): {}", result);
             return result;
             
         } catch (Exception e) {
-            log.error("OpenAI 동기 호출 실패", e);
+            log.error("⚠️⚠️⚠️ OpenAI 동기 호출 실패", e);
             throw new RuntimeException("AI 응답 생성 실패", e);
         }
     }

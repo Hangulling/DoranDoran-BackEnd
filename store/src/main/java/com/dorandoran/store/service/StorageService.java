@@ -332,6 +332,7 @@ public class StorageService {
     response.setChatroomNameFromClient(chatroomName);
 
     return response;
+
   }
 
   /**

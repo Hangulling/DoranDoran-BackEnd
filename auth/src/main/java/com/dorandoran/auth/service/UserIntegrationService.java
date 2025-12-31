@@ -130,6 +130,38 @@ public class UserIntegrationService {
         throw new RuntimeException("User Service를 사용할 수 없습니다. 잠시 후 다시 시도해주세요.");
     }
     
+    /**
+     * OAuth 사용자 조회
+     */
+    @CircuitBreaker(name = "user-service", fallbackMethod = "getUserByOAuthFallback")
+    @Retry(name = "user-service")
+    public UserDto getUserByOAuth(String provider, String oauthId) {
+        log.info("User Service 호출 - getUserByOAuth: provider={}, oauthId={}", provider, oauthId);
+        return userServiceClient.getUserByOAuth(provider, oauthId);
+    }
+    
+    public UserDto getUserByOAuthFallback(String provider, String oauthId, Exception ex) {
+        log.error("User Service 호출 실패 - getUserByOAuth: provider={}, oauthId={}, error={}", provider, oauthId, ex.getMessage());
+        throw new RuntimeException("User Service를 사용할 수 없습니다. 잠시 후 다시 시도해주세요.");
+    }
+    
+    /**
+     * OAuth 사용자 생성
+     */
+    @CircuitBreaker(name = "user-service", fallbackMethod = "createOAuthUserFallback")
+    @Retry(name = "user-service")
+    public UserDto createOAuthUser(String email, String firstName, String lastName, String name, 
+                                   String picture, String provider, String oauthId) {
+        log.info("User Service 호출 - createOAuthUser: email={}, provider={}", email, provider);
+        return userServiceClient.createOAuthUser(email, firstName, lastName, name, picture, provider, oauthId);
+    }
+    
+    public UserDto createOAuthUserFallback(String email, String firstName, String lastName, String name,
+                                           String picture, String provider, String oauthId, Exception ex) {
+        log.error("User Service 호출 실패 - createOAuthUser: email={}, provider={}, error={}", email, provider, ex.getMessage());
+        throw new RuntimeException("User Service를 사용할 수 없습니다. 잠시 후 다시 시도해주세요.");
+    }
+    
     // ===== Fallback 메서드들 =====
     
     public UserDto getUserByIdFallback(String userId, Exception ex) {

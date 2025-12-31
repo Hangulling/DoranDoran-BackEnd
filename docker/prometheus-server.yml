@@ -1,0 +1,69 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    cluster: 'dorandoran-msa'
+    environment: 'production'
+
+rule_files:
+  - "prometheus-alerts.yml"
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+            - dorandoran-alertmanager:9093
+
+scrape_configs:
+  # Prometheus 자체 모니터링
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # API Gateway 모니터링
+  - job_name: 'api-gateway'
+    metrics_path: '/actuator/prometheus'
+    static_configs:
+      - targets: ['dorandoran-gateway:8080']
+    scrape_interval: 5s
+
+  # Auth Service 모니터링
+  - job_name: 'auth-service'
+    metrics_path: '/actuator/prometheus'
+    static_configs:
+      - targets: ['dorandoran-auth:8081']
+    scrape_interval: 5s
+
+  # User Service 모니터링
+  - job_name: 'user-service'
+    metrics_path: '/actuator/prometheus'
+    static_configs:
+      - targets: ['dorandoran-user:8082']
+    scrape_interval: 5s
+      
+  # Chat Service 모니터링
+  - job_name: 'chat-service'
+    metrics_path: '/actuator/prometheus'
+    static_configs:
+      - targets: ['dorandoran-chat:8083']
+    scrape_interval: 5s
+      
+  # Store Service 모니터링
+  - job_name: 'store-service'
+    metrics_path: '/actuator/prometheus'
+    static_configs:
+      - targets: ['dorandoran-store:8084']
+    scrape_interval: 5s
+
+  # PostgreSQL 모니터링
+  - job_name: 'postgres'
+    static_configs:
+      - targets: ['dorandoran-postgres-exporter:9187']
+    scrape_interval: 15s
+
+  # Redis 모니터링
+  - job_name: 'redis'
+    static_configs:
+      - targets: ['dorandoran-redis-exporter:9121']
+    scrape_interval: 15s
+

@@ -1,0 +1,91 @@
+groups:
+  - name: service_alerts
+    interval: 30s
+    rules:
+      # 서비스 다운 알림
+      - alert: ServiceDown
+        expr: up{job=~"api-gateway|auth-service|user-service|chat-service|store-service|batch-service"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "서비스 {{ $labels.job }}이(가) 다운되었습니다"
+          description: "{{ $labels.job }} 서비스가 1분 이상 응답하지 않습니다."
+
+      # 높은 에러율 알림
+      - alert: HighErrorRate
+        expr: |
+          (
+            rate(http_server_requests_seconds_count{status=~"5.."}[5m]) 
+            / 
+            rate(http_server_requests_seconds_count[5m])
+          ) > 0.05
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ $labels.job }} 서비스의 에러율이 높습니다"
+          description: "{{ $labels.job }} 서비스의 5xx 에러율이 5%를 초과했습니다."
+
+      # 응답 시간 임계값 초과
+      - alert: HighResponseTime
+        expr: |
+          histogram_quantile(0.95, 
+            rate(http_server_requests_seconds_bucket[5m])
+          ) > 2
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ $labels.job }} 서비스의 응답 시간이 느립니다"
+          description: "{{ $labels.job }} 서비스의 p95 응답 시간이 2초를 초과했습니다."
+
+  - name: database_alerts
+    interval: 30s
+    rules:
+      # 데이터베이스 연결 풀 고갈
+      - alert: DatabaseConnectionPoolExhausted
+        expr: |
+          (hikaricp_connections_active / hikaricp_connections_max) > 0.9
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ $labels.job }} 서비스의 DB 연결 풀이 거의 고갈되었습니다"
+          description: "{{ $labels.job }} 서비스의 DB 연결 풀 사용률이 90%를 초과했습니다."
+
+      # PostgreSQL 연결 수 과다
+      - alert: PostgreSQLTooManyConnections
+        expr: pg_stat_database_numbackends > 80
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "PostgreSQL 연결 수가 과다합니다"
+          description: "PostgreSQL의 활성 연결 수가 80개를 초과했습니다."
+
+  - name: infrastructure_alerts
+    interval: 30s
+    rules:
+      # JVM 메모리 사용량 높음
+      - alert: HighJVMMemoryUsage
+        expr: |
+          (jvm_memory_used_bytes{area="heap"} / jvm_memory_max_bytes{area="heap"}) > 0.85
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ $labels.job }} 서비스의 JVM 메모리 사용량이 높습니다"
+          description: "{{ $labels.job }} 서비스의 힙 메모리 사용률이 85%를 초과했습니다."
+
+      # Redis 메모리 사용량 높음
+      - alert: HighRedisMemoryUsage
+        expr: |
+          (redis_memory_used_bytes / redis_memory_max_bytes) > 0.9
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Redis 메모리 사용량이 높습니다"
+          description: "Redis 메모리 사용률이 90%를 초과했습니다."
+
