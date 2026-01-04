@@ -11,9 +11,12 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.util.UUID;
 import java.util.Map;
@@ -40,7 +43,7 @@ public class GreetingService {
             UUID chatbotId = chatRoom.getChatbot().getId();
             
             // AI로 인사말 생성
-            GreetingResponse greetingResponse = generateAIGreeting(concept, intimacyLevel);
+            GreetingResponse greetingResponse = generateAIGreeting(chatroomId, concept, intimacyLevel);
             
             // botMessage를 "bot" 타입으로 저장
             Message botMessage = chatService.sendMessage(
@@ -78,7 +81,7 @@ public class GreetingService {
         }
     }
     
-    private GreetingResponse generateAIGreeting(ChatRoomConcept concept, int intimacyLevel) {
+    private GreetingResponse generateAIGreeting(UUID chatroomId, ChatRoomConcept concept, int intimacyLevel) {
         String systemPrompt = buildGreetingSystemPrompt(concept, intimacyLevel);
         
         // 랜덤 주제 선택
@@ -105,7 +108,7 @@ public class GreetingService {
         log.info("GreetingService 주제 선택: concept={}, topicIndex={}, topic={}", concept, topicIndex + 1, selectedTopic);
         
         try {
-            String aiResponse = openAIClient.simpleCompletion(systemPrompt, userMessage);
+            String aiResponse = openAIClient.simpleCompletion(systemPrompt, userMessage, chatroomId);
             return parseAIResponse(aiResponse);
         } catch (Exception e) {
             log.error("AI 인사말 생성 실패, 기본 인사말 사용", e);
@@ -153,6 +156,14 @@ public class GreetingService {
     }
     
     private String buildGreetingSystemPrompt(ChatRoomConcept concept, int intimacyLevel) {
+        // 파일에서 프롬프트 로드 시도
+        String prompt = loadPromptFromFile(concept, intimacyLevel);
+        if (prompt != null && !prompt.isEmpty()) {
+            return prompt;
+        }
+        
+        // 파일 로드 실패 시 fallback (기존 하드코딩 메서드 사용)
+        log.warn("Greeting 프롬프트 파일 로드 실패, fallback 사용: concept={}, intimacyLevel={}", concept, intimacyLevel);
         return switch (concept) {
             case FRIEND -> buildFriendGreetingPrompt(intimacyLevel);
             case HONEY -> buildHoneyGreetingPrompt(intimacyLevel);
@@ -160,6 +171,32 @@ public class GreetingService {
             case BOSS -> buildBossGreetingPrompt(intimacyLevel);
             case COWORKER -> buildCoworkerGreetingPrompt(intimacyLevel);
         };
+    }
+    
+    /**
+     * 컨셉과 친밀도 레벨에 해당하는 프롬프트 파일을 로드합니다.
+     * 
+     * @param concept 컨셉 (FRIEND, HONEY, SENIOR, BOSS, COWORKER)
+     * @param intimacyLevel 친밀도 레벨 (1 또는 3)
+     * @return 프롬프트 내용, 파일이 없거나 읽기 실패 시 null
+     */
+    private String loadPromptFromFile(ChatRoomConcept concept, int intimacyLevel) {
+        // 파일명 생성: {concept}_{intimacyLevel}.txt (예: honey_1.txt)
+        String filename = String.format("prompts/greeting/%s_%d.txt", 
+            concept.name().toLowerCase(), intimacyLevel);
+        
+        try {
+            ClassPathResource resource = new ClassPathResource(filename);
+            if (!resource.exists()) {
+                return null;
+            }
+            
+            String content = resource.getContentAsString(StandardCharsets.UTF_8);
+            return content;
+            
+        } catch (IOException e) {
+            return null;
+        }
     }
     
     private String buildFriendGreetingPrompt(int intimacyLevel) {
@@ -369,6 +406,7 @@ public class GreetingService {
 
             너는 지금 사용자와 애인 관계야. 너의 목표는 사용자가 설정한 친밀도 레벨(intimacyLevel)에 맞게 먼저 말(botMessage)을 걸고, 후속 대화 유도 멘트(guideMessage)를 생성하는거야. 연인 간에는 감정의 농도, 표현의 부드러움, 애정어린 어휘 선택이 중요해.
             
+            ⚠️⚠️⚠️ 매우 중요: 만약 친밀도 레벨이 1이면, 반드시 부드러운 존댓말(~해요, ~이에요, ~어요, ~할까요?)만 사용해야 해. 절대 반말(~해, ~야, ~지?, ~할까?)을 사용하지 마.
             ⚠️⚠️⚠️ 매우 중요: 만약 친밀도 레벨이 3이면, 반드시 부드러운 반말(~해, ~야, ~지?)만 사용해야 해. 절대 존댓말(~해요, ~이에요, ~어요, ~하시나요, ~이세요, ~하세요)을 사용하지 마.
 
             **입력 정보**
@@ -398,6 +436,10 @@ public class GreetingService {
             **주제와 상황 (30개)**
             
             ⚠️⚠️⚠️ 매우 중요: userMessage에서 지정된 주제 번호를 반드시 사용하여 자연스러운 인사말을 생성하세요. 다른 주제를 선택하지 마세요.
+            
+            ⚠️⚠️⚠️ 친밀도 레벨에 따른 말투 변환 필수:
+            - Level 1 (존댓말): 아래 주제 예시들을 모두 존댓말로 변환하여 사용하세요. 예: "파티 할까?" → "파티 할까요?", "친구들 만날까?" → "친구들 만날까요?", "만나고 싶어~" → "만나고 싶어요~", "뭐 했어?" → "뭐 하셨어요?"
+            - Level 3 (반말): 아래 주제 예시들을 그대로 반말로 사용하세요.
             
             지정된 주제 번호에 해당하는 주제와 예시 표현을 참고하여 자연스러운 인사말을 생성하세요:
             
@@ -435,7 +477,9 @@ public class GreetingService {
             **교정 기준**
 
             - 친밀도에 따라 어투를 다르게 조정.
+            - ⚠️⚠️⚠️ 매우 중요: Level 1은 반드시 부드러운 존댓말(~해요, ~이에요, ~어요, ~할까요?)만 사용합니다. 절대 반말(~해, ~야, ~지?, ~할까?)을 사용하지 마세요.
             - ⚠️⚠️⚠️ 매우 중요: Level 3은 반드시 부드러운 반말(~해, ~야, ~지?)만 사용합니다. 절대 존댓말(~해요, ~이에요, ~어요, ~하시나요, ~이세요, ~하세요)을 사용하지 마세요.
+            - Level 1에서 "~할까?", "~했어?", "~하고 싶어" 같은 반말 표현은 절대 사용 금지입니다. 반드시 "~할까요?", "~하셨어요?", "~하고 싶어요" 같은 존댓말로 변환하세요.
             - Level 3에서 "~하시나요?", "~이세요?", "~하세요?" 같은 존댓말 질문은 절대 사용 금지입니다.
             - Level 3에서는 "~해?", "~야?", "~지?", "~할까?" 같은 반말 질문만 사용합니다.
             - 문장은 대화의 흐름이 자연스럽게 이어지도록 구성.
@@ -460,6 +504,7 @@ public class GreetingService {
 
             - botMessage
                 - 1~2문장으로 한국어 회화체로 구성.
+                - ⚠️⚠️⚠️ 매우 중요: 친밀도 레벨이 1이면 반드시 존댓말(~해요, ~이에요, ~어요, ~할까요?)로 작성해야 해. 절대 반말(~해, ~야, ~지?, ~할까?)을 사용하지 마.
                 - ⚠️⚠️⚠️ 매우 중요: 친밀도 레벨이 3이면 반드시 반말(~해, ~야, ~지?)로 작성해야 해. 절대 존댓말(~해요, ~이에요, ~어요, ~하시나요, ~이세요, ~하세요)을 사용하지 마.
                 - 사용자가 채팅방에 재진입하면 친밀도(intimacy_level)에 맞춰 메시지 랜덤 노출.
                 - 상대에게 먼저 말을 걸거나 대화를 시작할 수 있는 자연스러운 문장으로 구성.

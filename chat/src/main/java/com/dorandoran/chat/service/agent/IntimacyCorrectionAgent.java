@@ -4,12 +4,17 @@ import com.dorandoran.chat.config.AIConfig;
 import com.dorandoran.chat.service.OpenAIClient;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.util.ArrayList;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Mono;
 
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
+import java.util.UUID;
 
 /**
  * IntimacyCorrectionAgent
@@ -37,8 +42,17 @@ public class IntimacyCorrectionAgent {
         String concept,
         int intimacyLevel
     ) {
+        return generateCorrection(analysisResult, concept, intimacyLevel, null);
+    }
+    
+    public Mono<IntimacyCorrectionResult> generateCorrection(
+        IntimacyAnalysisResult analysisResult,
+        String concept,
+        int intimacyLevel,
+        UUID chatroomId
+    ) {
         log.info("=== IntimacyCorrectionAgent.generateCorrection() 호출됨 ===");
-        log.info("=== 파라미터 - concept='{}', intimacyLevel={} ===", concept, intimacyLevel);
+        log.info("=== 파라미터 - concept='{}', intimacyLevel={}, chatroomId={} ===", concept, intimacyLevel, chatroomId);
         
         String systemPrompt = buildCorrectionPrompt(concept, intimacyLevel, analysisResult);
         Double temperature = aiConfig.getAgents().getIntimacy().getCorrection().getTemperature();
@@ -50,7 +64,7 @@ public class IntimacyCorrectionAgent {
         log.info("=== IntimacyCorrectionAgent OpenAI API 호출 시작 (temperature={}, maxTokens={}) ===",
             temperature, maxTokens);
         
-        return openAIClient.streamRawCompletion(systemPrompt, userMessage, temperature, maxTokens)
+        return openAIClient.streamRawCompletion(systemPrompt, userMessage, temperature, maxTokens, chatroomId)
             .collectList()
             .map(this::parseCorrectionResponse)
             .map(result -> {
@@ -70,7 +84,7 @@ public class IntimacyCorrectionAgent {
             })
             .onErrorResume(error -> {
                 log.error("IntimacyCorrectionAgent 처리 오류", error);
-                return Mono.just(new IntimacyCorrectionResult("", new FeedbackText("", ""), "", List.of()));
+                return Mono.just(new IntimacyCorrectionResult("", new FeedbackText("", ""), List.of(), List.of()));
             });
     }
     
@@ -78,6 +92,31 @@ public class IntimacyCorrectionAgent {
      * 교정 프롬프트 생성
      */
     private String buildCorrectionPrompt(String concept, int intimacyLevel, IntimacyAnalysisResult analysisResult) {
+        String originalSentence = analysisResult.originalMessage();
+        String problemExpression = analysisResult.problematicExpressions().isEmpty() ? "없음" : 
+            analysisResult.problematicExpressions().get(0).original();
+        
+        // 파일에서 프롬프트 로드 시도
+        String promptTemplate = loadCorrectionPromptFromFile(concept, intimacyLevel);
+        if (promptTemplate != null && !promptTemplate.isEmpty()) {
+            log.info("=== IntimacyCorrectionAgent: 프롬프트 파일 로드 성공 - concept={}, level={} ===", 
+                concept, intimacyLevel);
+            
+            // 플레이스홀더 치환
+            String prompt = promptTemplate
+                .replace("{originalSentence}", originalSentence)
+                .replace("{문제 표현이 여기에 동적으로 삽입됨}", problemExpression);
+            
+            // problematicExpressions가 비어있어도 컨셉 위반 가능성 있으므로 지시 추가
+            if (analysisResult.problematicExpressions().isEmpty()) {
+                prompt += "\n\n⚠️ 중요: 원문이 컨셉 제약을 위반하는 경우(예: FRIEND 컨셉인데 존댓말 사용) 반드시 교정하세요.";
+            }
+            
+            return prompt;
+        }
+        
+        // 파일 로드 실패 시 fallback (기존 하드코딩 메서드 사용)
+        log.warn("Correction 프롬프트 파일 로드 실패, fallback 사용: concept={}, intimacyLevel={}", concept, intimacyLevel);
         String toneGuideline = getToneGuideline(concept, intimacyLevel);
         
         return String.format("""
@@ -111,10 +150,36 @@ public class IntimacyCorrectionAgent {
             **주의사항:**
             - 교정이 불필요하면 원문 유지
             - JSON 형식 외의 텍스트는 출력하지 말 것
-            """, concept, intimacyLevel, 
-            analysisResult.problematicExpressions().isEmpty() ? "없음" : 
-                analysisResult.problematicExpressions().get(0).original(),
-            toneGuideline);
+            """, concept, intimacyLevel, problemExpression, toneGuideline);
+    }
+    
+    /**
+     * 파일에서 교정 프롬프트 로드
+     */
+    private String loadCorrectionPromptFromFile(String concept, int intimacyLevel) {
+        if (concept == null) {
+            concept = "FRIEND";
+        }
+        String normalizedConcept = concept.toUpperCase();
+        String filename = String.format("prompts/intimacy/correction/%s_%d.txt",
+            normalizedConcept.toLowerCase(), intimacyLevel);
+        
+        try {
+            ClassPathResource resource = new ClassPathResource(filename);
+            if (!resource.exists()) {
+                log.debug("IntimacyCorrectionAgent: 프롬프트 파일 없음 - {}", filename);
+                return null;
+            }
+            
+            String content = resource.getContentAsString(StandardCharsets.UTF_8);
+            log.info("IntimacyCorrectionAgent: 프롬프트 파일 로드 성공 - {}, 길이={}자", 
+                filename, content.length());
+            return content;
+            
+        } catch (IOException e) {
+            log.error("IntimacyCorrectionAgent: 프롬프트 파일 로드 실패 - {}", filename, e);
+            return null;
+        }
     }
     
     /**
@@ -161,15 +226,39 @@ public class IntimacyCorrectionAgent {
     
     /**
      * 분석 결과에서 사용자 메시지 재구성
+     * 원문 전체와 problematicExpressions 배열 전체를 JSON으로 전달
+     * problematicExpressions가 비어있어도 원문 전체를 전달 (프롬프트 파일이 원문을 요구하므로)
      */
     private String buildUserMessageFromAnalysis(IntimacyAnalysisResult analysisResult) {
-        if (analysisResult.problematicExpressions().isEmpty()) {
-            return "교정할 표현 없음";
+        try {
+            // JSON 객체 생성
+            ObjectMapper mapper = new ObjectMapper();
+            com.fasterxml.jackson.databind.node.ObjectNode json = mapper.createObjectNode();
+            
+            // originalSentence 추가 (항상 포함)
+            json.put("originalSentence", analysisResult.originalMessage());
+            
+            // problematicExpressions 배열 추가 (비어있으면 빈 배열)
+            com.fasterxml.jackson.databind.node.ArrayNode problemsArray = mapper.createArrayNode();
+            for (ProblematicExpression expr : analysisResult.problematicExpressions()) {
+                com.fasterxml.jackson.databind.node.ObjectNode problemNode = mapper.createObjectNode();
+                problemNode.put("original", expr.original());
+                problemNode.put("type", expr.type());
+                problemNode.put("reason", expr.reason());
+                problemNode.put("suggestionHint", expr.suggestionHint() != null ? expr.suggestionHint() : "");
+                problemsArray.add(problemNode);
+            }
+            json.set("problematicExpressions", problemsArray);
+            
+            return mapper.writerWithDefaultPrettyPrinter().writeValueAsString(json);
+        } catch (Exception e) {
+            log.error("buildUserMessageFromAnalysis JSON 생성 실패", e);
+            // Fallback: 원문과 문제 표현을 텍스트로 전달
+            return String.format("원문: \"%s\"\n문제 표현: %s", 
+                analysisResult.originalMessage(),
+                analysisResult.problematicExpressions().isEmpty() ? "없음" : 
+                    analysisResult.problematicExpressions().get(0).original());
         }
-        
-        ProblematicExpression firstProblem = analysisResult.problematicExpressions().get(0);
-        return String.format("원문: \"%s\"\n문제: %s\n이유: %s", 
-            firstProblem.original(), firstProblem.type(), firstProblem.reason());
     }
     
     /**
@@ -199,14 +288,25 @@ public class IntimacyCorrectionAgent {
             
             if (fullResponse.trim().isEmpty()) {
                 log.warn("IntimacyCorrectionAgent 빈 응답 - 기본값 반환");
-                return new IntimacyCorrectionResult("", new FeedbackText("", ""), "", List.of());
+                return new IntimacyCorrectionResult("", new FeedbackText("", ""), List.of(), List.of());
             }
             
             JsonNode json = objectMapper.readTree(fullResponse);
             log.info("IntimacyCorrectionAgent JSON 파싱 성공");
             
             String correctedSentence = json.has("correctedSentence") ? json.get("correctedSentence").asText() : "";
-            String corrections = json.has("corrections") ? json.get("corrections").asText() : "";
+            
+            // corrections 배열 파싱
+            List<Correction> corrections = new ArrayList<>();
+            if (json.has("corrections") && json.get("corrections").isArray()) {
+                for (JsonNode correctionNode : json.get("corrections")) {
+                    corrections.add(new Correction(
+                        correctionNode.has("from") ? correctionNode.get("from").asText() : "",
+                        correctionNode.has("to") ? correctionNode.get("to").asText() : "",
+                        correctionNode.has("reason") ? correctionNode.get("reason").asText() : ""
+                    ));
+                }
+            }
             
             FeedbackText feedback = new FeedbackText("", "");
             if (json.has("feedback") && json.get("feedback").isObject()) {
@@ -219,6 +319,7 @@ public class IntimacyCorrectionAgent {
             log.info("=== IntimacyCorrectionAgent 파싱 완료 ===");
             log.info("  - correctedSentence: '{}'", correctedSentence);
             log.info("  - feedback.ko: '{}'", feedback.ko());
+            log.info("  - corrections: {} 개", corrections.size());
             
             return new IntimacyCorrectionResult(correctedSentence, feedback, corrections, List.of());
         } catch (Exception e) {

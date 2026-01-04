@@ -1,0 +1,236 @@
+graph TB
+    %% ============================================
+    %% Internet / DNS Layer
+    %% ============================================
+    subgraph "Internet & DNS"
+        Internet[인터넷]
+        DNS[DNS<br/>api.doran-chat.com<br/>chat.doran-chat.com<br/>auth.doran-chat.com]
+    end
+
+    %% ============================================
+    %% AWS Infrastructure Layer
+    %% ============================================
+    subgraph "AWS Infrastructure"
+        subgraph "EC2 Instance"
+            EC2[AWS EC2<br/>t3.medium<br/>3.21.177.186<br/>Amazon Linux 2]
+            SecurityGroup[AWS Security Group<br/>포트 관리<br/>22, 80, 443, 8080-8085]
+        end
+        EC2 --> SecurityGroup
+    end
+
+    %% ============================================
+    %% Reverse Proxy Layer
+    %% ============================================
+    subgraph "Reverse Proxy Layer"
+        Nginx["Nginx<br/>포트 80, 443<br/>SSL/TLS Let's Encrypt"]
+        SSL[SSL 인증서<br/>Let's Encrypt<br/>api.doran-chat.com]
+        NginxConfig[Nginx 설정<br/>리버스 프록시<br/>SSE/WebSocket 지원]
+    end
+
+    Nginx --> SSL
+    Nginx --> NginxConfig
+
+    %% ============================================
+    %% Client Layer
+    %% ============================================
+    subgraph "Client Layer"
+        WebClient[웹 클라이언트<br/>React + TypeScript<br/>Vite + Material-UI<br/>Vercel 배포]
+        MobileClient[모바일 앱<br/>향후 지원 예정]
+    end
+
+    %% ============================================
+    %% API Gateway Layer
+    %% ============================================
+    subgraph "API Gateway Layer"
+        Gateway[API Gateway<br/>Spring Cloud Gateway<br/>Port: 8080<br/>Reactive WebFlux]
+        RateLimit[Rate Limiter<br/>Redis 기반]
+        IPFilter[IP 블랙리스트 필터<br/>29개 IP 차단]
+        CORS[CORS Handler]
+        Router["Route Handler<br/>/api/auth/**<br/>/api/users/**<br/>/api/chat/**<br/>/api/store/**"]
+    end
+
+    Gateway --> RateLimit
+    Gateway --> IPFilter
+    Gateway --> CORS
+    Gateway --> Router
+
+    %% ============================================
+    %% Microservices Layer
+    %% ============================================
+    subgraph "Microservices Layer"
+        subgraph "Auth Service"
+            Auth[Auth Service<br/>Spring Boot 3.3.4<br/>Port: 8081<br/>Java 21]
+            AuthFeatures[JWT 인증<br/>OAuth 2.0<br/>이메일 인증<br/>비밀번호 재설정]
+        end
+
+        subgraph "User Service"
+            User[User Service<br/>Spring Boot 3.3.4<br/>Port: 8082<br/>Java 21]
+            UserFeatures[사용자 프로필<br/>사용자 설정<br/>프로필 관리]
+        end
+
+        subgraph "Chat Service"
+            Chat[Chat Service<br/>Spring Boot 3.3.4<br/>Port: 8083<br/>Java 21]
+            ChatFeatures[Multi-Agent AI<br/>SSE 스트리밍<br/>WebSocket<br/>친밀도 분석]
+            Agents[AI Agents<br/>Intimacy Agent<br/>Vocabulary Agent<br/>Translation Agent<br/>Conversation Agent]
+        end
+
+        subgraph "Store Service"
+            Store[Store Service<br/>Spring Boot 3.3.4<br/>Port: 8084<br/>Java 21]
+            StoreFeatures[표현 보관함<br/>북마크 관리<br/>Feign Client]
+        end
+
+        subgraph "Batch Service"
+            Batch[Batch Service<br/>Spring Boot 3.3.4<br/>Port: 8085<br/>Java 21]
+            BatchFeatures[스케줄 작업<br/>배치 처리<br/>데이터 정리]
+        end
+    end
+
+    Auth --> AuthFeatures
+    User --> UserFeatures
+    Chat --> ChatFeatures
+    Chat --> Agents
+    Store --> StoreFeatures
+    Batch --> BatchFeatures
+
+    %% ============================================
+    %% Data Layer
+    %% ============================================
+    subgraph "Data Layer"
+        subgraph "PostgreSQL Database"
+            Postgres[(PostgreSQL 17<br/>Port: 5432<br/>Shared Database)]
+            AuthSchema[auth_schema<br/>RefreshToken<br/>LoginAttempt<br/>EmailVerification<br/>TokenBlacklist]
+            UserSchema[user_schema<br/>app_user<br/>profiles<br/>settings]
+            ChatSchema[chat_schema<br/>chatbots<br/>chatrooms<br/>messages<br/>intimacy_progress]
+            StoreSchema[store_schema<br/>store]
+            BatchSchema[batch_schema<br/>배치 작업 데이터]
+        end
+
+        subgraph "Redis Cache"
+            Redis[(Redis 7<br/>Port: 6379<br/>Cache & Session)]
+            RedisUsage[세션 관리<br/>토큰 블랙리스트<br/>캐싱<br/>Rate Limiting]
+        end
+    end
+
+    Postgres --> AuthSchema
+    Postgres --> UserSchema
+    Postgres --> UserSchema
+    Postgres --> ChatSchema
+    Postgres --> StoreSchema
+    Postgres --> BatchSchema
+    Redis --> RedisUsage
+
+    %% ============================================
+    %% Monitoring & Observability Stack
+    %% ============================================
+    subgraph "Monitoring Stack"
+        Prometheus[Prometheus<br/>Port: 9090<br/>메트릭 수집]
+        Grafana[Grafana<br/>Port: 3000<br/>대시보드 시각화]
+        AlertManager[AlertManager<br/>Port: 9093<br/>알림 관리]
+        Loki[Loki<br/>Port: 3100<br/>로그 수집]
+        Promtail[Promtail<br/>로그 수집 에이전트]
+        PostgresExporter[Postgres Exporter<br/>Port: 9187<br/>DB 메트릭]
+        RedisExporter[Redis Exporter<br/>Port: 9121<br/>Redis 메트릭]
+    end
+
+    %% ============================================
+    %% External Services
+    %% ============================================
+    subgraph "External Services"
+        OpenAI[OpenAI API<br/>GPT Models<br/>Chat Completions]
+        GoogleOAuth[Google OAuth 2.0<br/>소셜 로그인]
+        SMTP[SMTP Mail Server<br/>이메일 발송]
+    end
+
+    %% ============================================
+    %% Connections - Internet to AWS
+    %% ============================================
+    Internet -->|DNS 조회| DNS
+    DNS -->|HTTPS/HTTP| EC2
+    EC2 -->|트래픽 필터링| SecurityGroup
+
+    %% ============================================
+    %% Connections - Client to Nginx
+    %% ============================================
+    WebClient -->|HTTPS| Nginx
+    MobileClient -.->|향후 지원| Nginx
+
+    %% ============================================
+    %% Connections - Nginx to Gateway
+    %% ============================================
+    Nginx -->|리버스 프록시<br/>localhost:8080| Gateway
+
+    %% ============================================
+    %% Connections - Gateway to Services
+    %% ============================================
+    Gateway -->|HTTP| Auth
+    Gateway -->|HTTP| User
+    Gateway -->|HTTP| Chat
+    Gateway -->|HTTP| Store
+    Gateway -->|HTTP| Batch
+
+    %% ============================================
+    %% Connections - Services to Data Layer
+    %% ============================================
+    Auth -->|JDBC| Postgres
+    Auth -->|Redis Client| Redis
+    User -->|JDBC| Postgres
+    User -->|Redis Client| Redis
+    Chat -->|JDBC| Postgres
+    Chat -->|Redis Client| Redis
+    Store -->|JDBC| Postgres
+    Batch -->|JDBC| Postgres
+
+    %% ============================================
+    %% Connections - Service to Service Communication
+    %% ============================================
+    Auth -.->|Feign Client<br/>HTTP| User
+    Chat -.->|Feign Client<br/>HTTP| User
+    Chat -.->|Feign Client<br/>HTTP| Auth
+    Store -.->|Feign Client<br/>HTTP| Chat
+
+    %% ============================================
+    %% Connections - Services to External Services
+    %% ============================================
+    Auth -->|OAuth 2.0| GoogleOAuth
+    Auth -->|SMTP| SMTP
+    Chat -->|REST API| OpenAI
+
+    %% ============================================
+    %% Connections - Monitoring
+    %% ============================================
+    Gateway -->|Metrics| Prometheus
+    Auth -->|Metrics| Prometheus
+    User -->|Metrics| Prometheus
+    Chat -->|Metrics| Prometheus
+    Store -->|Metrics| Prometheus
+    Batch -->|Metrics| Prometheus
+    PostgresExporter -->|Metrics| Prometheus
+    RedisExporter -->|Metrics| Prometheus
+    Promtail -->|Logs| Loki
+    Prometheus -->|Alerts| AlertManager
+    Prometheus -->|Metrics| Grafana
+    Loki -->|Logs| Grafana
+
+    %% ============================================
+    %% Styling
+    %% ============================================
+    classDef internetStyle fill:#e3f2fd,stroke:#0277bd,stroke-width:2px
+    classDef awsStyle fill:#fff3e0,stroke:#f57c00,stroke-width:2px
+    classDef proxyStyle fill:#fce4ec,stroke:#c2185b,stroke-width:2px
+    classDef clientStyle fill:#e1f5ff,stroke:#01579b,stroke-width:2px
+    classDef gatewayStyle fill:#fff3e0,stroke:#e65100,stroke-width:2px
+    classDef serviceStyle fill:#f3e5f5,stroke:#4a148c,stroke-width:2px
+    classDef dataStyle fill:#e8f5e9,stroke:#1b5e20,stroke-width:2px
+    classDef monitoringStyle fill:#fce4ec,stroke:#880e4f,stroke-width:2px
+    classDef externalStyle fill:#fff9c4,stroke:#f57f17,stroke-width:2px
+
+    class Internet,DNS internetStyle
+    class EC2,SecurityGroup awsStyle
+    class Nginx,SSL,NginxConfig proxyStyle
+    class WebClient,MobileClient clientStyle
+    class Gateway,RateLimit,IPFilter,CORS,Router gatewayStyle
+    class Auth,User,Chat,Store,Batch,AuthFeatures,UserFeatures,ChatFeatures,StoreFeatures,BatchFeatures,Agents serviceStyle
+    class Postgres,Redis,AuthSchema,UserSchema,ChatSchema,StoreSchema,BatchSchema,RedisUsage dataStyle
+    class Prometheus,Grafana,AlertManager,Loki,Promtail,PostgresExporter,RedisExporter monitoringStyle
+    class OpenAI,GoogleOAuth,SMTP externalStyle
+

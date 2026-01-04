@@ -69,6 +69,12 @@ public interface UserServiceClient {
     boolean isEmailDuplicate(@PathVariable("email") String email);
     
     /**
+     * OAuth 사용자 여부 확인
+     */
+    @GetMapping("/api/users/check-oauth/{email}")
+    boolean isOAuthUser(@PathVariable("email") String email);
+    
+    /**
      * OAuth 사용자 조회
      */
     @GetMapping("/api/users/oauth/{provider}/{oauthId}")

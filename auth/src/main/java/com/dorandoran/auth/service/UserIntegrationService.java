@@ -107,7 +107,7 @@ public class UserIntegrationService {
     @Retry(name = "user-service")
     public void resetPassword(String email, String newPassword) {
         log.info("User Service 호출 - resetPassword: email={}", email);
-        userServiceClient.resetPassword(new ResetPasswordRequest(email, newPassword));
+        userServiceClient.resetPassword(new ResetPasswordRequest(email, newPassword, null));
     }
 
     public void resetPasswordFallback(String email, String newPassword, Exception ex) {
@@ -127,6 +127,21 @@ public class UserIntegrationService {
     
     public boolean isEmailDuplicateFallback(String email, Exception ex) {
         log.error("User Service 호출 실패 - isEmailDuplicate: email={}, error={}", email, ex.getMessage());
+        throw new RuntimeException("User Service를 사용할 수 없습니다. 잠시 후 다시 시도해주세요.");
+    }
+    
+    /**
+     * OAuth 사용자 여부 확인
+     */
+    @CircuitBreaker(name = "user-service", fallbackMethod = "isOAuthUserFallback")
+    @Retry(name = "user-service")
+    public boolean isOAuthUser(String email) {
+        log.info("User Service 호출 - isOAuthUser: email={}", email);
+        return userServiceClient.isOAuthUser(email);
+    }
+    
+    public boolean isOAuthUserFallback(String email, Exception ex) {
+        log.error("User Service 호출 실패 - isOAuthUser: email={}, error={}", email, ex.getMessage());
         throw new RuntimeException("User Service를 사용할 수 없습니다. 잠시 후 다시 시도해주세요.");
     }
     

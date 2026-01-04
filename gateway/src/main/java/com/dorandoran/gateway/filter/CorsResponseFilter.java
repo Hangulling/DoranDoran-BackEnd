@@ -57,6 +57,9 @@ public class CorsResponseFilter implements GlobalFilter, Ordered {
                 // SSE를 위한 추가 헤더
                 headers.add(HttpHeaders.CACHE_CONTROL, "no-cache");
                 headers.add(HttpHeaders.CONNECTION, "keep-alive");
+                
+                // Google OAuth 팝업과의 postMessage 통신을 위해 COOP 헤더 설정
+                headers.add("Cross-Origin-Opener-Policy", "unsafe-none");
             }
         }
         

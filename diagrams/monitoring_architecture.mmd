@@ -1,0 +1,94 @@
+graph TB
+    %% ============================================
+    %% Monitoring & Observability Architecture
+    %% ============================================
+    
+    subgraph "Application Layer"
+        Gateway[API Gateway<br/>Port: 8080]
+        Auth[Auth Service<br/>Port: 8081]
+        User[User Service<br/>Port: 8082]
+        Chat[Chat Service<br/>Port: 8083]
+        Store[Store Service<br/>Port: 8084]
+        Batch[Batch Service<br/>Port: 8085]
+    end
+    
+    subgraph "Metrics Collection Layer"
+        Actuator[Spring Actuator<br/>/actuator/health<br/>/actuator/metrics<br/>/actuator/prometheus]
+        Micrometer[Micrometer<br/>메트릭 수집<br/>JVM, HTTP, DB 메트릭]
+        Prometheus[Prometheus<br/>Port: 9090<br/>메트릭 저장<br/>TSDB<br/>30일 보관]
+    end
+    
+    subgraph "Log Collection Layer"
+        Logback[Logback<br/>JSON 로그 포맷<br/>구조화된 로깅]
+        Promtail[Promtail<br/>로그 수집 에이전트<br/>Docker 컨테이너 로그]
+        Loki[Loki<br/>Port: 3100<br/>로그 저장소<br/>인덱싱 & 쿼리]
+    end
+    
+    subgraph "Database Monitoring"
+        PostgresExporter[Postgres Exporter<br/>Port: 9187<br/>DB 메트릭 수집<br/>연결 수, 쿼리 성능]
+        RedisExporter[Redis Exporter<br/>Port: 9121<br/>Redis 메트릭 수집<br/>메모리, 명령어 통계]
+    end
+    
+    subgraph "Visualization Layer"
+        Grafana[Grafana<br/>Port: 3000<br/>대시보드 시각화<br/>메트릭 & 로그 통합]
+        Dashboards[Grafana Dashboards<br/>서비스별 대시보드<br/>JVM 메트릭<br/>HTTP 메트릭<br/>DB 메트릭]
+    end
+    
+    subgraph "Alerting Layer"
+        AlertManager[AlertManager<br/>Port: 9093<br/>알림 관리<br/>중복 제거<br/>그룹화]
+        AlertRules[Prometheus Alert Rules<br/>임계값 설정<br/>서비스 다운<br/>높은 에러율<br/>높은 지연시간]
+        NotificationChannels[알림 채널<br/>Slack<br/>Email<br/>향후: PagerDuty]
+    end
+    
+    %% Application to Metrics
+    Gateway -->|/actuator/prometheus| Actuator
+    Auth -->|/actuator/prometheus| Actuator
+    User -->|/actuator/prometheus| Actuator
+    Chat -->|/actuator/prometheus| Actuator
+    Store -->|/actuator/prometheus| Actuator
+    Batch -->|/actuator/prometheus| Actuator
+    
+    Actuator -->|메트릭 수집| Micrometer
+    Micrometer -->|메트릭 전송| Prometheus
+    
+    %% Database Exporters
+    PostgresExporter -->|DB 메트릭| Prometheus
+    RedisExporter -->|Redis 메트릭| Prometheus
+    
+    %% Application to Logs
+    Gateway -->|JSON 로그| Logback
+    Auth -->|JSON 로그| Logback
+    User -->|JSON 로그| Logback
+    Chat -->|JSON 로그| Logback
+    Store -->|JSON 로그| Logback
+    Batch -->|JSON 로그| Logback
+    
+    Logback -->|로그 출력| Promtail
+    Promtail -->|로그 수집| Loki
+    
+    %% Visualization
+    Prometheus -->|메트릭 쿼리| Grafana
+    Loki -->|로그 쿼리| Grafana
+    Grafana -->|대시보드| Dashboards
+    
+    %% Alerting
+    Prometheus -->|알림 규칙 평가| AlertRules
+    AlertRules -->|알림 전송| AlertManager
+    AlertManager -->|알림 전달| NotificationChannels
+    
+    %% Styling
+    classDef appStyle fill:#f3e5f5,stroke:#4a148c,stroke-width:2px
+    classDef metricsStyle fill:#e3f2fd,stroke:#0277bd,stroke-width:2px
+    classDef logStyle fill:#fff3e0,stroke:#f57c00,stroke-width:2px
+    classDef dbStyle fill:#e8f5e9,stroke:#1b5e20,stroke-width:2px
+    classDef vizStyle fill:#fce4ec,stroke:#c2185b,stroke-width:2px
+    classDef alertStyle fill:#fff9c4,stroke:#f57f17,stroke-width:2px
+    
+    class Gateway,Auth,User,Chat,Store,Batch appStyle
+    class Actuator,Micrometer,Prometheus metricsStyle
+    class Logback,Promtail,Loki logStyle
+    class PostgresExporter,RedisExporter dbStyle
+    class Grafana,Dashboards vizStyle
+    class AlertManager,AlertRules,NotificationChannels alertStyle
+
+

@@ -41,13 +41,17 @@ public class JwtAuthFilter implements WebFilter {
         String path = exchange.getRequest().getURI().getPath();
         String method = exchange.getRequest().getMethod().name();
         
+        log.debug("JWT 인증 체크: path={}, method={}", path, method);
+        
         // CORS preflight 요청은 바로 통과
         if ("OPTIONS".equals(method)) {
+            log.debug("OPTIONS 요청 통과: path={}", path);
             return chain.filter(exchange);
         }
         
         // 인증 제외 경로는 바로 통과
         if (isExcludedPath(path)) {
+            log.debug("인증 제외 경로로 통과: path={}", path);
             return chain.filter(exchange);
         }
         
@@ -75,7 +79,9 @@ public class JwtAuthFilter implements WebFilter {
      * - 이메일 인증: 이메일 인증 관련 API (인증 없이 접근 가능)
      */
     private boolean isExcludedPath(String path) {
-        return path.startsWith("/actuator") || 
+        log.debug("인증 제외 경로 체크 시작: path={}", path);
+        
+        boolean excluded = path.startsWith("/actuator") || 
                path.equals("/") ||
                path.startsWith("/api/auth/login") ||
                path.startsWith("/api/auth/refresh") ||
@@ -84,13 +90,25 @@ public class JwtAuthFilter implements WebFilter {
                path.startsWith("/api/auth/email/request-verification") ||
                path.startsWith("/api/auth/email/verify") ||
                path.startsWith("/api/auth/email/check") ||
+               path.startsWith("/api/auth/oauth/login") ||  // OAuth 로그인 엔드포인트 제외
                path.equals("/api/users") ||  // POST /api/users (회원가입) 제외
                path.startsWith("/api/users/register") ||
                path.startsWith("/api/users/health") ||
                path.startsWith("/api/users/email/") ||
                path.startsWith("/api/users/auth/email/") ||
                path.startsWith("/api/users/check-email/") ||
+               path.startsWith("/api/users/find-email") ||  // 이메일 찾기 제외
                path.startsWith("/api/batch/");  // Batch 서비스 인증 제외
+        
+        log.debug("인증 제외 경로 체크 결과: path={}, excluded={}", path, excluded);
+        
+        // 각 조건별 상세 로그
+        if (path.startsWith("/api/users/find-email")) {
+            log.debug("이메일 찾기 경로 매칭 확인: path={}, startsWith('/api/users/find-email')={}", 
+                    path, path.startsWith("/api/users/find-email"));
+        }
+        
+        return excluded;
     }
 
     /**

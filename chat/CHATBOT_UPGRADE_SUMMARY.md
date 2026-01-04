@@ -230,3 +230,4 @@ CREATE EXTENSION IF NOT EXISTS vector;
 현대적인 LLM 애플리케이션 아키텍처로 발전할 수 있습니다! 🚀
 
 
+

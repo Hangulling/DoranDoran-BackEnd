@@ -1,0 +1,124 @@
+graph TB
+    %% ============================================
+    %% Chatbot Architecture - Multi-Agent AI System
+    %% ============================================
+    
+    subgraph "Client Layer"
+        WebClient[웹 클라이언트<br/>React + TypeScript<br/>Vercel 배포]
+        MobileClient[모바일 앱<br/>향후 지원]
+    end
+    
+    subgraph "API Layer"
+        ChatController[ChatController<br/>REST API<br/>POST /api/chat/chatrooms/{id}/messages]
+        SSEController[SSEController<br/>Server-Sent Events<br/>GET /api/chat/stream/{id}]
+        WebSocketHandler[WebSocketHandler<br/>WebSocket 연결<br/>향후 지원]
+    end
+    
+    subgraph "Service Layer"
+        ChatService[ChatService<br/>비즈니스 로직<br/>메시지 저장<br/>채팅방 관리]
+        MultiAgentOrchestrator[MultiAgentOrchestrator<br/>Agent 조율<br/>병렬/순차 처리<br/>결과 집계]
+        PromptService[PromptService<br/>프롬프트 생성<br/>컨텍스트 관리<br/>시스템 프롬프트]
+        SSEManager[SSEManager<br/>SSE 연결 관리<br/>이벤트 전송<br/>스트리밍]
+    end
+    
+    subgraph "AI Agent Layer"
+        subgraph "Phase 1: 병렬 처리"
+            IntimacyAgent[IntimacyAgent<br/>친밀도 분석<br/>Level 1-3 판단<br/>교정 피드백]
+            VocabularyAgent[VocabularyAgent<br/>어휘 추출<br/>난이도 분석<br/>최대 1개 단어]
+            ConversationAgent[ConversationAgent<br/>대화 생성<br/>SSE 스트리밍<br/>실시간 응답]
+        end
+        
+        subgraph "Phase 2: 순차 처리"
+            TranslationAgent[TranslationAgent<br/>번역 처리<br/>영어 번역<br/>발음기호 제공]
+        end
+    end
+    
+    subgraph "External AI Services"
+        OpenAI[OpenAI API<br/>GPT-4, GPT-3.5<br/>Chat Completions<br/>Streaming API]
+    end
+    
+    subgraph "Data Layer"
+        ChatDB[(PostgreSQL<br/>chat_schema<br/>chatbots<br/>chatrooms<br/>messages<br/>intimacy_progress)]
+        Redis[(Redis<br/>캐싱<br/>세션 관리)]
+    end
+    
+    subgraph "Integration Layer"
+        UserServiceClient[User Service<br/>Feign Client<br/>사용자 정보 조회]
+        AuthServiceClient[Auth Service<br/>Feign Client<br/>인증 검증]
+    end
+    
+    %% Client to API
+    WebClient -->|HTTP POST| ChatController
+    WebClient -->|EventSource| SSEController
+    WebClient -.->|향후| WebSocketHandler
+    MobileClient -->|HTTP POST| ChatController
+    MobileClient -->|EventSource| SSEController
+    
+    %% API to Service
+    ChatController -->|sendMessage| ChatService
+    SSEController -->|create SSE| SSEManager
+    WebSocketHandler -.->|향후| ChatService
+    
+    %% Service to Orchestrator
+    ChatService -->|processUserMessage| MultiAgentOrchestrator
+    MultiAgentOrchestrator -->|getPrompt| PromptService
+    
+    %% Orchestrator to Agents (Phase 1: 병렬)
+    MultiAgentOrchestrator -->|병렬 실행| IntimacyAgent
+    MultiAgentOrchestrator -->|병렬 실행| VocabularyAgent
+    MultiAgentOrchestrator -->|병렬 실행| ConversationAgent
+    
+    %% Phase 2: 순차 처리
+    VocabularyAgent -->|결과 전달| TranslationAgent
+    
+    %% Agents to OpenAI
+    IntimacyAgent -->|API 호출| OpenAI
+    VocabularyAgent -->|API 호출| OpenAI
+    TranslationAgent -->|API 호출| OpenAI
+    ConversationAgent -->|Streaming API| OpenAI
+    
+    %% Agents to Orchestrator (응답)
+    IntimacyAgent -->|IntimacyAgentResponse| MultiAgentOrchestrator
+    VocabularyAgent -->|VocabularyAgentResponse| MultiAgentOrchestrator
+    TranslationAgent -->|TranslationAgentResponse| MultiAgentOrchestrator
+    ConversationAgent -->|Flux<String> 스트림| MultiAgentOrchestrator
+    
+    %% Orchestrator to SSE Manager
+    MultiAgentOrchestrator -->|intimacy_analysis| SSEManager
+    MultiAgentOrchestrator -->|vocabulary_extracted| SSEManager
+    MultiAgentOrchestrator -->|vocabulary_translated| SSEManager
+    MultiAgentOrchestrator -->|conversation_chunk| SSEManager
+    MultiAgentOrchestrator -->|conversation_complete| SSEManager
+    MultiAgentOrchestrator -->|aggregated_complete| SSEManager
+    
+    %% SSE Manager to Client
+    SSEManager -->|SSE 이벤트| SSEController
+    
+    %% Service to Data
+    ChatService -->|JDBC| ChatDB
+    ChatService -->|Redis Client| Redis
+    MultiAgentOrchestrator -->|친밀도 저장| ChatDB
+    MultiAgentOrchestrator -->|메시지 저장| ChatDB
+    
+    %% Service to Integration
+    ChatService -->|Feign| UserServiceClient
+    ChatService -->|Feign| AuthServiceClient
+    
+    %% Styling
+    classDef clientStyle fill:#e1f5ff,stroke:#01579b,stroke-width:2px
+    classDef apiStyle fill:#fff3e0,stroke:#e65100,stroke-width:2px
+    classDef serviceStyle fill:#f3e5f5,stroke:#4a148c,stroke-width:2px
+    classDef agentStyle fill:#e8f5e9,stroke:#1b5e20,stroke-width:2px
+    classDef externalStyle fill:#fff9c4,stroke:#f57f17,stroke-width:2px
+    classDef dataStyle fill:#e8f5e9,stroke:#1b5e20,stroke-width:2px
+    classDef integrationStyle fill:#fce4ec,stroke:#c2185b,stroke-width:2px
+    
+    class WebClient,MobileClient clientStyle
+    class ChatController,SSEController,WebSocketHandler apiStyle
+    class ChatService,MultiAgentOrchestrator,PromptService,SSEManager serviceStyle
+    class IntimacyAgent,VocabularyAgent,TranslationAgent,ConversationAgent agentStyle
+    class OpenAI externalStyle
+    class ChatDB,Redis dataStyle
+    class UserServiceClient,AuthServiceClient integrationStyle
+
+

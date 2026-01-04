@@ -43,7 +43,7 @@ public class SummarizerAgent {
             String user = buildUserPrompt(maskedRecent, previousSummaryCompact);
 
             StringBuilder full = new StringBuilder();
-            Flux<String> raw = openAIClient.streamRawCompletion(system, user);
+            Flux<String> raw = openAIClient.streamRawCompletion(system, user, 0.85, null, chatroomId);
             // blocking 호출을 별도 스레드에서 실행하여 Reactor 체인과 분리
             // boundedElastic 스케줄러는 blocking 작업에 최적화된 스레드 풀을 제공
             String fullResponse = Mono.fromCallable(() -> {

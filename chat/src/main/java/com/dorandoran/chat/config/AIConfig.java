@@ -21,6 +21,9 @@ public class AIConfig {
     private Double pricePer1kInput = 0.0;  // 비용 로깅용 (USD)
     private Double pricePer1kOutput = 0.0; // 비용 로깅용 (USD)
     
+    // 테스트 모델 설정
+    private TestModelsConfig testModels = new TestModelsConfig();
+    
     // Agent별 설정
     private AgentConfig agents = new AgentConfig();
     
@@ -71,5 +74,13 @@ public class AIConfig {
     public static class CorrectionConfig {
         private Double temperature = 0.5;  // 자연스러운 교정을 위해 적당히 설정
         private Integer maxTokens = 300;
+    }
+    
+    @Getter
+    @Setter
+    public static class TestModelsConfig {
+        private String modelA = "gpt-4.1";
+        private String modelB = "gpt-4.2";
+        private String modelC = "gpt-5.1";
     }
 }

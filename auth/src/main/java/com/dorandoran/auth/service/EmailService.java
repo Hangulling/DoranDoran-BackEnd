@@ -52,6 +52,36 @@ public class EmailService {
             throw new RuntimeException("이메일 전송에 실패했습니다. 잠시 후 다시 시도해주세요.");
         }
     }
+    
+    /**
+     * 비밀번호 재설정 코드 발송
+     */
+    public void sendPasswordResetCode(String toEmail, String code) {
+        String subject = "[DoranDoran] 비밀번호 재설정 인증 코드";
+        String htmlBody = buildPasswordResetCodeHtml(code);
+
+        try {
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
+            
+            helper.setTo(toEmail);
+            if (fromAddress != null && !fromAddress.isBlank()) {
+                helper.setFrom(fromAddress);
+            }
+            helper.setSubject(subject);
+            helper.setText(htmlBody, true);
+            
+            mailSender.send(message);
+            log.info("비밀번호 재설정 코드 메일 전송 성공: to={}", toEmail);
+        } catch (MailException e) {
+            log.error("이메일 전송 실패 (제한/네트워크/설정): to={}, error={}, exception={}", 
+                    toEmail, e.getMessage(), e.getClass().getName(), e);
+            throw new RuntimeException("이메일 전송에 실패했습니다. 잠시 후 다시 시도해주세요.");
+        } catch (MessagingException e) {
+            log.error("이메일 메시지 생성 실패: to={}, error={}", toEmail, e.getMessage(), e);
+            throw new RuntimeException("이메일 전송에 실패했습니다. 잠시 후 다시 시도해주세요.");
+        }
+    }
 
     private String buildVerificationHtml(String link) {
         return "<!DOCTYPE html>\n" +
@@ -81,6 +111,40 @@ public class EmailService {
                 "                            </table>\n" +
                 // "                            <p style=\"margin: 32px 0 0 0; font-family: 'Noto Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-weight: 500; font-size: 14px; line-height: 1.5; color: #999999; text-align: center;\">링크가 클릭되지 않으면 브라우저 주소창에 복사해서 여세요.</p>\n" +
                 // "                            <p style=\"margin: 16px 0 0 0; font-family: 'Noto Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-weight: 500; font-size: 12px; line-height: 1.5; color: #999999; text-align: center; word-break: break-all;\">" + link + "</p>\n" +
+                "                        </td>\n" +
+                "                    </tr>\n" +
+                "                </table>\n" +
+                "            </td>\n" +
+                "        </tr>\n" +
+                "    </table>\n" +
+                "</body>\n" +
+                "</html>";
+    }
+    
+    private String buildPasswordResetCodeHtml(String code) {
+        return "<!DOCTYPE html>\n" +
+                "<html lang=\"ko\">\n" +
+                "<head>\n" +
+                "    <meta charset=\"UTF-8\">\n" +
+                "    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n" +
+                "</head>\n" +
+                "<body style=\"margin: 0; padding: 0; font-family: 'Noto Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background-color: #f5f5f5;\">\n" +
+                "    <table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" style=\"background-color: #f5f5f5;\">\n" +
+                "        <tr>\n" +
+                "            <td align=\"center\" style=\"padding: 40px 20px;\">\n" +
+                "                <table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" style=\"max-width: 600px; background-color: #ffffff; border-radius: 8px; overflow: hidden;\">\n" +
+                "                    <tr>\n" +
+                "                        <td align=\"center\" style=\"padding: 40px 20px;\">\n" +
+                "                            <h1 style=\"margin: 0 0 24px 0; font-family: 'Noto Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-weight: 500; font-size: 20px; line-height: 1.5; color: #333333; text-align: center;\">DoranDoran 비밀번호 재설정</h1>\n" +
+                "                            <p style=\"margin: 0 0 32px 0; font-family: 'Noto Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-weight: 500; font-size: 14px; line-height: 1.5; color: #666666; text-align: center;\">아래 인증 코드를 입력하여 비밀번호를 재설정하세요. (5분 내 유효)</p>\n" +
+                "                            <table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\">\n" +
+                "                                <tr>\n" +
+                "                                    <td align=\"center\" style=\"padding: 0 0 24px 0;\">\n" +
+                "                                        <div style=\"display: inline-block; padding: 20px 32px; background-color: #f5f5f5; border-radius: 8px; font-family: 'Noto Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-weight: 600; font-size: 32px; line-height: 1.5; color: #333333; letter-spacing: 8px;\">" + code + "</div>\n" +
+                "                                    </td>\n" +
+                "                                </tr>\n" +
+                "                            </table>\n" +
+                "                            <p style=\"margin: 32px 0 0 0; font-family: 'Noto Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-weight: 500; font-size: 14px; line-height: 1.5; color: #999999; text-align: center;\">본인이 요청하지 않은 경우 이 메일을 무시하세요.</p>\n" +
                 "                        </td>\n" +
                 "                    </tr>\n" +
                 "                </table>\n" +

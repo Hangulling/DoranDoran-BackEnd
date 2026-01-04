@@ -8,6 +8,7 @@ import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
 import jakarta.persistence.*;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -57,6 +58,18 @@ public class User {
     @Builder.Default
     private String info = "";
     
+    @Column(name = "birth_date", nullable = false)
+    @Builder.Default
+    private LocalDate birthDate = LocalDate.of(1900, 1, 1);
+    
+    @Column(name = "signup_question", nullable = false, length = 255)
+    @Builder.Default
+    private String signupQuestion = "질문이 설정되지 않았습니다.";
+    
+    @Column(name = "signup_answer", nullable = false, length = 30)
+    @Builder.Default
+    private String signupAnswer = "답변이 설정되지 않았습니다.";
+    
     @Column(name = "last_conn_time", nullable = false)
     @Builder.Default
     private LocalDateTime lastConnTime = LocalDateTime.now();
@@ -78,6 +91,10 @@ public class User {
     @Column(name = "exit_modal_do_not_show_again", nullable = false)
     @Builder.Default
     private boolean exitModalDoNotShowAgain = false;
+    
+    @Column(name = "is_onboard", nullable = false)
+    @Builder.Default
+    private boolean isOnboard = false;
     
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
@@ -173,6 +190,13 @@ public class User {
      */
     public void updateExitModalDoNotShowAgain(boolean exitModalDoNotShowAgain) {
         this.exitModalDoNotShowAgain = exitModalDoNotShowAgain;
+    }
+    
+    /**
+     * 온보딩 완료 여부 업데이트
+     */
+    public void updateOnboard(boolean isOnboard) {
+        this.isOnboard = isOnboard;
     }
     
     /**

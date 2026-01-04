@@ -67,4 +67,22 @@ public class SecurityConfig {
 
         return new CorsWebFilter(source);
     }
+    
+    /**
+     * Google OAuth 팝업과의 postMessage 통신을 위해 COOP 헤더를 설정하는 필터
+     */
+    @Bean
+    public org.springframework.web.server.WebFilter coopHeaderFilter() {
+        return (exchange, chain) -> {
+            org.springframework.http.server.reactive.ServerHttpResponse response = exchange.getResponse();
+            org.springframework.http.HttpHeaders headers = response.getHeaders();
+            
+            // COOP 헤더가 이미 설정되어 있지 않으면 unsafe-none으로 설정
+            if (!headers.containsKey("Cross-Origin-Opener-Policy")) {
+                headers.add("Cross-Origin-Opener-Policy", "unsafe-none");
+            }
+            
+            return chain.filter(exchange);
+        };
+    }
 }

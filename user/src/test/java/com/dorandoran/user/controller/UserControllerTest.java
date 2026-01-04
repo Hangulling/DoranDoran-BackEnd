@@ -14,6 +14,7 @@ import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 
+import java.time.LocalDate;
 import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.any;
@@ -55,6 +56,9 @@ class UserControllerTest {
                 "$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBOsl7iKTVEFDi", // bcrypt hash
                 "https://example.com/profile.jpg",
                 "Hello World",
+                LocalDate.parse("1990-01-01"),
+                "가장 좋아하는 색은?",
+                "Blue",
                 null, // preferences
                 null, // lastConnTime
                 UserDto.UserStatus.ACTIVE,
@@ -72,7 +76,10 @@ class UserControllerTest {
                 "Test User",
                 "password123",
                 "https://example.com/profile.jpg",
-                "Hello World"
+                "Hello World",
+                "1990-01-01",
+                "가장 좋아하는 색은?",
+                "Blue"
         );
 
         updateUserRequest = new UpdateUserRequest(
@@ -205,6 +212,9 @@ class UserControllerTest {
                 "$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBOsl7iKTVEFDi",
                 "https://example.com/new-profile.jpg",
                 "Updated bio",
+                LocalDate.parse("1995-05-15"),
+                "가장 좋아하는 색은?",
+                "Blue",
                 null, // preferences
                 null, // lastConnTime
                 UserDto.UserStatus.ACTIVE,
@@ -281,6 +291,9 @@ class UserControllerTest {
                 "$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBOsl7iKTVEFDi",
                 "https://example.com/profile.jpg",
                 "Hello World",
+                LocalDate.parse("1990-01-01"),
+                "가장 좋아하는 색은?",
+                "Blue",
                 null, // preferences
                 null, // lastConnTime
                 UserDto.UserStatus.INACTIVE,

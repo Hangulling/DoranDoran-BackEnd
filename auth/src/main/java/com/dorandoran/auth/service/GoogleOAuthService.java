@@ -9,7 +9,10 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
-import java.util.Collections;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * Google OAuth 2.0 서비스
@@ -23,6 +26,9 @@ public class GoogleOAuthService {
     @Value("${google.oauth.client-id}")
     private String clientId;
     
+    @Value("${google.oauth.android-client-ids:}")
+    private String androidClientIds;
+    
     private GoogleIdTokenVerifier verifier;
     
     /**
@@ -35,12 +41,15 @@ public class GoogleOAuthService {
     public GoogleUserInfo verifyIdToken(String idToken) throws Exception {
         log.debug("Google ID Token 검증 시작");
         
+        // 허용된 Client ID 목록 생성 (Web + Android)
+        List<String> allowedClientIds = getAllowedClientIds();
+        
         // Verifier 초기화 (지연 초기화)
         if (verifier == null) {
             verifier = new GoogleIdTokenVerifier.Builder(
                     new NetHttpTransport(),
                     GsonFactory.getDefaultInstance())
-                    .setAudience(Collections.singletonList(clientId))
+                    .setAudience(allowedClientIds)
                     .build();
         }
         
@@ -63,10 +72,12 @@ public class GoogleOAuthService {
         
         // 대상(audience) 확인
         String audience = (String) payload.getAudience();
-        if (!audience.equals(clientId)) {
-            log.error("Google ID Token 대상 확인 실패: audience={}, expected={}", audience, clientId);
+        if (!allowedClientIds.contains(audience)) {
+            log.error("Google ID Token 대상 확인 실패: audience={}, allowed={}", audience, allowedClientIds);
             throw new IllegalArgumentException("Google ID Token의 대상이 올바르지 않습니다");
         }
+        
+        log.debug("Google ID Token audience 확인 성공: audience={}", audience);
         
         // 만료 시간 확인 (GoogleIdToken.verify()에서 이미 확인하지만 명시적으로 체크)
         long expirationTimeSeconds = payload.getExpirationTimeSeconds();
@@ -97,6 +108,31 @@ public class GoogleOAuthService {
                 picture,
                 sub
         );
+    }
+    
+    /**
+     * 허용된 모든 Client ID 목록을 반환합니다.
+     * Web Client ID와 Android Client ID들을 포함합니다.
+     */
+    private List<String> getAllowedClientIds() {
+        List<String> clientIds = new ArrayList<>();
+        
+        // Web Client ID 추가
+        if (clientId != null && !clientId.trim().isEmpty()) {
+            clientIds.add(clientId.trim());
+        }
+        
+        // Android Client ID들 추가
+        if (androidClientIds != null && !androidClientIds.trim().isEmpty()) {
+            List<String> androidIds = Arrays.stream(androidClientIds.split(","))
+                    .map(String::trim)
+                    .filter(id -> !id.isEmpty())
+                    .collect(Collectors.toList());
+            clientIds.addAll(androidIds);
+        }
+        
+        log.debug("허용된 Google OAuth Client ID 목록: {}", clientIds);
+        return clientIds;
     }
     
     /**

@@ -1,0 +1,129 @@
+graph TB
+    %% ============================================
+    %% Infrastructure & Deployment Architecture
+    %% ============================================
+    
+    subgraph "Internet & DNS Layer"
+        Internet[인터넷]
+        DNS[DNS<br/>api.doran-chat.com<br/>chat.doran-chat.com<br/>auth.doran-chat.com]
+    end
+    
+    subgraph "AWS Infrastructure"
+        EC2[AWS EC2 Instance<br/>t3.medium<br/>2 vCPU, 4GB RAM<br/>3.21.177.186<br/>Amazon Linux 2]
+        SecurityGroup[AWS Security Group<br/>포트 관리<br/>22 SSH<br/>80 HTTP<br/>443 HTTPS<br/>8080-8085 서비스]
+    end
+    
+    subgraph "Reverse Proxy Layer"
+        Nginx[Nginx<br/>포트 80, 443<br/>SSL/TLS Let's Encrypt<br/>리버스 프록시<br/>SSE/WebSocket 지원]
+        SSL[SSL 인증서<br/>Let's Encrypt<br/>자동 갱신]
+    end
+    
+    subgraph "Docker Container Layer"
+        subgraph "Application Containers"
+            GatewayContainer[API Gateway<br/>dorandoran-gateway:8080<br/>Spring Cloud Gateway]
+            AuthContainer[Auth Service<br/>dorandoran-auth:8081<br/>Spring Boot]
+            UserContainer[User Service<br/>dorandoran-user:8082<br/>Spring Boot]
+            ChatContainer[Chat Service<br/>dorandoran-chat:8083<br/>Spring Boot]
+            StoreContainer[Store Service<br/>dorandoran-store:8084<br/>Spring Boot]
+            BatchContainer[Batch Service<br/>dorandoran-batch:8085<br/>Spring Boot]
+        end
+        
+        subgraph "Data Containers"
+            PostgresContainer[PostgreSQL 17<br/>dd-shared-db:5432<br/>Shared Database<br/>5개 스키마 분리]
+            RedisContainer[Redis 7<br/>dd-redis:6379<br/>Cache & Session]
+        end
+        
+        subgraph "Monitoring Containers"
+            PrometheusContainer[Prometheus<br/>dd-prometheus:9090]
+            GrafanaContainer[Grafana<br/>dd-grafana:3000]
+            LokiContainer[Loki<br/>dd-loki:3100]
+            PromtailContainer[Promtail<br/>로그 수집 에이전트]
+            AlertManagerContainer[AlertManager<br/>dd-alertmanager:9093]
+        end
+    end
+    
+    subgraph "Docker Network"
+        DockerNetwork[dorandoran-msa-network<br/>서비스 간 통신]
+    end
+    
+    subgraph "External Services"
+        OpenAI[OpenAI API<br/>GPT Models]
+        GoogleOAuth[Google OAuth 2.0]
+        SMTP[SMTP Mail Server]
+    end
+    
+    %% Internet to AWS
+    Internet -->|DNS 조회| DNS
+    DNS -->|HTTPS/HTTP| EC2
+    EC2 -->|트래픽 필터링| SecurityGroup
+    
+    %% Nginx routing
+    EC2 --> Nginx
+    Nginx --> SSL
+    Nginx -->|리버스 프록시<br/>localhost:8080| GatewayContainer
+    
+    %% Gateway to Services
+    GatewayContainer -->|HTTP| AuthContainer
+    GatewayContainer -->|HTTP| UserContainer
+    GatewayContainer -->|HTTP| ChatContainer
+    GatewayContainer -->|HTTP| StoreContainer
+    GatewayContainer -->|HTTP| BatchContainer
+    
+    %% Services to Data
+    AuthContainer -->|JDBC| PostgresContainer
+    UserContainer -->|JDBC| PostgresContainer
+    ChatContainer -->|JDBC| PostgresContainer
+    StoreContainer -->|JDBC| PostgresContainer
+    BatchContainer -->|JDBC| PostgresContainer
+    
+    AuthContainer -->|Redis Client| RedisContainer
+    UserContainer -->|Redis Client| RedisContainer
+    ChatContainer -->|Redis Client| RedisContainer
+    GatewayContainer -->|Redis Client| RedisContainer
+    
+    %% Services to External
+    AuthContainer -->|OAuth 2.0| GoogleOAuth
+    AuthContainer -->|SMTP| SMTP
+    ChatContainer -->|REST API| OpenAI
+    
+    %% Monitoring
+    GatewayContainer -->|Metrics<br/>/actuator/prometheus| PrometheusContainer
+    AuthContainer -->|Metrics| PrometheusContainer
+    UserContainer -->|Metrics| PrometheusContainer
+    ChatContainer -->|Metrics| PrometheusContainer
+    StoreContainer -->|Metrics| PrometheusContainer
+    BatchContainer -->|Metrics| PrometheusContainer
+    
+    PromtailContainer -->|Logs| LokiContainer
+    PrometheusContainer -->|Alerts| AlertManagerContainer
+    PrometheusContainer -->|Metrics| GrafanaContainer
+    LokiContainer -->|Logs| GrafanaContainer
+    
+    %% Docker Network
+    GatewayContainer -.->|Docker Network| DockerNetwork
+    AuthContainer -.->|Docker Network| DockerNetwork
+    UserContainer -.->|Docker Network| DockerNetwork
+    ChatContainer -.->|Docker Network| DockerNetwork
+    PostgresContainer -.->|Docker Network| DockerNetwork
+    RedisContainer -.->|Docker Network| DockerNetwork
+    
+    %% Styling
+    classDef internetStyle fill:#e3f2fd,stroke:#0277bd,stroke-width:2px
+    classDef awsStyle fill:#fff3e0,stroke:#f57c00,stroke-width:2px
+    classDef proxyStyle fill:#fce4ec,stroke:#c2185b,stroke-width:2px
+    classDef appStyle fill:#f3e5f5,stroke:#4a148c,stroke-width:2px
+    classDef dataStyle fill:#e8f5e9,stroke:#1b5e20,stroke-width:2px
+    classDef monitoringStyle fill:#fce4ec,stroke:#880e4f,stroke-width:2px
+    classDef externalStyle fill:#fff9c4,stroke:#f57f17,stroke-width:2px
+    classDef networkStyle fill:#f5f5f5,stroke:#616161,stroke-width:1px,stroke-dasharray: 5 5
+    
+    class Internet,DNS internetStyle
+    class EC2,SecurityGroup awsStyle
+    class Nginx,SSL proxyStyle
+    class GatewayContainer,AuthContainer,UserContainer,ChatContainer,StoreContainer,BatchContainer appStyle
+    class PostgresContainer,RedisContainer dataStyle
+    class PrometheusContainer,GrafanaContainer,LokiContainer,PromtailContainer,AlertManagerContainer monitoringStyle
+    class OpenAI,GoogleOAuth,SMTP externalStyle
+    class DockerNetwork networkStyle
+
+

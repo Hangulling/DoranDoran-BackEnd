@@ -98,6 +98,7 @@ public class HmacAuthInterceptor implements HandlerInterceptor {
                path.startsWith("/api/auth/email/request-verification") ||
                path.startsWith("/api/auth/email/verify") ||
                path.startsWith("/api/auth/email/check") ||
+               path.startsWith("/api/auth/oauth/login") ||  // OAuth 로그인 엔드포인트 제외
                path.startsWith("/error");  // Spring 에러 핸들링 경로
     }
 }

@@ -59,13 +59,21 @@ public class ChatService {
      */
     @Transactional
     public ChatRoom getOrCreateRoom(UUID userId, UUID chatbotId, String name, String concept, Integer intimacyLevel) {
+        return getOrCreateRoom(userId, chatbotId, name, concept, intimacyLevel, null);
+    }
+    
+    /**
+     * 채팅방 조회 또는 생성 (컨셉과 친밀도 포함, 테스트 모델 포함)
+     */
+    @Transactional
+    public ChatRoom getOrCreateRoom(UUID userId, UUID chatbotId, String name, String concept, Integer intimacyLevel, String testModel) {
         // 삭제되지 않은 활성 채팅방만 조회
         Optional<ChatRoom> existing = chatRoomRepository.findByUser_IdAndChatbot_IdAndIsDeletedFalse(userId, chatbotId);
         if (existing.isPresent()) {
             ChatRoom room = existing.get();
             
             // 기존 채팅방의 concept과 intimacyLevel 업데이트
-            updateRoomSettings(room, concept);
+            updateRoomSettings(room, concept, testModel);
             updateIntimacyLevel(room.getId(), userId, intimacyLevel);
             return room;
         }
@@ -82,9 +90,12 @@ public class ChatService {
             roomId = UUID.randomUUID();
         } while (chatRoomRepository.findById(roomId).isPresent());
 
-        // settings에 concept 저장
+        // settings에 concept과 testModel 저장
         ObjectNode settings = objectMapper.createObjectNode();
         settings.put("concept", concept);
+        if (testModel != null && !testModel.isBlank()) {
+            settings.put("testModel", testModel);
+        }
 
         ChatRoom room = ChatRoom.builder()
             .id(roomId)
@@ -117,6 +128,65 @@ public class ChatService {
     }
 
     /**
+     * 다음 턴 번호 계산 (채팅방 내 최대값 + 1)
+     */
+    @Transactional
+    public long nextTurnNumber(UUID chatroomId) {
+        return messageRepository.findTopByChatRoomIdOrderByTurnNumberDesc(chatroomId)
+            .map(m -> m.getTurnNumber() + 1)
+            .orElse(1L);
+    }
+
+    /**
+     * 현재 진행 중인 턴 번호 조회 (가장 최근 bot 메시지의 turn_number)
+     * 진행 중인 턴이 없으면 null 반환
+     */
+    @Transactional
+    public Long getCurrentTurnNumber(UUID chatroomId) {
+        Optional<Message> latestBotMessage = messageRepository
+            .findTopByChatRoomIdAndSenderTypeOrderBySequenceNumberDesc(chatroomId, "bot");
+        return latestBotMessage.map(Message::getTurnNumber).orElse(null);
+    }
+
+    /**
+     * User 메시지 수신 시 이전 턴 완료 처리
+     * 이전 턴이 미완료(0)인 경우 정상 번호로 업데이트
+     */
+    @Transactional
+    public void updatePreviousTurnOnUserMessage(UUID chatroomId) {
+        // 진행 중인 턴(turn_number = 0) 찾기
+        List<Message> incompleteTurnMessages = messageRepository
+            .findByChatRoomIdAndTurnNumber(chatroomId, 0L);
+        
+        if (!incompleteTurnMessages.isEmpty()) {
+            // 이전 턴의 정상 번호 계산 (현재 최대 턴 번호)
+            long previousTurnNumber = messageRepository
+                .findTopByChatRoomIdOrderByTurnNumberDesc(chatroomId)
+                .map(m -> {
+                    // turn_number가 0이 아닌 최대값 찾기
+                    if (m.getTurnNumber() > 0) {
+                        return m.getTurnNumber();
+                    }
+                    // 모든 메시지가 0이면 1로 시작
+                    return 0L;
+                })
+                .orElse(0L);
+            
+            // 이전 턴 번호가 0이면 1로 설정, 아니면 +1
+            long newTurnNumber = previousTurnNumber > 0 ? previousTurnNumber : 1L;
+            
+            // 미완료 턴의 모든 메시지 업데이트
+            for (Message msg : incompleteTurnMessages) {
+                msg.setTurnNumber(newTurnNumber);
+                messageRepository.save(msg);
+            }
+            
+            log.debug("이전 턴 완료 처리: chatroomId={}, turnNumber={}, updatedMessages={}", 
+                chatroomId, newTurnNumber, incompleteTurnMessages.size());
+        }
+    }
+
+    /**
      * 메시지 전송: 저장 후 룸의 last_message_* 업데이트
      */
     @Transactional
@@ -134,6 +204,27 @@ public class ChatService {
         ChatRoom chatRoom = chatRoomRepository.findById(chatroomId)
             .orElseThrow(() -> new RuntimeException("ChatRoom not found: " + chatroomId));
         
+        // turn_number 결정 로직
+        long turnNumber;
+        if ("bot".equalsIgnoreCase(senderType)) {
+            // Bot 메시지: 새로운 턴 시작
+            turnNumber = nextTurnNumber(chatroomId);
+        } else if ("system".equalsIgnoreCase(senderType)) {
+            // System 메시지: 가장 최근 Bot 메시지의 턴 번호 사용
+            Long currentTurn = getCurrentTurnNumber(chatroomId);
+            if (currentTurn != null && currentTurn > 0) {
+                // 진행 중인 턴이 있으면 그 턴 사용
+                turnNumber = currentTurn;
+            } else {
+                // 진행 중인 턴이 없으면 새로운 턴 시작 (인사말 등 초기 시스템 메시지)
+                turnNumber = nextTurnNumber(chatroomId);
+            }
+        } else {
+            // User 메시지: 이전 턴 완료 처리 후, turn_number는 0으로 설정 (Bot 응답이 턴의 시작점)
+            updatePreviousTurnOnUserMessage(chatroomId);
+            turnNumber = 0L; // User 메시지는 턴의 시작점이 아니므로 0으로 설정
+        }
+        
         LocalDateTime now = LocalDateTime.now();
         Message message = Message.builder()
             .id(UUID.randomUUID())
@@ -144,6 +235,7 @@ public class ChatService {
             .contentType(contentType)
             .metadata(metadata)
             .sequenceNumber(seq)
+            .turnNumber(turnNumber)
             .isDeleted(false)
             .isEdited(false)
             .createdAt(now)
@@ -188,6 +280,18 @@ public class ChatService {
      */
     @Transactional
     public Page<ChatRoom> listRooms(UUID userId, Pageable pageable) {
+        return listRooms(userId, pageable, null);
+    }
+    
+    /**
+     * 사용자별 채팅방 목록 조회 (삭제되지 않은, 최신 메시지 순) - 페이징 (테스트 모델 필터 포함)
+     */
+    @Transactional
+    public Page<ChatRoom> listRooms(UUID userId, Pageable pageable, String testModel) {
+        if (testModel != null && !testModel.isBlank()) {
+            // 테스트 모델 필터 적용
+            return chatRoomRepository.findByUser_IdAndIsDeletedFalseAndTestModelOrderByLastMessageAtDesc(userId, testModel, pageable);
+        }
         return chatRoomRepository.findByUser_IdAndIsDeletedFalseOrderByLastMessageAtDesc(userId, pageable);
     }
 
@@ -382,10 +486,20 @@ public class ChatService {
      * 채팅방 settings에 concept 저장
      */
     private void updateRoomSettings(ChatRoom room, String concept) {
+        updateRoomSettings(room, concept, null);
+    }
+    
+    /**
+     * 채팅방 settings에 concept과 testModel 저장
+     */
+    private void updateRoomSettings(ChatRoom room, String concept, String testModel) {
         ObjectNode settings = room.getSettings() != null && room.getSettings().isObject()
             ? (ObjectNode) room.getSettings()
             : objectMapper.createObjectNode();
         settings.put("concept", concept);
+        if (testModel != null && !testModel.isBlank()) {
+            settings.put("testModel", testModel);
+        }
         room.setSettings(settings);
         room.setUpdatedAt(LocalDateTime.now());
         chatRoomRepository.save(room);
@@ -425,28 +539,86 @@ public class ChatService {
      */
     @Transactional
     public List<LastInteractionResponse> listLastInteractionsByChatbot(UUID userId, int limit) {
+        return listLastInteractionsByChatbot(userId, limit, null);
+    }
+    
+    public List<LastInteractionResponse> listLastInteractionsByChatbot(UUID userId, int limit, String testModel) {
+        log.info("=== ChatService.listLastInteractionsByChatbot 시작: userId={}, limit={}, testModel={} ===", userId, limit, testModel);
+        
         List<Object[]> results = userChatbotLastInteractionRepository.findTopByUserOrder(userId, limit);
+        log.debug("DB 조회 결과: {}건", results != null ? results.size() : 0);
+        
+        if (results == null) {
+            log.warn("DB 조회 결과가 null입니다. 빈 리스트 반환");
+            results = new ArrayList<>();
+        }
+        
         List<LastInteractionResponse> responses = new ArrayList<>();
         
         for (Object[] row : results) {
+            if (row == null || row.length < 3) {
+                log.warn("잘못된 DB 결과 행: row={}", row);
+                continue;
+            }
+            
             UUID chatbotId = (UUID) row[0];
             OffsetDateTime lastInteractionAt = null;
+            
+            log.debug("DB 행 처리 시작: chatbotId={}, row[1] 타입={}, row[1] 값={}", 
+                chatbotId, row[1] != null ? row[1].getClass().getName() : "null", row[1]);
+            
             if (row[1] != null) {
-                // PostgreSQL의 TIMESTAMPTZ는 java.sql.Timestamp로 반환될 수 있음
+                // PostgreSQL의 TIMESTAMPTZ는 다양한 타입으로 반환될 수 있음
                 if (row[1] instanceof java.sql.Timestamp) {
                     lastInteractionAt = ((java.sql.Timestamp) row[1]).toInstant()
                         .atOffset(java.time.ZoneOffset.UTC);
+                    log.debug("Timestamp를 OffsetDateTime으로 변환: {}", lastInteractionAt);
                 } else if (row[1] instanceof OffsetDateTime) {
                     lastInteractionAt = (OffsetDateTime) row[1];
+                    log.debug("OffsetDateTime 직접 사용: {}", lastInteractionAt);
+                } else if (row[1] instanceof java.time.Instant) {
+                    lastInteractionAt = ((java.time.Instant) row[1]).atOffset(java.time.ZoneOffset.UTC);
+                    log.debug("Instant를 OffsetDateTime으로 변환: {}", lastInteractionAt);
+                } else {
+                    log.warn("예상치 못한 타입: chatbotId={}, 타입={}, 값={}", 
+                        chatbotId, row[1].getClass().getName(), row[1]);
+                }
+            } else {
+                log.debug("lastInteractionAt이 null: chatbotId={}", chatbotId);
+            }
+            
+            UUID lastRoomId = (UUID) row[2];
+            
+            // testModel 필터 적용: lastRoomId로 채팅방 조회하여 testModel 확인
+            if (testModel != null && !testModel.isBlank() && lastRoomId != null) {
+                log.debug("testModel 필터 적용: testModel={}, lastRoomId={}", testModel, lastRoomId);
+                Optional<ChatRoom> roomOpt = chatRoomRepository.findById(lastRoomId);
+                if (roomOpt.isPresent()) {
+                    ChatRoom room = roomOpt.get();
+                    JsonNode settings = room.getSettings();
+                    String roomTestModel = (settings != null && settings.has("testModel")) 
+                        ? settings.get("testModel").asText() 
+                        : null;
+                    log.debug("채팅방 testModel: roomTestModel={}, 요청 testModel={}", roomTestModel, testModel);
+                    // testModel이 일치하지 않으면 스킵
+                    if (!testModel.equals(roomTestModel)) {
+                        log.debug("testModel 불일치로 스킵: chatbotId={}", chatbotId);
+                        continue;
+                    }
+                } else {
+                    log.debug("채팅방 없음으로 스킵: lastRoomId={}", lastRoomId);
+                    continue;
                 }
             }
-            UUID lastRoomId = (UUID) row[2];
             
             // 챗봇 이름 조회
             String chatbotName = null;
             Optional<Chatbot> chatbot = chatbotRepository.findById(chatbotId);
             if (chatbot.isPresent()) {
                 chatbotName = chatbot.get().getName();
+                log.debug("챗봇 이름 조회: chatbotId={}, chatbotName={}", chatbotId, chatbotName);
+            } else {
+                log.warn("챗봇을 찾을 수 없음: chatbotId={}", chatbotId);
             }
             
             LastInteractionResponse response = new LastInteractionResponse();
@@ -455,8 +627,22 @@ public class ChatService {
             response.setLastInteractionAt(lastInteractionAt);
             response.setChatbotName(chatbotName);
             responses.add(response);
+            
+            log.debug("응답 객체 생성 완료: chatbotId={}, chatbotName={}, lastRoomId={}, lastInteractionAt={}", 
+                chatbotId, chatbotName, lastRoomId, lastInteractionAt);
         }
         
+        // testModel 필터 적용 후에도 limit만큼 반환하기 위해 부족분은 채워넣기
+        int paddingCount = 0;
+        while (responses.size() < limit && responses.size() < 4) {
+            responses.add(new LastInteractionResponse());
+            paddingCount++;
+        }
+        if (paddingCount > 0) {
+            log.debug("서비스 레이어 패딩 추가: {}개", paddingCount);
+        }
+        
+        log.info("=== ChatService.listLastInteractionsByChatbot 완료: 총 {}건 반환 ===", responses.size());
         return responses;
     }
 }

@@ -1,5 +1,6 @@
 package com.dorandoran.shared.dto;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
@@ -15,22 +16,28 @@ public record UserWithPasswordDto(
     String passwordHash,  // @JsonIgnore 없음
     String picture,
     String info,
+    LocalDate birthDate,
+    String signupQuestion,
+    String signupAnswer,
     String preferences,
     LocalDateTime lastConnTime,
     UserDto.UserStatus status,
     UserDto.RoleName role,
     boolean coachCheck,
     boolean exitModalDoNotShowAgain,
+    boolean isOnboard,
     LocalDateTime createdAt,
     LocalDateTime updatedAt
 ) {
     
     // UUID를 String으로 변환하는 생성자
     public UserWithPasswordDto(UUID id, String email, String firstName, String lastName, String name,
-                              String passwordHash, String picture, String info, String preferences,
+                              String passwordHash, String picture, String info, LocalDate birthDate,
+                              String signupQuestion, String signupAnswer, String preferences,
                               LocalDateTime lastConnTime, UserDto.UserStatus status, UserDto.RoleName role,
-                              boolean coachCheck, boolean exitModalDoNotShowAgain, LocalDateTime createdAt, LocalDateTime updatedAt) {
+                              boolean coachCheck, boolean exitModalDoNotShowAgain, boolean isOnboard, LocalDateTime createdAt, LocalDateTime updatedAt) {
         this(id.toString(), email, firstName, lastName, name, passwordHash, picture, info, 
-             preferences, lastConnTime, status, role, coachCheck, exitModalDoNotShowAgain, createdAt, updatedAt);
+             birthDate, signupQuestion, signupAnswer,
+             preferences, lastConnTime, status, role, coachCheck, exitModalDoNotShowAgain, isOnboard, createdAt, updatedAt);
     }
 }

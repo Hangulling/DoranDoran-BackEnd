@@ -60,7 +60,7 @@ public class IntimacyAgent {
         
         // 1. IntimacyAnalysisAgent로 분석
         log.info("=== IntimacyAgent: IntimacyAnalysisAgent 호출 시작 ===");
-        return analysisAgent.analyze(userMessage, finalConcept, finalCurrentLevel)
+        return analysisAgent.analyze(userMessage, finalConcept, finalCurrentLevel, chatroomId)
             .flatMap(analysisResult -> {
                 log.info("=== IntimacyAgent: IntimacyAnalysisAgent 응답 수신 ===");
                 log.info("  - detectedLevel: {}", analysisResult.detectedLevel());
@@ -68,7 +68,7 @@ public class IntimacyAgent {
                 
                 // 2. IntimacyCorrectionAgent로 교정
                 log.info("=== IntimacyAgent: IntimacyCorrectionAgent 호출 시작 ===");
-                return correctionAgent.generateCorrection(analysisResult, finalConcept, finalCurrentLevel)
+                return correctionAgent.generateCorrection(analysisResult, finalConcept, finalCurrentLevel, chatroomId)
                     .map(correctionResult -> {
                         log.info("=== IntimacyAgent: IntimacyCorrectionAgent 응답 수신 ===");
                         log.info("  - correctedSentence: '{}'", correctionResult.correctedSentence());
@@ -102,12 +102,26 @@ public class IntimacyAgent {
                         }
                         
                         // 불필요한 교정 검증
+                        if (correctionResult.correctedSentence().isEmpty()) {
+                            log.info("=== IntimacyAgent: 교정 불필요 감지 (교정문이 비어있음) ===");
+                            return new IntimacyAgentResponse(
+                                "intimacy",
+                                normalizedDetectedLevel,
+                                userMessage,
+                                new FeedbackText("", ""),
+                                "",
+                                correctionResult.alternativeExpressions()
+                            );
+                        }
+                        
+                        // 정규화 후 비교 (의미 차이를 놓치지 않도록)
                         String normalizedOriginal = normalizeSentence(userMessage);
                         String normalizedCorrected = normalizeSentence(correctionResult.correctedSentence());
                         
-                        if (correctionResult.correctedSentence().isEmpty() || 
-                            normalizedOriginal.equals(normalizedCorrected)) {
-                            log.info("=== IntimacyAgent: 교정 불필요 감지 ===");
+                        if (normalizedOriginal.equals(normalizedCorrected)) {
+                            log.info("=== IntimacyAgent: 교정 불필요 감지 (정규화 후 동일) ===");
+                            log.debug("  - 원문: '{}'", userMessage);
+                            log.debug("  - 교정문: '{}'", correctionResult.correctedSentence());
                             return new IntimacyAgentResponse(
                                 "intimacy",
                                 normalizedDetectedLevel,
@@ -120,12 +134,23 @@ public class IntimacyAgent {
                         
                         // 최종 응답 반환
                         log.info("=== IntimacyAgent 최종 응답 생성 완료 ===");
+                        // corrections를 String으로 변환 (JSON 형식)
+                        String correctionsJson = "";
+                        if (!correctionResult.corrections().isEmpty()) {
+                            try {
+                                correctionsJson = objectMapper.writerWithDefaultPrettyPrinter()
+                                    .writeValueAsString(correctionResult.corrections());
+                            } catch (Exception e) {
+                                log.warn("corrections JSON 변환 실패, 빈 문자열 사용", e);
+                                correctionsJson = "";
+                            }
+                        }
                         return new IntimacyAgentResponse(
                             "intimacy",
                             normalizedDetectedLevel,
                             correctionResult.correctedSentence(),
                             correctionResult.feedback(),
-                            correctionResult.corrections(),
+                            correctionsJson,
                             correctionResult.alternativeExpressions()
                         );
                     });
