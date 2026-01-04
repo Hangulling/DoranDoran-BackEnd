@@ -6,11 +6,15 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Mono;
 
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 
 /**
  * IntimacyAnalysisAgent
@@ -34,9 +38,13 @@ public class IntimacyAnalysisAgent {
      * @return 분석 결과
      */
     public Mono<IntimacyAnalysisResult> analyze(String userMessage, String concept, int intimacyLevel) {
+        return analyze(userMessage, concept, intimacyLevel, null);
+    }
+    
+    public Mono<IntimacyAnalysisResult> analyze(String userMessage, String concept, int intimacyLevel, UUID chatroomId) {
         log.info("=== IntimacyAnalysisAgent.analyze() 호출됨 ===");
-        log.info("=== 파라미터 - userMessage='{}', concept='{}', intimacyLevel={} ===",
-            userMessage, concept, intimacyLevel);
+        log.info("=== 파라미터 - userMessage='{}', concept='{}', intimacyLevel={}, chatroomId={} ===",
+            userMessage, concept, intimacyLevel, chatroomId);
         
         String systemPrompt = buildAnalysisPrompt(concept, intimacyLevel);
         Double temperature = aiConfig.getAgents().getIntimacy().getAnalysis().getTemperature();
@@ -45,9 +53,11 @@ public class IntimacyAnalysisAgent {
         log.info("=== IntimacyAnalysisAgent OpenAI API 호출 시작 (temperature={}, maxTokens={}) ===",
             temperature, maxTokens);
         
-        return openAIClient.streamRawCompletion(systemPrompt, userMessage, temperature, maxTokens)
+        final String originalMessage = userMessage; // 원문 저장
+        
+        return openAIClient.streamRawCompletion(systemPrompt, userMessage, temperature, maxTokens, chatroomId)
             .collectList()
-            .map(this::parseAnalysisResponse)
+            .map(chunks -> parseAnalysisResponse(chunks, originalMessage))
             .doOnNext(result -> {
                 log.info("=== IntimacyAnalysisAgent 분석 결과 ===");
                 log.info("  - detectedLevel: {}", result.detectedLevel());
@@ -59,7 +69,7 @@ public class IntimacyAnalysisAgent {
             })
             .onErrorResume(error -> {
                 log.error("IntimacyAnalysisAgent 처리 오류", error);
-                return Mono.just(new IntimacyAnalysisResult(1, List.of()));
+                return Mono.just(new IntimacyAnalysisResult(1, List.of(), originalMessage));
             });
     }
     
@@ -67,6 +77,16 @@ public class IntimacyAnalysisAgent {
      * 분석 프롬프트 생성
      */
     private String buildAnalysisPrompt(String concept, int intimacyLevel) {
+        // 파일에서 프롬프트 로드 시도
+        String prompt = loadAnalysisPromptFromFile(concept, intimacyLevel);
+        if (prompt != null && !prompt.isEmpty()) {
+            log.info("=== IntimacyAnalysisAgent: 프롬프트 파일 사용 - concept={}, level={} ===", 
+                concept, intimacyLevel);
+            return prompt;
+        }
+        
+        // 파일 로드 실패 시 fallback (기존 하드코딩 메서드 사용)
+        log.warn("Analysis 프롬프트 파일 로드 실패, fallback 사용: concept={}, intimacyLevel={}", concept, intimacyLevel);
         String conceptCriteria = getConceptExtractionCriteria(concept, intimacyLevel);
         
         return String.format("""
@@ -107,6 +127,35 @@ public class IntimacyAnalysisAgent {
             - 문제 표현이 없으면 빈 배열 반환
             - JSON 형식 외의 텍스트는 출력하지 말 것
             """, concept, intimacyLevel, conceptCriteria);
+    }
+    
+    /**
+     * 파일에서 분석 프롬프트 로드
+     */
+    private String loadAnalysisPromptFromFile(String concept, int intimacyLevel) {
+        if (concept == null) {
+            concept = "FRIEND";
+        }
+        String normalizedConcept = concept.toUpperCase();
+        String filename = String.format("prompts/intimacy/analysis/%s_%d.txt",
+            normalizedConcept.toLowerCase(), intimacyLevel);
+        
+        try {
+            ClassPathResource resource = new ClassPathResource(filename);
+            if (!resource.exists()) {
+                log.debug("IntimacyAnalysisAgent: 프롬프트 파일 없음 - {}", filename);
+                return null;
+            }
+            
+            String content = resource.getContentAsString(StandardCharsets.UTF_8);
+            log.info("IntimacyAnalysisAgent: 프롬프트 파일 로드 성공 - {}, 길이={}자", 
+                filename, content.length());
+            return content;
+            
+        } catch (IOException e) {
+            log.error("IntimacyAnalysisAgent: 프롬프트 파일 로드 실패 - {}", filename, e);
+            return null;
+        }
     }
     
     /**
@@ -205,7 +254,7 @@ public class IntimacyAnalysisAgent {
     /**
      * 분석 응답 파싱
      */
-    private IntimacyAnalysisResult parseAnalysisResponse(List<String> chunks) {
+    private IntimacyAnalysisResult parseAnalysisResponse(List<String> chunks, String originalMessage) {
         log.info("=== IntimacyAnalysisAgent 파싱 시작: {} 개 청크 ===", chunks.size());
         try {
             StringBuilder contentBuilder = new StringBuilder();
@@ -229,7 +278,7 @@ public class IntimacyAnalysisAgent {
             
             if (fullResponse.trim().isEmpty()) {
                 log.warn("IntimacyAnalysisAgent 빈 응답 - 기본값 반환");
-                return new IntimacyAnalysisResult(1, List.of());
+                return new IntimacyAnalysisResult(1, List.of(), originalMessage);
             }
             
             JsonNode json = objectMapper.readTree(fullResponse);
@@ -251,7 +300,8 @@ public class IntimacyAnalysisAgent {
                     problematicExpressions.add(new ProblematicExpression(
                         expr.has("original") ? expr.get("original").asText() : "",
                         expr.has("type") ? expr.get("type").asText() : "",
-                        expr.has("reason") ? expr.get("reason").asText() : ""
+                        expr.has("reason") ? expr.get("reason").asText() : "",
+                        expr.has("suggestionHint") ? expr.get("suggestionHint").asText() : ""
                     ));
                 }
             }
@@ -260,10 +310,10 @@ public class IntimacyAnalysisAgent {
             log.info("  - detectedLevel: {}", detectedLevel);
             log.info("  - problematicExpressions: {}", problematicExpressions.size());
             
-            return new IntimacyAnalysisResult(detectedLevel, problematicExpressions);
+            return new IntimacyAnalysisResult(detectedLevel, problematicExpressions, originalMessage);
         } catch (Exception e) {
             log.error("IntimacyAnalysisAgent 응답 파싱 실패", e);
-            return new IntimacyAnalysisResult(1, List.of());
+            return new IntimacyAnalysisResult(1, List.of(), originalMessage);
         }
     }
 }

@@ -17,6 +17,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.time.Duration;
+import java.time.LocalDate;
 import java.util.Date;
 import java.util.UUID;
 
@@ -68,6 +69,9 @@ class AuthServiceTest {
                 "$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBOsl7iKTVEFDi", // bcrypt hash
                 "https://example.com/profile.jpg",
                 "Hello World",
+                LocalDate.parse("1990-01-01"),
+                "가장 좋아하는 색은?",
+                "Blue",
                 null, // preferences
                 null, // lastConnTime
                 UserDto.UserStatus.ACTIVE,

@@ -6,6 +6,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -49,4 +50,21 @@ public interface UserRepository extends JpaRepository<User, UUID> {
      * OAuth 제공자와 OAuth ID로 사용자 조회
      */
     Optional<User> findByOauthProviderAndOauthId(User.OAuthProvider oauthProvider, String oauthId);
+    
+    /**
+     * 개인정보로 사용자 조회 (이메일 찾기용)
+     * firstName, lastName, birthDate, signupQuestion, signupAnswer 모두 일치하는 사용자 조회
+     */
+    @Query("SELECT u FROM User u WHERE u.firstName = :firstName " +
+           "AND u.lastName = :lastName " +
+           "AND u.birthDate = :birthDate " +
+           "AND u.signupQuestion = :signupQuestion " +
+           "AND u.signupAnswer = :signupAnswer")
+    Optional<User> findByPersonalInfo(
+            @Param("firstName") String firstName,
+            @Param("lastName") String lastName,
+            @Param("birthDate") LocalDate birthDate,
+            @Param("signupQuestion") String signupQuestion,
+            @Param("signupAnswer") String signupAnswer
+    );
 }

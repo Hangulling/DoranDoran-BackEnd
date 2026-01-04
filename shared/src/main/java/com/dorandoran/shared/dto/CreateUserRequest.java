@@ -2,6 +2,7 @@ package com.dorandoran.shared.dto;
 
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 
 /**
@@ -31,7 +32,20 @@ public record CreateUserRequest(
     String picture,
     
     @Size(max = 100, message = "정보는 100자를 초과할 수 없습니다")
-    String info
+    String info,
+    
+    @NotBlank(message = "생년월일은 필수입니다")
+    @Pattern(regexp = "^\\d{4}-\\d{2}-\\d{2}$", message = "생년월일은 yyyy-MM-dd 형식이어야 합니다")
+    String birthDate,
+    
+    @NotBlank(message = "회원가입 질문은 필수입니다")
+    @Size(max = 255, message = "회원가입 질문은 255자를 초과할 수 없습니다")
+    String signupQuestion,
+    
+    @NotBlank(message = "회원가입 답변은 필수입니다")
+    @Size(max = 30, message = "답변은 최대 30자까지 입력할 수 있습니다")
+    @Pattern(regexp = "^(?!\\s).{1,30}$", message = "답변의 첫 글자는 공백이 될 수 없습니다")
+    String signupAnswer
 ) {
     
     /**

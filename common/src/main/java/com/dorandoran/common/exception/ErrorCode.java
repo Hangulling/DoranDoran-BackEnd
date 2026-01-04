@@ -17,6 +17,9 @@ public enum ErrorCode {
     AUTH_TOKEN_EXPIRED("A001", "인증 토큰이 만료되었습니다"),
     AUTH_TOKEN_INVALID("A002", "유효하지 않은 인증 토큰입니다"),
     AUTH_ACCESS_DENIED("A003", "접근 권한이 없습니다"),
+    OAUTH_USER_CANNOT_RESET_PASSWORD("A004", "소셜 로그인 계정은 비밀번호 재설정을 사용할 수 없습니다"),
+    INVALID_VERIFICATION_CODE("A005", "인증 코드가 올바르지 않습니다"),
+    VERIFICATION_CODE_EXPIRED("A006", "인증 코드가 만료되었습니다"),
     
     // 채팅 관련
     CHAT_ROOM_NOT_FOUND("C001", "채팅방을 찾을 수 없습니다"),

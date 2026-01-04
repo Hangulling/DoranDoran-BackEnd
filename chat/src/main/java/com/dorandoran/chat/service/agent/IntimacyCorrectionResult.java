@@ -8,7 +8,7 @@ import java.util.List;
 public record IntimacyCorrectionResult(
     String correctedSentence,
     FeedbackText feedback,
-    String corrections,
+    List<Correction> corrections,  // 배열로 변경
     List<AlternativeExpression> alternativeExpressions
 ) {
     public IntimacyCorrectionResult {
@@ -16,11 +16,16 @@ public record IntimacyCorrectionResult(
             feedback = new FeedbackText("", "");
         }
         if (corrections == null) {
-            corrections = "";
+            corrections = List.of();
         }
         if (alternativeExpressions == null) {
             alternativeExpressions = List.of();
         }
+    }
+    
+    // 하위 호환성을 위한 생성자
+    public IntimacyCorrectionResult(String correctedSentence, FeedbackText feedback, String corrections, List<AlternativeExpression> alternativeExpressions) {
+        this(correctedSentence, feedback, List.of(), alternativeExpressions);
     }
 }
 

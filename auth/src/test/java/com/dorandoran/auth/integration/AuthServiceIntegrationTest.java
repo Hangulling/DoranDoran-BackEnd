@@ -15,6 +15,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -50,6 +51,9 @@ class AuthServiceIntegrationTest {
             "$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBOsl7iKTVEFDi", // bcrypt hash for "password123"
             "https://example.com/profile.jpg",
             "Integration Test User",
+            LocalDate.parse("1990-01-01"),
+            "가장 좋아하는 색은?",
+            "Blue",
             null, // preferences
             null, // lastConnTime
             UserDto.UserStatus.ACTIVE,

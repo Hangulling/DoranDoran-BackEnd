@@ -57,8 +57,26 @@ public class VocabularyAgent {
         log.info("=== 파라미터 - botResponse='{}', concept='{}', intimacyLevel={} ===", 
             botResponse, concept, intimacyLevel);
         
-        // 1. ExtractionAgent로 어휘 추출
-        return extractionAgent.extract(botResponse, concept, intimacyLevel)
+        return extractDifficultWords(botResponse, concept, intimacyLevel, null);
+    }
+    
+    /**
+     * 챗봇 응답에서 어려운 단어/표현을 추출 (컨셉/레벨/chatroomId 포함)
+     * 
+     * @param botResponse 챗봇 응답 문장
+     * @param concept 컨셉 (FRIEND, COWORKER, BOSS, SENIOR, HONEY)
+     * @param intimacyLevel 친밀도 레벨 (1-3)
+     * @param chatroomId 채팅방 ID (모델 선택용)
+     * @return 어휘 추출 결과
+     */
+    public Mono<VocabularyAgentResponse> extractDifficultWords(String botResponse, String concept, int intimacyLevel, UUID chatroomId) {
+        log.info("=== VocabularyAgent.extractDifficultWords() 호출됨 (Facade) ===");
+        log.info("=== 파라미터 - botResponse='{}', concept='{}', intimacyLevel={}, chatroomId={} ===", 
+            botResponse, concept, intimacyLevel, chatroomId);
+        
+        // 1. ExtractionAgent로 어휘 추출 (extractionResult가 explanationAgent의 필수 입력이므로 순차 실행)
+        // 하지만 extractionAgent 완료 즉시 explanationAgent를 시작하도록 최적화
+        return extractionAgent.extract(botResponse, concept, intimacyLevel, chatroomId)
             .doOnNext(extractionResult -> {
                 if (extractionResult != null) {
                     log.info("=== VocabularyAgent: ExtractionAgent 응답 수신 ===");
@@ -72,14 +90,15 @@ public class VocabularyAgent {
                 }
             })
             .flatMap(extractionResult -> {
-                // 추출 결과가 null이면 빈 응답 반환
+                // 추출 결과가 null이면 빈 응답 반환 (explanationAgent 실행하지 않음)
                 if (extractionResult == null) {
                     log.info("VocabularyAgent: 추출된 어휘 없음 - 빈 응답 반환");
                     return Mono.just(new VocabularyAgentResponse("vocabulary", List.of()));
                 }
                 
-                // 2. ExplanationAgent로 설명 생성
-                return explanationAgent.generateExplanation(extractionResult, concept, intimacyLevel)
+                // 2. ExplanationAgent로 설명 생성 (extractionAgent 완료 즉시 시작)
+                // flatMap을 사용하여 extractionAgent 완료 즉시 explanationAgent 시작
+                return explanationAgent.generateExplanation(extractionResult, concept, intimacyLevel, chatroomId)
                     .doOnNext(explanationResult -> {
                         log.info("=== VocabularyAgent: ExplanationAgent 응답 수신 ===");
                         log.info("  - roma: '{}'", explanationResult.roma());
@@ -107,11 +126,17 @@ public class VocabularyAgent {
                         log.info("=== VocabularyAgent 최종 응답 완료 ===");
                         
                         return new VocabularyAgentResponse("vocabulary", List.of(word));
+                    })
+                    .onErrorResume(explanationError -> {
+                        log.error("VocabularyExplanationAgent 처리 오류", explanationError);
+                        // ExplanationAgent 실패 시에도 extractionResult 정보로 부분 응답 반환 가능
+                        // 하지만 현재 구조상 빈 응답 반환 (기존 로직 유지)
+                        return Mono.just(new VocabularyAgentResponse("vocabulary", List.of()));
                     });
             })
-            .onErrorResume(error -> {
-                log.error("VocabularyAgent 처리 오류", error);
-                // 오류 발생 시 빈 응답 반환
+            .onErrorResume(extractionError -> {
+                log.error("VocabularyExtractionAgent 처리 오류", extractionError);
+                // ExtractionAgent 실패 시 빈 응답 반환
                 return Mono.just(new VocabularyAgentResponse("vocabulary", List.of()));
             });
     }
@@ -134,6 +159,6 @@ public class VocabularyAgent {
         log.info("VocabularyAgent: chatroomId로 조회 - concept='{}', intimacyLevel={}", 
             concept, intimacyLevel);
         
-        return extractDifficultWords(botResponse, concept, intimacyLevel);
+        return extractDifficultWords(botResponse, concept, intimacyLevel, chatroomId);
     }
 }

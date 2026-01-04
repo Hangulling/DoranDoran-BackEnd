@@ -75,6 +75,11 @@ ai:
     base-url: https://api.openai.com
     model: gpt-4o-mini
     max-output-tokens: 800
+    # 테스트 모델 추가
+    test-models:
+      model-a: ${OPENAI_TEST_MODEL_A:gpt-4.1}
+      model-b: ${OPENAI_TEST_MODEL_B:gpt-4.2}
+      model-c: ${OPENAI_TEST_MODEL_C:gpt-5.1}
     # Agent별 설정
     agents:
       vocabulary:

@@ -11,8 +11,11 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.annotation.Cacheable;
+import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Service;
 
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.Iterator;
 import java.util.Optional;
 import java.util.UUID;
@@ -28,8 +31,9 @@ public class PromptService {
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     /**
-     * 룸의 context_data + 챗봇 system_prompt/personality/capabilities를 합성하여
+     * 룸의 context_data + 챗봇 system_prompt/capabilities를 합성하여
      * 최종 시스템 프롬프트 문자열을 생성한다.
+     * (personality 파싱 로직은 제거됨 - 나중에 재추가 예정)
      */
     @Cacheable(value = "prompts", key = "#chatroomId", unless = "#result == null || #result.isEmpty()")
     public String buildSystemPrompt(UUID chatroomId) {
@@ -131,82 +135,7 @@ public class PromptService {
         // DB의 system_prompt와 충돌/중복을 방지하기 위해 제거
         // 모든 프롬프트는 appendConceptAndIntimacyDirectives와 다른 동적 생성 메서드들에서 처리됨
 
-        // 컨셉과 친밀도 레벨 추출 (honorific 설정 조건부 적용을 위해)
-        String concept = extractConceptFromSettings(room.getSettings());
-        int intimacyLevel = getCurrentIntimacyLevel(room.getId());
-        log.info("=== appendChatbotDirectives: concept='{}', intimacyLevel={} ===", concept, intimacyLevel);
-
-        // personality
-        try {
-            if (bot.getPersonality() != null && !bot.getPersonality().isBlank()) {
-                JsonNode p = objectMapper.readTree(bot.getPersonality());
-                // traits
-                if (p.has("traits")) {
-                    prompt.append("- 성격 특성: ");
-                    prompt.append(joinArray(p.get("traits")));
-                    prompt.append("\n");
-                }
-                // speakingStyle
-                if (p.has("speakingStyle")) {
-                    JsonNode s = p.get("speakingStyle");
-                    // ⚠️ 중요: FRIEND Level 1과 Level 3은 반말을 사용하므로 honorific 설정을 무시
-                    // COWORKER/BOSS/SENIOR는 모든 레벨에서 존댓말 사용
-                    // HONEY Level 1은 존댓말, Level 3은 반말
-                    
-                    // FRIEND Level 1/3과 HONEY Level 3은 무조건 반말 사용 (honorific 설정과 무관)
-                    if (concept.equals("FRIEND") && (intimacyLevel == 1 || intimacyLevel == 3)) {
-                        // FRIEND Level 1/3은 반말 사용 - honorific 설정 무시하고 반말 강조
-                        log.info("=== appendChatbotDirectives: FRIEND Level {}/{} - 반말 강조 추가 ===", intimacyLevel == 1 ? 1 : 3, intimacyLevel);
-                        prompt.append("- ⚠️⚠️⚠️ 반말을 사용하세요. 절대 존댓말을 사용하지 마세요.\n");
-                    } else if (concept.equals("HONEY") && intimacyLevel == 3) {
-                        // HONEY Level 3은 반말 사용 - honorific 설정 무시하고 반말 강조
-                        log.info("=== appendChatbotDirectives: HONEY Level 3 - 반말 강조 추가 ===");
-                        prompt.append("- ⚠️⚠️⚠️ 반말을 사용하세요. 절대 존댓말을 사용하지 마세요.\n");
-                    } else if (s.has("honorific") && s.get("honorific").asBoolean()) {
-                        // 다른 경우는 honorific 설정 따름
-                        log.info("=== appendChatbotDirectives: honorific=true - 존댓말 지시 추가 ===");
-                        prompt.append("- 존댓말을 사용하세요.\n");
-                    } else {
-                        log.debug("=== appendChatbotDirectives: honorific 설정 없음 또는 false ===");
-                    }
-                    
-                    if (s.has("formality")) {
-                        prompt.append("- 말투 격식: ").append(s.get("formality").asText()).append("\n");
-                    }
-                    if (s.has("length")) {
-                        prompt.append("- 답변 길이 선호: ").append(s.get("length").asText()).append("\n");
-                    }
-                }
-                // Guardrails disabled
-                // if (p.has("guardrails")) {
-                //     JsonNode g = p.get("guardrails");
-                //     if (g.has("refuseTopics")) {
-                //         prompt.append("- 아래 주제는 답변을 정중히 거부하세요: ");
-                //         prompt.append(joinArray(g.get("refuseTopics"))).append("\n");
-                //     }
-                //     if (g.has("escalationHint")) {
-                //         prompt.append("- 필요 시 다음 안내를 덧붙이세요: ").append(g.get("escalationHint").asText()).append("\n");
-                //     }
-                // }
-                // domainKnowledge
-                if (p.has("domainKnowledge")) {
-                    prompt.append("- 선호/전문 도메인: ");
-                    prompt.append(joinArray(p.get("domainKnowledge"))).append("\n");
-                }
-                // fewShot 예시
-                if (p.has("fewShot")) {
-                    prompt.append("\n[예시 대화]\n");
-                    for (JsonNode ex : p.get("fewShot")) {
-                        JsonNode u = ex.get("user");
-                        JsonNode a = ex.get("assistant");
-                        if (u != null && a != null) {
-                            prompt.append("사용자: ").append(u.asText()).append("\n");
-                            prompt.append("어시스턴트: ").append(a.asText()).append("\n");
-                        }
-                    }
-                }
-            }
-        } catch (Exception ignored) {}
+        // personality 파싱 및 주입 로직은 제거됨 (나중에 재추가 예정)
 
         // capabilities (응답 스타일 등)
         try {
@@ -291,9 +220,22 @@ public class PromptService {
     }
     
     private void appendConceptAndIntimacyDirectives(ChatRoom room, StringBuilder prompt) {
+        log.info("프롬프트 생성 시작: concept={}, intimacyLevel={}", 
+            extractConceptFromSettings(room.getSettings()), getCurrentIntimacyLevel(room.getId()));
+        
         // 현재 친밀도 레벨만 주입 (DB의 system_prompt에 모든 컨셉별 내용이 통합됨)
         int intimacyLevel = getCurrentIntimacyLevel(room.getId());
         String concept = extractConceptFromSettings(room.getSettings());
+        
+        // 파일에서 프롬프트 로드 시도
+        String filePrompt = loadConversationPromptFromFile(concept, intimacyLevel);
+        if (filePrompt != null && !filePrompt.isEmpty()) {
+            prompt.append(filePrompt);
+            return;
+        }
+        
+        // 파일 로드 실패 시 fallback (기존 하드코딩 메서드 사용)
+        log.warn("Conversation 프롬프트 파일 로드 실패, fallback 사용: concept={}, intimacyLevel={}", concept, intimacyLevel);
         
         prompt.append("\n[현재 상태]\n");
         prompt.append("현재 친밀도 레벨: ").append(intimacyLevel).append("\n");
@@ -384,6 +326,28 @@ public class PromptService {
         prompt.append("3. 친밀도 레벨에 맞는 말투로 실전 대화 능력을 향상시킬 수 있음을 설명\n");
         prompt.append("**각 문장은 위의 컨셉별 특화 지침에서 정의한 말투(존댓말/반말)로 자연스럽게 작성하세요.**\n");
         prompt.append("**서비스 설명도 일반 대화와 동일한 말투를 일관되게 유지하세요.**\n");
+    }
+    
+    /**
+     * conversation 프롬프트 파일 로드
+     */
+    private String loadConversationPromptFromFile(String concept, int intimacyLevel) {
+        // 파일명 생성: {concept}_{intimacyLevel}.txt (예: honey_1.txt)
+        String filename = String.format("prompts/conversation/%s_%d.txt", 
+            concept.toLowerCase(), intimacyLevel);
+        
+        try {
+            ClassPathResource resource = new ClassPathResource(filename);
+            if (!resource.exists()) {
+                return null;
+            }
+            
+            String content = resource.getContentAsString(StandardCharsets.UTF_8);
+            return content;
+            
+        } catch (IOException e) {
+            return null;
+        }
     }
     
     /**

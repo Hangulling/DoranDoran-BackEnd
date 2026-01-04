@@ -60,6 +60,9 @@ public class Message {
     @Column(name = "sequence_number", nullable = false)
     private Long sequenceNumber;
 
+    @Column(name = "turn_number", nullable = false)
+    private Long turnNumber;
+
     @Column(name = "token_count")
     private Integer tokenCount;
 

@@ -21,7 +21,9 @@ public class HmacAuthInterceptor implements HandlerInterceptor {
     public boolean preHandle(@NonNull jakarta.servlet.http.HttpServletRequest request, @NonNull jakarta.servlet.http.HttpServletResponse response, @NonNull Object handler) throws Exception {
         // 공개 엔드포인트는 통과
         String path = request.getRequestURI();
+        log.debug("HMAC 인증 체크: path={}, method={}", path, request.getMethod());
         if (isExcludedPath(path)) {
+            log.debug("인증 제외 경로로 통과: path={}", path);
             return true;
         }
 
@@ -30,6 +32,8 @@ public class HmacAuthInterceptor implements HandlerInterceptor {
         String sign = request.getHeader("X-Auth-Sign");
 
         if (userId == null || ts == null || sign == null) {
+            log.warn("HMAC 인증 실패: 필수 헤더 누락 - path={}, userId={}, ts={}, sign={}", 
+                    path, userId != null, ts != null, sign != null);
             response.setStatus(401);
             return false;
         }
@@ -67,7 +71,7 @@ public class HmacAuthInterceptor implements HandlerInterceptor {
     /**
      * 인증 제외 경로 확인
      * - Swagger/Actuator: 개발 및 모니터링 도구
-     * - 공개 API: 회원가입, 헬스체크, 이메일 관련 API
+     * - 공개 API: 회원가입, 헬스체크, 이메일 관련 API, 이메일 찾기
      */
     private boolean isExcludedPath(String path) {
         return path.startsWith("/actuator") || 
@@ -77,9 +81,11 @@ public class HmacAuthInterceptor implements HandlerInterceptor {
                path.startsWith("/api-docs") || 
                path.equals("/api/users") ||  // POST /api/users (회원가입) 제외
                path.startsWith("/api/users/register") || 
+               path.startsWith("/api/users/find-email") ||  // 이메일 찾기 제외
                path.startsWith("/api/users/health") ||
                path.startsWith("/api/users/email/") ||
                path.startsWith("/api/users/auth/email/") ||
-               path.startsWith("/api/users/check-email/");
+               path.startsWith("/api/users/check-email/") ||
+               path.startsWith("/api/users/find-email");  // 이메일 찾기 제외
     }
 }

@@ -4,6 +4,8 @@ import com.dorandoran.chat.entity.ChatRoom;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -32,4 +34,19 @@ public interface ChatRoomRepository extends JpaRepository<ChatRoom, UUID> {
 
     // 사용자가 특정 채팅방에 접근 권한이 있는지 확인 - 보관함 사용
     boolean existsByUserIdAndIdAndIsDeletedFalse(UUID userId, UUID chatroomId);
+    
+    // 사용자 ID와 삭제되지 않은 채팅방 목록 찾기 (테스트 모델 필터 포함, 페이징)
+    @Query(value = "SELECT * FROM chat_schema.chatrooms cr " +
+           "WHERE cr.user_id = :userId::uuid AND cr.is_deleted = false " +
+           "AND (cr.settings->>'testModel') = :testModel " +
+           "ORDER BY cr.last_message_at DESC NULLS LAST",
+           nativeQuery = true,
+           countQuery = "SELECT COUNT(*) FROM chat_schema.chatrooms cr " +
+                       "WHERE cr.user_id = :userId::uuid AND cr.is_deleted = false " +
+                       "AND (cr.settings->>'testModel') = :testModel")
+    Page<ChatRoom> findByUser_IdAndIsDeletedFalseAndTestModelOrderByLastMessageAtDesc(
+        @Param("userId") UUID userId, 
+        @Param("testModel") String testModel, 
+        Pageable pageable
+    );
 }

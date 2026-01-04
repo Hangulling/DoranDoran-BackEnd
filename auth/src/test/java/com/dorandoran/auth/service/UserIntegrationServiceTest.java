@@ -9,6 +9,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -44,6 +45,9 @@ class UserIntegrationServiceTest {
             "encodedPassword",
             "profile.jpg",
             "테스트 사용자",
+            LocalDate.parse("1990-01-01"),
+            "가장 좋아하는 색은?",
+            "Blue",
             null, // preferences
             LocalDateTime.now(),
             UserDto.UserStatus.ACTIVE,

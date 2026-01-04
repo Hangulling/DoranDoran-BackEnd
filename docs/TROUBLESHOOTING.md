@@ -8,6 +8,7 @@
 5. [Docker 배포 문제](#docker-배포-문제)
 6. [보안 위협 및 IP 블랙리스트 관리](#보안-위협-및-ip-블랙리스트-관리)
 7. [인증 구조 충돌 문제](#인증-구조-충돌-문제)
+8. [OAuth 로그인 401 에러 및 CORS/COOP 문제](#oauth-로그인-401-에러-및-corscoop-문제)
 
 ---
 
@@ -459,6 +460,137 @@ if (path.startsWith("/api/admin/")) {
 ### 관련 문서
 - [Phase 2 인증 구조 분석](./maintenance/2025-11-11/phase2-authentication-analysis.md)
 - [보안 상태 점검](./maintenance/2025-11-11/security-status-check.md)
+
+---
+
+## OAuth 로그인 401 에러 및 CORS/COOP 문제
+
+### 증상
+- `POST /api/auth/oauth/login` 요청 시 401 Unauthorized 에러 발생
+- 브라우저 콘솔에 "Cross-Origin-Opener-Policy policy would block the window.postMessage call" 오류
+- CORS 오류 발생
+- Google OAuth 로그인 실패
+
+### 원인
+1. **401 에러**: 
+   - Gateway의 `JwtAuthFilter`가 `/api/auth/oauth/login` 경로에 대해 인증을 요구
+   - Auth 서비스의 `HmacAuthInterceptor`가 HMAC 헤더를 요구
+2. **CORS 오류**: 
+   - 와일드카드 도메인 패턴이 `addAllowedOrigin()`에서 제대로 작동하지 않음
+3. **COOP 오류**: 
+   - Google OAuth 팝업과 메인 창 간의 `postMessage` 통신이 COOP 정책에 의해 차단됨
+
+### 해결 방법
+
+#### 1. Gateway JwtAuthFilter 수정
+```java
+// gateway/src/main/java/com/dorandoran/gateway/filter/JwtAuthFilter.java
+private boolean isExcludedPath(String path) {
+    return path.startsWith("/actuator") || 
+           path.equals("/") ||
+           path.startsWith("/api/auth/login") ||
+           path.startsWith("/api/auth/refresh") ||
+           path.startsWith("/api/auth/password/reset") ||
+           path.startsWith("/api/auth/health") ||
+           path.startsWith("/api/auth/email/request-verification") ||
+           path.startsWith("/api/auth/email/verify") ||
+           path.startsWith("/api/auth/email/check") ||
+           path.startsWith("/api/auth/oauth/login") ||  // OAuth 로그인 엔드포인트 제외
+           // ... 기타 제외 경로
+}
+```
+
+#### 2. Auth 서비스 HmacAuthInterceptor 수정
+```java
+// auth/src/main/java/com/dorandoran/auth/config/HmacAuthInterceptor.java
+private boolean isExcludedPath(String path) {
+    return path.startsWith("/actuator") || 
+           path.equals("/") || 
+           path.startsWith("/swagger-ui") || 
+           path.startsWith("/api/auth/login") || 
+           path.startsWith("/api/auth/refresh") || 
+           path.startsWith("/api/auth/password/reset") || 
+           path.startsWith("/api/auth/health") ||
+           path.startsWith("/api/auth/validate") ||
+           path.startsWith("/api/auth/email/request-verification") ||
+           path.startsWith("/api/auth/email/verify") ||
+           path.startsWith("/api/auth/email/check") ||
+           path.startsWith("/api/auth/oauth/login") ||  // OAuth 로그인 엔드포인트 제외
+           path.startsWith("/error");
+}
+```
+
+#### 3. CORS 설정 개선
+```java
+// gateway/src/main/java/com/dorandoran/gateway/config/SecurityConfig.java
+@Bean
+public CorsWebFilter corsWebFilter() {
+    CorsConfiguration corsConfig = new CorsConfiguration();
+    corsConfig.setAllowCredentials(true);
+
+    // 로컬 개발 환경
+    corsConfig.addAllowedOrigin("http://localhost:3000");
+    corsConfig.addAllowedOrigin("http://localhost:3001");
+    
+    // 프로덕션 도메인
+    corsConfig.addAllowedOrigin("https://doran-chat.com");
+    corsConfig.addAllowedOrigin("https://www.doran-chat.com");
+    corsConfig.addAllowedOrigin("https://doran-chat.vercel.app");
+    
+    // 와일드카드 도메인 허용 (Spring 5.3+)
+    corsConfig.addAllowedOriginPattern("https://*.doran-chat.com");
+    corsConfig.addAllowedOriginPattern("https://*.vercel.app");
+
+    corsConfig.addAllowedHeader("*");
+    corsConfig.addAllowedMethod("*");
+    corsConfig.addExposedHeader("*");
+
+    UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+    source.registerCorsConfiguration("/**", corsConfig);
+
+    return new CorsWebFilter(source);
+}
+```
+
+#### 4. COOP 헤더 설정
+```java
+// gateway/src/main/java/com/dorandoran/gateway/config/SecurityConfig.java
+@Bean
+public org.springframework.web.server.WebFilter coopHeaderFilter() {
+    return (exchange, chain) -> {
+        org.springframework.http.server.reactive.ServerHttpResponse response = exchange.getResponse();
+        org.springframework.http.HttpHeaders headers = response.getHeaders();
+        
+        // COOP 헤더가 이미 설정되어 있지 않으면 unsafe-none으로 설정
+        if (!headers.containsKey("Cross-Origin-Opener-Policy")) {
+            headers.add("Cross-Origin-Opener-Policy", "unsafe-none");
+        }
+        
+        return chain.filter(exchange);
+    };
+}
+```
+
+### 확인 방법
+```bash
+# 응답 헤더 확인
+curl -I -X POST https://api.doran-chat.com/api/auth/oauth/login \
+  -H 'Origin: https://www.doran-chat.com' \
+  -H 'Content-Type: application/json'
+
+# 예상 응답 헤더
+# access-control-allow-origin: https://www.doran-chat.com
+# access-control-allow-credentials: true
+# cross-origin-opener-policy: unsafe-none
+```
+
+### 주의사항
+- OAuth 로그인 엔드포인트는 **인증 없이 접근 가능**해야 함 (로그인 전이므로)
+- COOP 헤더를 `unsafe-none`으로 설정하면 보안이 약간 완화되지만, Google OAuth 팝업 통신에 필요
+- CORS 설정은 프론트엔드 도메인과 정확히 일치해야 함
+
+### 관련 문서
+- [Google OAuth 프론트엔드 통합 가이드](./GOOGLE_OAUTH_FRONTEND_INTEGRATION.md)
 
 ---
 

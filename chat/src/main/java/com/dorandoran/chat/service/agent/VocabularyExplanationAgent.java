@@ -6,10 +6,14 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Mono;
 
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
+import java.util.UUID;
 
 /**
  * 어휘 설명 Agent
@@ -36,9 +40,18 @@ public class VocabularyExplanationAgent {
         String concept,
         int intimacyLevel
     ) {
+        return generateExplanation(extraction, concept, intimacyLevel, null);
+    }
+    
+    public Mono<VocabularyExplanationResult> generateExplanation(
+        VocabularyExtractionResult extraction,
+        String concept,
+        int intimacyLevel,
+        UUID chatroomId
+    ) {
         log.info("=== VocabularyExplanationAgent.generateExplanation() 호출됨 ===");
-        log.info("=== 파라미터 - originalExpression='{}', concept='{}', intimacyLevel={} ===", 
-            extraction.originalExpression(), concept, intimacyLevel);
+        log.info("=== 파라미터 - originalExpression='{}', concept='{}', intimacyLevel={}, chatroomId={} ===", 
+            extraction.originalExpression(), concept, intimacyLevel, chatroomId);
         
         String systemPrompt = buildExplanationPrompt(concept, intimacyLevel);
         String userPrompt = buildUserPrompt(extraction);
@@ -51,7 +64,7 @@ public class VocabularyExplanationAgent {
         log.info("=== VocabularyExplanationAgent OpenAI API 호출 시작 (temperature={}, maxTokens={}) ===", 
             temperature, maxTokens);
         
-        return openAIClient.streamRawCompletion(systemPrompt, userPrompt, temperature, maxTokens)
+        return openAIClient.streamRawCompletion(systemPrompt, userPrompt, temperature, maxTokens, chatroomId)
             .doOnError(error -> log.error("VocabularyExplanationAgent 스트림 오류", error))
             .collectList()
             .doOnError(error -> log.error("VocabularyExplanationAgent collectList 오류", error))
@@ -101,6 +114,14 @@ public class VocabularyExplanationAgent {
      * @return 시스템 프롬프트 문자열
      */
     private String buildExplanationPrompt(String concept, int intimacyLevel) {
+        // 파일에서 프롬프트 로드 시도
+        String prompt = loadExplanationPromptFromFile(concept, intimacyLevel);
+        if (prompt != null && !prompt.isEmpty()) {
+            return prompt;
+        }
+        
+        // 파일 로드 실패 시 fallback (기존 하드코딩 메서드 사용)
+        log.warn("Explanation 프롬프트 파일 로드 실패, fallback 사용: concept={}, intimacyLevel={}", concept, intimacyLevel);
         String toneGuideline = getToneGuideline(concept, intimacyLevel);
         
         return String.format("""
@@ -143,6 +164,31 @@ public class VocabularyExplanationAgent {
             - context.ko는 반드시 위의 말투 규칙을 준수할 것
             - 부드럽고 친근한 톤앤매너를 지켜서 작성할 것
             """, concept, intimacyLevel, toneGuideline);
+    }
+    
+    /**
+     * 파일에서 설명 프롬프트 로드
+     */
+    private String loadExplanationPromptFromFile(String concept, int intimacyLevel) {
+        if (concept == null) {
+            concept = "FRIEND";
+        }
+        String normalizedConcept = concept.toUpperCase();
+        String filename = String.format("prompts/vocabulary/explanation/%s_%d.txt",
+            normalizedConcept.toLowerCase(), intimacyLevel);
+        
+        try {
+            ClassPathResource resource = new ClassPathResource(filename);
+            if (!resource.exists()) {
+                return null;
+            }
+            
+            String content = resource.getContentAsString(StandardCharsets.UTF_8);
+            return content;
+            
+        } catch (IOException e) {
+            return null;
+        }
     }
     
     private String getToneGuideline(String concept, int intimacyLevel) {

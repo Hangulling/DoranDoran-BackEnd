@@ -6,10 +6,14 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Mono;
 
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
+import java.util.UUID;
 
 /**
  * 어휘 추출 Agent
@@ -32,9 +36,13 @@ public class VocabularyExtractionAgent {
      * @return 추출 결과
      */
     public Mono<VocabularyExtractionResult> extract(String botResponse, String concept, int intimacyLevel) {
+        return extract(botResponse, concept, intimacyLevel, null);
+    }
+    
+    public Mono<VocabularyExtractionResult> extract(String botResponse, String concept, int intimacyLevel, UUID chatroomId) {
         log.info("=== VocabularyExtractionAgent.extract() 호출됨 ===");
-        log.info("=== 파라미터 - botResponse='{}', concept='{}', intimacyLevel={} ===", 
-            botResponse, concept, intimacyLevel);
+        log.info("=== 파라미터 - botResponse='{}', concept='{}', intimacyLevel={}, chatroomId={} ===", 
+            botResponse, concept, intimacyLevel, chatroomId);
         
         String systemPrompt = buildExtractionPrompt(concept, intimacyLevel);
         log.debug("=== VocabularyExtractionAgent systemPrompt 길이: {} ===", systemPrompt.length());
@@ -45,7 +53,7 @@ public class VocabularyExtractionAgent {
         log.info("=== VocabularyExtractionAgent OpenAI API 호출 시작 (temperature={}, maxTokens={}) ===", 
             temperature, maxTokens);
         
-        return openAIClient.streamRawCompletion(systemPrompt, botResponse, temperature, maxTokens)
+        return openAIClient.streamRawCompletion(systemPrompt, botResponse, temperature, maxTokens, chatroomId)
             .doOnError(error -> log.error("VocabularyExtractionAgent 스트림 오류", error))
             .collectList()
             .doOnError(error -> log.error("VocabularyExtractionAgent collectList 오류", error))
@@ -82,6 +90,14 @@ public class VocabularyExtractionAgent {
      * @return 시스템 프롬프트 문자열
      */
     private String buildExtractionPrompt(String concept, int intimacyLevel) {
+        // 파일에서 프롬프트 로드 시도
+        String prompt = loadExtractionPromptFromFile(concept, intimacyLevel);
+        if (prompt != null && !prompt.isEmpty()) {
+            return prompt;
+        }
+        
+        // 파일 로드 실패 시 fallback (기존 하드코딩 메서드 사용)
+        log.warn("Extraction 프롬프트 파일 로드 실패, fallback 사용: concept={}, intimacyLevel={}", concept, intimacyLevel);
         String conceptCriteria = getConceptExtractionCriteria(concept, intimacyLevel);
         
         return String.format("""
@@ -139,6 +155,31 @@ public class VocabularyExtractionAgent {
             - category는 반드시 위에 나열된 값 중 하나를 사용할 것
             - 컨셉별 추출 기준을 엄격히 준수할 것
             """, concept, intimacyLevel, conceptCriteria);
+    }
+    
+    /**
+     * 파일에서 추출 프롬프트 로드
+     */
+    private String loadExtractionPromptFromFile(String concept, int intimacyLevel) {
+        if (concept == null) {
+            concept = "FRIEND";
+        }
+        String normalizedConcept = concept.toUpperCase();
+        String filename = String.format("prompts/vocabulary/extraction/%s_%d.txt",
+            normalizedConcept.toLowerCase(), intimacyLevel);
+        
+        try {
+            ClassPathResource resource = new ClassPathResource(filename);
+            if (!resource.exists()) {
+                return null;
+            }
+            
+            String content = resource.getContentAsString(StandardCharsets.UTF_8);
+            return content;
+            
+        } catch (IOException e) {
+            return null;
+        }
     }
     
     private String getConceptExtractionCriteria(String concept, int intimacyLevel) {

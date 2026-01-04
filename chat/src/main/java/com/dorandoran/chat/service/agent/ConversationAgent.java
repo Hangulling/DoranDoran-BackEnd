@@ -27,7 +27,13 @@ public class ConversationAgent {
     private final PromptService promptService;
     private final MessageRepository messageRepository;
     
-    public Flux<String> generateResponse(UUID chatroomId, String userMessage) {
+    /**
+     * OpenAI 응답 스트림에서 텍스트 조각을 반환하면서,
+     * 동일 스트림에서 추출한 토큰 usage 정보를 usageHolder에 저장한다.
+     * usageHolder는 null일 수 있으며, null인 경우 usage는 무시된다.
+     */
+    public Flux<String> generateResponse(UUID chatroomId, String userMessage,
+                                         java.util.concurrent.atomic.AtomicReference<com.dorandoran.chat.service.OpenAIClient.Usage> usageHolder) {
         log.info("=== ConversationAgent.generateResponse() 호출됨 ===");
         String systemPrompt = promptService.buildSystemPrompt(chatroomId);
         
@@ -48,7 +54,7 @@ public class ConversationAgent {
         }
         
         log.info("=== OpenAI API 호출 시작 (히스토리 포함) ===");
-        return openAIClient.streamRawCompletionWithHistory(systemPrompt, messageHistory, enhancedUserMessage)
+        return openAIClient.streamRawCompletionWithHistory(systemPrompt, messageHistory, enhancedUserMessage, chatroomId)
             .doOnError(error -> log.error("ConversationAgent 원시 응답 오류: {}", error.getMessage(), error))
             .map(raw -> {
                 try {
@@ -56,6 +62,19 @@ public class ConversationAgent {
                     
                     if ("[DONE]".equals(jsonData.trim())) {
                         return "";
+                    }
+                    
+                    // usage 추출 (있다면 마지막 usage 값을 usageHolder에 보관)
+                    try {
+                        if (usageHolder != null) {
+                            com.dorandoran.chat.service.OpenAIClient.Usage usage =
+                                openAIClient.extractUsage(raw);
+                            if (usage != null && !usage.isEmpty()) {
+                                usageHolder.set(usage);
+                            }
+                        }
+                    } catch (Exception e) {
+                        log.debug("Usage 추출 실패(무시): {}", e.getMessage());
                     }
                     
                     com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();

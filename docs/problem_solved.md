@@ -488,3 +488,235 @@ gateway:
 - `docs/maintenance/2025-11-11/phase2-authentication-analysis.md`
 - `docs/maintenance/2025-11-11/security-status-check.md`
 - `docs/maintenance/2025-11-11/blacklist-storage-location.md`
+
+---
+
+## Google OAuth 2.0 로그인 구현 및 문제 해결
+
+### 문제 발생 일시
+2025-11-19
+
+### 문제 상황
+- `POST /api/auth/oauth/login` 요청 시 401 Unauthorized 에러 발생
+- 브라우저 콘솔에 "Cross-Origin-Opener-Policy policy would block the window.postMessage call" 오류
+- CORS 오류 발생
+- Google OAuth 로그인 실패
+
+### 문제 원인 분석
+
+#### 1. Gateway 레벨 인증 문제
+- **문제**: `JwtAuthFilter`가 `/api/auth/oauth/login` 경로에 대해 인증을 요구
+- **원인**: `isExcludedPath()` 메서드에 OAuth 로그인 경로가 하드코딩된 제외 목록에 없음
+- **로그 증거**:
+  ```
+  Authorization 헤더가 없거나 형식이 잘못됨: path=/api/auth/oauth/login
+  ```
+
+#### 2. Auth 서비스 레벨 HMAC 인증 문제
+- **문제**: `HmacAuthInterceptor`가 `/api/auth/oauth/login` 경로에 대해 HMAC 헤더를 요구
+- **원인**: `isExcludedPath()` 메서드에 OAuth 로그인 경로가 제외 목록에 없음
+- **로그 증거**:
+  ```
+  HMAC 헤더 누락: path=/api/auth/oauth/login, excluded=false
+  ```
+
+#### 3. CORS 설정 문제
+- **문제**: 와일드카드 도메인 패턴(`https://*.doran-chat.com`)이 `addAllowedOrigin()`에서 제대로 작동하지 않음
+- **원인**: Spring의 `CorsConfiguration`은 `addAllowedOrigin()`에서 와일드카드를 지원하지 않음
+- **해결**: `addAllowedOriginPattern()` 메서드 사용 필요
+
+#### 4. COOP (Cross-Origin-Opener-Policy) 문제
+- **문제**: Google OAuth 팝업과 메인 창 간의 `postMessage` 통신이 COOP 정책에 의해 차단됨
+- **원인**: COOP 헤더가 설정되지 않아 브라우저의 기본 정책이 적용됨
+- **영향**: Google OAuth 팝업에서 로그인 완료 후 메인 창으로 결과를 전달할 수 없음
+
+### 해결 방법
+
+#### Phase 1: Gateway 인증 제외 추가
+
+**1. JwtAuthFilter 수정**
+```java
+// gateway/src/main/java/com/dorandoran/gateway/filter/JwtAuthFilter.java
+private boolean isExcludedPath(String path) {
+    return path.startsWith("/actuator") || 
+           path.equals("/") ||
+           path.startsWith("/api/auth/login") ||
+           path.startsWith("/api/auth/refresh") ||
+           path.startsWith("/api/auth/password/reset") ||
+           path.startsWith("/api/auth/health") ||
+           path.startsWith("/api/auth/email/request-verification") ||
+           path.startsWith("/api/auth/email/verify") ||
+           path.startsWith("/api/auth/email/check") ||
+           path.startsWith("/api/auth/oauth/login") ||  // OAuth 로그인 엔드포인트 제외
+           path.equals("/api/users") ||
+           path.startsWith("/api/users/register") ||
+           path.startsWith("/api/users/health") ||
+           path.startsWith("/api/users/email/") ||
+           path.startsWith("/api/users/auth/email/") ||
+           path.startsWith("/api/users/check-email/") ||
+           path.startsWith("/api/batch/");
+}
+```
+
+**2. application.yml 설정 확인**
+```yaml
+# gateway/src/main/resources/application.yml
+gateway:
+  auth:
+    exclusions:
+      - /actuator
+      - /
+      - /api/auth/login
+      - /api/auth/refresh
+      - /api/auth/password/reset
+      - /api/auth/health
+      - /api/auth/email/request-verification
+      - /api/auth/email/verify
+      - /api/auth/email/check
+      - /api/auth/oauth/login  # OAuth 로그인 엔드포인트 제외
+```
+
+#### Phase 2: Auth 서비스 HMAC 인증 제외 추가
+
+**HmacAuthInterceptor 수정**
+```java
+// auth/src/main/java/com/dorandoran/auth/config/HmacAuthInterceptor.java
+private boolean isExcludedPath(String path) {
+    return path.startsWith("/actuator") || 
+           path.equals("/") || 
+           path.startsWith("/swagger-ui") || 
+           path.startsWith("/v3/api-docs") || 
+           path.startsWith("/api-docs") || 
+           path.startsWith("/api/auth/login") || 
+           path.startsWith("/api/auth/refresh") || 
+           path.startsWith("/api/auth/password/reset") || 
+           path.startsWith("/api/auth/health") ||
+           path.startsWith("/api/auth/validate") ||
+           path.startsWith("/api/auth/email/request-verification") ||
+           path.startsWith("/api/auth/email/verify") ||
+           path.startsWith("/api/auth/email/check") ||
+           path.startsWith("/api/auth/oauth/login") ||  // OAuth 로그인 엔드포인트 제외
+           path.startsWith("/error");
+}
+```
+
+#### Phase 3: CORS 설정 개선
+
+**SecurityConfig 수정**
+```java
+// gateway/src/main/java/com/dorandoran/gateway/config/SecurityConfig.java
+@Bean
+public CorsWebFilter corsWebFilter() {
+    CorsConfiguration corsConfig = new CorsConfiguration();
+    corsConfig.setAllowCredentials(true);
+
+    // 로컬 개발 환경
+    corsConfig.addAllowedOrigin("http://localhost:3000");
+    corsConfig.addAllowedOrigin("http://localhost:3001");
+    corsConfig.addAllowedOrigin("http://127.0.0.1:3000");
+    corsConfig.addAllowedOrigin("http://127.0.0.1:3001");
+    
+    // 프로덕션 도메인
+    corsConfig.addAllowedOrigin("https://doran-chat.com");
+    corsConfig.addAllowedOrigin("https://www.doran-chat.com");
+    corsConfig.addAllowedOrigin("https://doran-chat.vercel.app");
+    
+    // 와일드카드 도메인 허용 (Spring 5.3+)
+    // addAllowedOriginPattern()을 사용하여 패턴 기반 허용
+    corsConfig.addAllowedOriginPattern("https://*.doran-chat.com");
+    corsConfig.addAllowedOriginPattern("https://*.vercel.app");
+
+    corsConfig.addAllowedHeader("*");
+    corsConfig.addAllowedMethod("*");
+    corsConfig.addExposedHeader("*");
+
+    UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+    source.registerCorsConfiguration("/**", corsConfig);
+
+    return new CorsWebFilter(source);
+}
+```
+
+#### Phase 4: COOP 헤더 설정
+
+**SecurityConfig에 COOP 필터 추가**
+```java
+// gateway/src/main/java/com/dorandoran/gateway/config/SecurityConfig.java
+/**
+ * Google OAuth 팝업과의 postMessage 통신을 위해 COOP 헤더를 설정하는 필터
+ */
+@Bean
+public org.springframework.web.server.WebFilter coopHeaderFilter() {
+    return (exchange, chain) -> {
+        org.springframework.http.server.reactive.ServerHttpResponse response = exchange.getResponse();
+        org.springframework.http.HttpHeaders headers = response.getHeaders();
+        
+        // COOP 헤더가 이미 설정되어 있지 않으면 unsafe-none으로 설정
+        if (!headers.containsKey("Cross-Origin-Opener-Policy")) {
+            headers.add("Cross-Origin-Opener-Policy", "unsafe-none");
+        }
+        
+        return chain.filter(exchange);
+    };
+}
+```
+
+**CorsResponseFilter에도 COOP 헤더 추가**
+```java
+// gateway/src/main/java/com/dorandoran/gateway/filter/CorsResponseFilter.java
+if (origin != null && isAllowedOrigin(origin)) {
+    headers.add(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN, origin);
+    headers.add(HttpHeaders.ACCESS_CONTROL_ALLOW_CREDENTIALS, "true");
+    headers.add(HttpHeaders.ACCESS_CONTROL_ALLOW_METHODS, "GET, POST, PUT, DELETE, OPTIONS, PATCH");
+    headers.add(HttpHeaders.ACCESS_CONTROL_ALLOW_HEADERS, "*");
+    headers.add(HttpHeaders.ACCESS_CONTROL_EXPOSE_HEADERS, "*");
+    
+    // SSE를 위한 추가 헤더
+    headers.add(HttpHeaders.CACHE_CONTROL, "no-cache");
+    headers.add(HttpHeaders.CONNECTION, "keep-alive");
+    
+    // Google OAuth 팝업과의 postMessage 통신을 위해 COOP 헤더 설정
+    headers.add("Cross-Origin-Opener-Policy", "unsafe-none");
+}
+```
+
+### 결과
+
+#### 해결 전
+- OAuth 로그인 요청 시 401 Unauthorized 에러
+- CORS 오류로 인한 요청 실패
+- Google OAuth 팝업과 메인 창 간 통신 차단
+- 로그:
+  ```
+  Authorization 헤더가 없거나 형식이 잘못됨: path=/api/auth/oauth/login
+  HMAC 헤더 누락: path=/api/auth/oauth/login, excluded=false
+  Cross-Origin-Opener-Policy policy would block the window.postMessage call
+  ```
+
+#### 해결 후
+- OAuth 로그인 요청 정상 처리
+- CORS 헤더 정상 설정
+- Google OAuth 팝업과 메인 창 간 통신 정상
+- 응답 헤더:
+  ```
+  access-control-allow-origin: https://www.doran-chat.com
+  access-control-allow-credentials: true
+  cross-origin-opener-policy: unsafe-none
+  ```
+
+### 교훈
+
+1. **인증 제외 경로 관리**: 새로운 공개 API 엔드포인트 추가 시 Gateway와 각 서비스의 인증 필터 모두에 제외 경로 추가 필요
+2. **CORS 설정 주의**: 와일드카드 도메인은 `addAllowedOriginPattern()` 사용, 정확한 도메인은 `addAllowedOrigin()` 사용
+3. **COOP 헤더 이해**: OAuth 팝업 통신을 위해서는 COOP 헤더를 `unsafe-none`으로 설정해야 함
+4. **다층 인증 체크**: Gateway 레벨과 서비스 레벨 모두에서 인증 제외 경로 확인 필요
+5. **로그 분석**: 401 에러 발생 시 어느 레벨에서 차단되었는지 로그로 확인
+
+### 관련 파일
+- `gateway/src/main/java/com/dorandoran/gateway/filter/JwtAuthFilter.java`
+- `gateway/src/main/java/com/dorandoran/gateway/config/SecurityConfig.java`
+- `gateway/src/main/java/com/dorandoran/gateway/filter/CorsResponseFilter.java`
+- `auth/src/main/java/com/dorandoran/auth/config/HmacAuthInterceptor.java`
+- `gateway/src/main/resources/application.yml`
+- `gateway/src/main/resources/application-docker.yml`
+- `docs/GOOGLE_OAUTH_FRONTEND_INTEGRATION.md`

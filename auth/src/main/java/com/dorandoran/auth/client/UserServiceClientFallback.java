@@ -69,6 +69,13 @@ public class UserServiceClientFallback implements UserServiceClient {
     }
     
     @Override
+    public boolean isOAuthUser(String email) {
+        log.warn("User Service 호출 실패 - isOAuthUser: email={}", email);
+        // Fallback 로직: OAuth 사용자 여부 확인 실패 시 false 반환
+        return false;
+    }
+    
+    @Override
     public UserDto getUserByOAuth(String provider, String oauthId) {
         log.warn("User Service 호출 실패 - getUserByOAuth: provider={}, oauthId={}", provider, oauthId);
         // Fallback 로직: OAuth 사용자 조회 실패 처리

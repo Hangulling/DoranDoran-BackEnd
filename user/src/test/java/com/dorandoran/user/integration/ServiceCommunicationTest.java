@@ -7,6 +7,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
@@ -35,6 +36,9 @@ class ServiceCommunicationTest {
             "encodedPassword",
             "profile.jpg",
             "통합 테스트 사용자",
+            LocalDate.parse("1990-01-01"),
+            "가장 좋아하는 색은?",
+            "Blue",
             null, // preferences
             LocalDateTime.now(),
             UserDto.UserStatus.ACTIVE,
@@ -69,6 +73,9 @@ class ServiceCommunicationTest {
             "encodedPassword",
             "event-profile.jpg",
             "이벤트 테스트 사용자",
+            LocalDate.parse("1990-01-01"),
+            "가장 좋아하는 색은?",
+            "Blue",
             LocalDateTime.now(),
             UserDto.UserStatus.ACTIVE,
             UserDto.RoleName.ROLE_USER,
@@ -99,6 +106,9 @@ class ServiceCommunicationTest {
             "encodedPassword",
             "serialize-profile.jpg",
             "직렬화 테스트 사용자",
+            LocalDate.parse("1990-01-01"),
+            "가장 좋아하는 색은?",
+            "Blue",
             LocalDateTime.now(),
             UserDto.UserStatus.ACTIVE,
             UserDto.RoleName.ROLE_USER,
@@ -132,6 +142,9 @@ class ServiceCommunicationTest {
             "encodedPassword",
             "transfer-profile.jpg",
             "전송 테스트 사용자",
+            LocalDate.parse("1990-01-01"),
+            "가장 좋아하는 색은?",
+            "Blue",
             LocalDateTime.now(),
             UserDto.UserStatus.ACTIVE,
             UserDto.RoleName.ROLE_USER,
