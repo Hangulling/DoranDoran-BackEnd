@@ -14,8 +14,14 @@ import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
     "com.dorandoran.shared",
     "com.dorandoran.common"
 })
-@EnableJpaRepositories(basePackages = "com.dorandoran.user.repository")
-@EntityScan(basePackages = "com.dorandoran.user.entity")
+@EnableJpaRepositories(basePackages = {
+    "com.dorandoran.user.repository",
+    "com.dorandoran.user.admin.repository"
+})
+@EntityScan(basePackages = {
+    "com.dorandoran.user.entity",
+    "com.dorandoran.user.admin.entity"
+})
 public class UserApplication {
     public static void main(String[] args) {
         SpringApplication.run(UserApplication.class, args);
