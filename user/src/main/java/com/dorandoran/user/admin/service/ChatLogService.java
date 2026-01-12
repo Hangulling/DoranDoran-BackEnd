@@ -1,9 +1,17 @@
 package com.dorandoran.user.admin.service;
 
+import com.dorandoran.user.admin.dto.request.ChatLogSearchRequest;
+import com.dorandoran.user.admin.dto.response.ChatLogListResponse;
 import com.dorandoran.user.admin.dto.response.ChatroomOptionResponse;
+import com.dorandoran.user.admin.dto.response.IntimacyLevelOptionResponse;
 import com.dorandoran.user.admin.repository.ArchChatroomRepository;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -21,12 +29,8 @@ public class ChatLogService {
 
   private final ArchChatroomRepository archChatroomRepository;
 
-  /**
-   * 채팅룸 옵션 조회 (드롭다운용)
-   */
+  // 채팅룸 드롭다운 옵션 조회
   public List<ChatroomOptionResponse> getChatroomOptions() {
-    log.debug("채팅룸 옵션 조회 시작");
-
     return archChatroomRepository.findAll().stream()
         .filter(chatroom -> !chatroom.getIsDeleted())
         .map(chatroom -> new ChatroomOptionResponse(
@@ -36,5 +40,37 @@ public class ChatLogService {
             chatroom.getUserEmailSnapshot()
         ))
         .collect(Collectors.toList());
+  }
+
+  // 친밀도 레벨 옵션 조회
+  public List<IntimacyLevelOptionResponse> getIntimacyLevelOptions() {
+    return List.of(
+        new IntimacyLevelOptionResponse(1, "Level 1 - 격식체 / 첫 만남"),
+        new IntimacyLevelOptionResponse(2, "Level 2 - 표준 존댓말 / 편한 관계"),
+        new IntimacyLevelOptionResponse(3, "Level 3 - 친근한 반말 / 아주 친한 사이")
+    );
+  }
+
+  // 채팅 로그 리스트 검색 (검색 조건 + 페이징)
+  public Page<ChatLogListResponse> searchChatLogs(ChatLogSearchRequest request) {
+    // Pageable 객체 생성
+    Pageable pageable = PageRequest.of(request.getPage(), request.getSize());
+
+    // LocalDate를 LocalDateTime으로 변환
+    LocalDateTime startDateTime = request.getStartDate().atStartOfDay();
+
+    // endDate가 null이면 현재 날짜의 23:59:59 사용
+    LocalDateTime endDateTime = request.getEndDate() != null
+        ? request.getEndDate().atTime(23, 59, 59)
+        : LocalDate.now().atTime(23, 59, 59);
+
+    // Repository 쿼리 실행
+    return archChatroomRepository.searchChatLogs(
+        request.getChatroomId(),
+        request.getIntimacyLevel(),
+        startDateTime,
+        endDateTime,
+        pageable
+    );
   }
 }
