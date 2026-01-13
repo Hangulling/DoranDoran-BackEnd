@@ -4,9 +4,13 @@ import com.dorandoran.user.admin.dto.request.ChatLogSearchRequest;
 import com.dorandoran.user.admin.dto.response.ChatLogListResponse;
 import com.dorandoran.user.admin.dto.response.ChatroomOptionResponse;
 import com.dorandoran.user.admin.dto.response.IntimacyLevelOptionResponse;
+import com.dorandoran.user.admin.dto.response.MessageTimelineResponse;
+import com.dorandoran.user.admin.entity.ArchMessage;
 import com.dorandoran.user.admin.repository.ArchChatroomRepository;
+import com.dorandoran.user.admin.repository.ArchMessageRepository;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -28,6 +32,7 @@ import java.util.stream.Collectors;
 public class ChatLogService {
 
   private final ArchChatroomRepository archChatroomRepository;
+  private final ArchMessageRepository archMessageRepository;
 
   // 채팅룸 드롭다운 옵션 조회
   public List<ChatroomOptionResponse> getChatroomOptions() {
@@ -72,5 +77,34 @@ public class ChatLogService {
         endDateTime,
         pageable
     );
+  }
+
+  /**
+   * 특정 채팅방의 메시지 타임라인 조회
+   *
+   * @param chatroomId 채팅방 ID
+   * @param page 페이지 번호 (0부터 시작)
+   * @param size 페이지 크기
+   * @return 메시지 타임라인 페이지
+   */
+  public Page<MessageTimelineResponse> getMessageTimeline(UUID chatroomId, int page, int size) {
+    // 페이지 요청 객체 생성
+    Pageable pageable = PageRequest.of(page, size);
+
+    // 메시지 조회 (sequenceNumber 오름차순)
+    Page<ArchMessage> messagePage = archMessageRepository
+        .findByChatroomIdOrderBySequence(chatroomId, pageable);
+
+    // Entity -> DTO 변환
+    return messagePage.map(message -> MessageTimelineResponse.builder()
+        .messageId(message.getId())
+        .content(message.getContent())
+        .senderType(message.getSenderType())
+        .sequenceNumber(message.getSequenceNumber())
+        .turnNumber(message.getTurnNumber())
+        .sourceCreatedAt(message.getSourceCreatedAt())
+        .tokenCount(message.getTokenCount())
+        .processingTimeMs(message.getProcessingTimeMs())
+        .build());
   }
 }

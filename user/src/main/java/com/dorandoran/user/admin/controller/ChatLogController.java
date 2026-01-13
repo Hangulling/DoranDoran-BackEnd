@@ -4,7 +4,9 @@ import com.dorandoran.user.admin.dto.request.ChatLogSearchRequest;
 import com.dorandoran.user.admin.dto.response.ChatLogListResponse;
 import com.dorandoran.user.admin.dto.response.ChatroomOptionResponse;
 import com.dorandoran.user.admin.dto.response.IntimacyLevelOptionResponse;
+import com.dorandoran.user.admin.dto.response.MessageTimelineResponse;
 import com.dorandoran.user.admin.service.ChatLogService;
+import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -12,7 +14,9 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ModelAttribute;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
@@ -63,6 +67,31 @@ public class ChatLogController {
       @Validated @ModelAttribute ChatLogSearchRequest request) {
     Page<ChatLogListResponse> result = chatLogService.searchChatLogs(request);
     return ResponseEntity.ok(result);
+  }
+
+  /**
+   * 특정 채팅방의 메시지 타임라인 조회
+   *
+   * GET /api/admin/chat-logs/{chatroomId}/timeline?page=0&size=50
+   *
+   * @param chatroomId 채팅방 ID
+   * @param page 페이지 번호 (기본값: 0)
+   * @param size 페이지 크기 (기본값: 50)
+   * @return 메시지 타임라인 페이지
+   */
+  @GetMapping("/{chatroomId}/timeline")
+  public ResponseEntity<Page<MessageTimelineResponse>> getMessageTimeline(
+      @PathVariable UUID chatroomId,
+      @RequestParam(defaultValue = "0") int page,
+      @RequestParam(defaultValue = "50") int size) {
+
+    Page<MessageTimelineResponse> timeline = chatLogService.getMessageTimeline(
+        chatroomId,
+        page,
+        size
+    );
+
+    return ResponseEntity.ok(timeline);
   }
 
 }
