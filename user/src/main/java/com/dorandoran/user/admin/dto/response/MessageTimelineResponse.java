@@ -29,9 +29,6 @@ public class MessageTimelineResponse {
   // 대화 턴 번호
   private Long turnNumber;
 
-  // 메시지 타입
-  private String contentType;
-
   // 생성 시간
   private LocalDateTime sourceCreatedAt;
 
@@ -40,4 +37,8 @@ public class MessageTimelineResponse {
 
   // 처리 시간 (ms, AI 응답인 경우)
   private Integer processingTimeMs;
+
+  // Agent 결과 (intimacy, conversation, vocabulary)
+  // USER 메시지인 경우에만 존재
+  private AgentResultResponse agentResults;
 }
