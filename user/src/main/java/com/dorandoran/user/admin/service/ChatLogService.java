@@ -1,9 +1,11 @@
 package com.dorandoran.user.admin.service;
 
 import com.dorandoran.user.admin.dto.request.ChatLogSearchRequest;
+import com.dorandoran.user.admin.dto.request.ExportRequest;
 import com.dorandoran.user.admin.dto.response.AgentResultResponse;
 import com.dorandoran.user.admin.dto.response.ChatLogListResponse;
 import com.dorandoran.user.admin.dto.response.ChatroomOptionResponse;
+import com.dorandoran.user.admin.dto.response.ExportResponse;
 import com.dorandoran.user.admin.dto.response.IntimacyLevelOptionResponse;
 import com.dorandoran.user.admin.dto.response.MessageTimelineResponse;
 import com.dorandoran.user.admin.entity.ArchAgentResult;
@@ -226,6 +228,47 @@ public class ChatLogService {
 
     return AgentResultResponse.VocabularyResult.builder()
         .words(wordList)
+        .build();
+  }
+
+  /**
+   * 채팅 로그 내보내기 요청
+   *
+   * @param request 내보내기 요청
+   * @return 내보내기 응답 (PENDING 상태)
+   */
+  public ExportResponse requestExport(ExportRequest request) {
+    // 1. UUID 생성
+    UUID exportId = UUID.randomUUID();
+
+    // 2. 관리 큐에 등록 (Phase 4 Day 2에서 구현)
+    // TODO: managementQueueService.enqueueExport(exportId, request);
+
+    // 3. 응답 생성
+    return ExportResponse.builder()
+        .exportId(exportId)
+        .status(ExportResponse.ExportStatus.PENDING)
+        .requestedAt(LocalDateTime.now())
+        .message("내보내기 요청이 접수되었습니다.")
+        .build();
+  }
+
+  /**
+   * 내보내기 상태 조회
+   *
+   * @param exportId 내보내기 요청 ID
+   * @return 내보내기 상태 정보
+   */
+  public ExportResponse getExportStatus(UUID exportId) {
+    // Phase 4 Day 2에서 ManagementQueue를 통해 실제 상태 조회 구현
+    // TODO: ManagementQueue에서 상태 조회
+
+    // 임시 응답 (Day 2에서 실제 구현)
+    return ExportResponse.builder()
+        .exportId(exportId)
+        .status(ExportResponse.ExportStatus.PENDING)
+        .requestedAt(LocalDateTime.now())
+        .message("내보내기 상태 조회 기능은 Phase 4 Day 2에서 구현됩니다.")
         .build();
   }
 }
