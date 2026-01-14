@@ -22,4 +22,15 @@ public interface ArchAgentResultRepository extends JpaRepository<ArchAgentResult
    */
   @Query("SELECT a FROM ArchAgentResult a WHERE a.archMessageId = :messageId")
   List<ArchAgentResult> findByMessageId(@Param("messageId") UUID messageId);
+
+  /**
+   * 메시지 ID 리스트로 Agent 결과 일괄 조회 (N+1 방지)
+   *
+   * @param messageIds 조회할 메시지 ID 리스트
+   * @return Agent 결과 리스트
+   */
+  @Query("SELECT a FROM ArchAgentResult a " +
+      "WHERE a.archMessageId IN :messageIds " +
+      "ORDER BY a.archMessageId, a.agentType")
+  List<ArchAgentResult> findByMessageIdIn(@Param("messageIds") List<UUID> messageIds);
 }
