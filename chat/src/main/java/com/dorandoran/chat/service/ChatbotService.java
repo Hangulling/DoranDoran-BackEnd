@@ -46,39 +46,58 @@ public class ChatbotService {
                 return false;
             }
             
+            Chatbot chatbot = chatbotOpt.get();
+            
             // 각 Agent별 프롬프트 업데이트
             String sql = null;
             Object[] params = null;
             
             if ("conversation".equals(request.getAgentType())) {
-                if (request.getSystemPrompt() != null && !request.getSystemPrompt().trim().isEmpty()) {
-                    sql = "UPDATE chat_schema.chatbots SET system_prompt = ?, updated_at = ? WHERE id = ?";
-                    params = new Object[]{request.getSystemPrompt().trim(), LocalDateTime.now(), chatbotId};
+                if (request.getSystemPrompt() == null || request.getSystemPrompt().trim().isEmpty()) {
+                    log.warn("Conversation systemPrompt가 비어있습니다. chatbotId={}", chatbotId);
+                    return false;
                 }
+                sql = "UPDATE chat_schema.chatbots SET system_prompt = ?, updated_at = ? WHERE id = ?";
+                params = new Object[]{request.getSystemPrompt().trim(), LocalDateTime.now(), chatbotId};
             } else if ("intimacy".equals(request.getAgentType())) {
+                if (request.getSystemPrompt() == null || request.getSystemPrompt().trim().isEmpty()) {
+                    log.warn("Intimacy systemPrompt가 비어있습니다. chatbotId={}", chatbotId);
+                    return false;
+                }
                 sql = "UPDATE chat_schema.chatbots SET intimacy_system_prompt = ?, intimacy_user_prompt = ?, updated_at = ? WHERE id = ?";
                 params = new Object[]{
-                    request.getSystemPrompt() != null ? request.getSystemPrompt().trim() : null,
-                    request.getUserPrompt() != null ? request.getUserPrompt().trim() : null,
+                    request.getSystemPrompt().trim(),
+                    request.getUserPrompt() != null ? request.getUserPrompt().trim() : chatbot.getIntimacyUserPrompt(),
                     LocalDateTime.now(), 
                     chatbotId
                 };
             } else if ("vocabulary".equals(request.getAgentType())) {
+                if (request.getSystemPrompt() == null || request.getSystemPrompt().trim().isEmpty()) {
+                    log.warn("Vocabulary systemPrompt가 비어있습니다. chatbotId={}", chatbotId);
+                    return false;
+                }
                 sql = "UPDATE chat_schema.chatbots SET vocabulary_system_prompt = ?, vocabulary_user_prompt = ?, updated_at = ? WHERE id = ?";
                 params = new Object[]{
-                    request.getSystemPrompt() != null ? request.getSystemPrompt().trim() : null,
-                    request.getUserPrompt() != null ? request.getUserPrompt().trim() : null,
+                    request.getSystemPrompt().trim(),
+                    request.getUserPrompt() != null ? request.getUserPrompt().trim() : chatbot.getVocabularyUserPrompt(),
                     LocalDateTime.now(), 
                     chatbotId
                 };
             } else if ("translation".equals(request.getAgentType())) {
+                if (request.getSystemPrompt() == null || request.getSystemPrompt().trim().isEmpty()) {
+                    log.warn("Translation systemPrompt가 비어있습니다. chatbotId={}", chatbotId);
+                    return false;
+                }
                 sql = "UPDATE chat_schema.chatbots SET translation_system_prompt = ?, translation_user_prompt = ?, updated_at = ? WHERE id = ?";
                 params = new Object[]{
-                    request.getSystemPrompt() != null ? request.getSystemPrompt().trim() : null,
-                    request.getUserPrompt() != null ? request.getUserPrompt().trim() : null,
+                    request.getSystemPrompt().trim(),
+                    request.getUserPrompt() != null ? request.getUserPrompt().trim() : chatbot.getTranslationUserPrompt(),
                     LocalDateTime.now(), 
                     chatbotId
                 };
+            } else {
+                log.warn("지원하지 않는 Agent 타입: {}", request.getAgentType());
+                return false;
             }
             
             if (sql != null && params != null) {
@@ -88,16 +107,13 @@ public class ChatbotService {
                     log.info("{} Agent 프롬프트 업데이트 완료: {}", request.getAgentType(), chatbotId);
                     return true;
                 } else {
-                    log.error("{} Agent 프롬프트 업데이트 실패: {}", request.getAgentType(), chatbotId);
+                    log.error("{} Agent 프롬프트 업데이트 실패 (영향받은 행 없음): {}", request.getAgentType(), chatbotId);
                     return false;
                 }
             }
             
-            // 다른 Agent들은 현재 하드코딩되어 있어서 별도 처리 필요
-            // TODO: 다른 Agent들도 데이터베이스에서 관리하도록 개선 필요
-            
-            log.info("챗봇 프롬프트 업데이트 완료: {}", chatbotId);
-            return true;
+            log.warn("프롬프트 업데이트 SQL이 생성되지 않았습니다. chatbotId={}, agentType={}", chatbotId, request.getAgentType());
+            return false;
             
         } catch (Exception e) {
             log.error("챗봇 프롬프트 업데이트 실패: {}", e.getMessage(), e);

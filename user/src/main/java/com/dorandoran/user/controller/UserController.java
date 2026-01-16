@@ -5,6 +5,8 @@ import com.dorandoran.shared.dto.UpdateUserRequest;
 import com.dorandoran.shared.dto.UserDto;
 import com.dorandoran.shared.dto.UserWithPasswordDto;
 import com.dorandoran.shared.dto.ResetPasswordRequest;
+import com.dorandoran.shared.dto.FindEmailRequest;
+import com.dorandoran.shared.dto.FindEmailResponse;
 import com.dorandoran.user.service.UserService;
 import com.dorandoran.common.response.ApiResponse;
 import io.swagger.v3.oas.annotations.Operation;
@@ -93,6 +95,47 @@ public class UserController {
     }
     
     /**
+     * OAuth 사용자 조회
+     */
+    @GetMapping("/oauth/{provider}/{oauthId}")
+    public ResponseEntity<UserDto> getUserByOAuth(
+            @PathVariable String provider,
+            @PathVariable String oauthId) {
+        log.info("OAuth 사용자 조회 요청: provider={}, oauthId={}", provider, oauthId);
+        
+        try {
+            UserDto user = userService.findByOAuth(provider, oauthId);
+            return ResponseEntity.ok(user);
+        } catch (Exception e) {
+            log.error("OAuth 사용자 조회 실패: provider={}, oauthId={}, error={}", provider, oauthId, e.getMessage());
+            return ResponseEntity.notFound().build();
+        }
+    }
+    
+    /**
+     * OAuth 사용자 생성
+     */
+    @PostMapping("/oauth")
+    public ResponseEntity<UserDto> createOAuthUser(
+            @RequestParam("email") String email,
+            @RequestParam("firstName") String firstName,
+            @RequestParam("lastName") String lastName,
+            @RequestParam("name") String name,
+            @RequestParam(value = "picture", required = false) String picture,
+            @RequestParam("provider") String provider,
+            @RequestParam("oauthId") String oauthId) {
+        log.info("OAuth 사용자 생성 요청: email={}, provider={}", email, provider);
+        
+        try {
+            UserDto createdUser = userService.createOAuthUser(email, firstName, lastName, name, picture, provider, oauthId);
+            return ResponseEntity.ok(createdUser);
+        } catch (Exception e) {
+            log.error("OAuth 사용자 생성 실패: email={}, provider={}, error={}", email, provider, e.getMessage());
+            return ResponseEntity.badRequest().build();
+        }
+    }
+    
+    /**
      * 이메일로 사용자 조회
      */
     @GetMapping("/email/{email}")
@@ -148,6 +191,22 @@ public class UserController {
     }
     
     /**
+     * OAuth 사용자 여부 확인
+     */
+    @GetMapping("/check-oauth/{email}")
+    public ResponseEntity<Boolean> checkOAuthUser(@PathVariable String email) {
+        log.info("OAuth 사용자 여부 확인 요청: email={}", email);
+        
+        try {
+            boolean isOAuth = userService.isOAuthUser(email);
+            return ResponseEntity.ok(isOAuth);
+        } catch (Exception e) {
+            log.error("OAuth 사용자 여부 확인 실패: email={}, error={}", email, e.getMessage());
+            return ResponseEntity.badRequest().build();
+        }
+    }
+    
+    /**
      * 사용자 프로필 업데이트
      */
     @PutMapping("/{userId}")
@@ -190,6 +249,33 @@ public class UserController {
         }
     }
     
+    /**
+     * 사용자 온보딩 완료 업데이트
+     */
+    @Operation(summary = "온보딩 완료", description = "사용자의 온보딩 완료 여부를 true로 업데이트합니다.")
+    @ApiResponses(value = {
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "온보딩 완료 업데이트 성공"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "사용자를 찾을 수 없음")
+    })
+    @PatchMapping("/{userId}/onboard")
+    public ResponseEntity<ApiResponse<UserDto>> updateOnboard(
+            @Parameter(description = "사용자 UUID", required = true)
+            @PathVariable String userId) {
+        log.info("사용자 온보딩 완료 업데이트 요청: userId={}", userId);
+        
+        try {
+            UserDto updatedUser = userService.updateOnboard(UUID.fromString(userId));
+            return ResponseEntity.ok(ApiResponse.success(updatedUser, "온보딩이 완료되었습니다."));
+        } catch (IllegalArgumentException e) {
+            log.error("잘못된 사용자 ID: userId={}, error={}", userId, e.getMessage());
+            return ResponseEntity.badRequest()
+                    .body(ApiResponse.error("잘못된 사용자 ID입니다."));
+        } catch (Exception e) {
+            log.error("온보딩 완료 업데이트 실패: userId={}, error={}", userId, e.getMessage());
+            return ResponseEntity.badRequest()
+                    .body(ApiResponse.error("온보딩 완료 업데이트에 실패했습니다: " + e.getMessage()));
+        }
+    }
 
     /**
      * 헬스체크
@@ -253,6 +339,34 @@ public class UserController {
         } catch (Exception e) {
             log.error("회원탈퇴 실패: userId={}, error={}", userId, e.getMessage());
             return ResponseEntity.badRequest().build();
+        }
+    }
+    
+    /**
+     * 이메일 찾기
+     */
+    @Operation(summary = "이메일 찾기", description = "개인정보를 입력하여 이메일을 찾습니다. 반환되는 이메일은 마스킹 처리됩니다.")
+    @ApiResponses(value = {
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "이메일 찾기 성공"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "잘못된 요청 데이터"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "일치하는 사용자를 찾을 수 없음")
+    })
+    @PostMapping("/find-email")
+    public ResponseEntity<ApiResponse<FindEmailResponse>> findEmail(@RequestBody FindEmailRequest request) {
+        log.info("이메일 찾기 요청: firstName={}, lastName={}", request.getFirstName(), request.getLastName());
+        
+        try {
+            FindEmailResponse response = userService.findEmailByPersonalInfo(request);
+            return ResponseEntity.ok(ApiResponse.success(response, "이메일을 찾았습니다."));
+        } catch (com.dorandoran.common.exception.DoranDoranException e) {
+            log.error("이메일 찾기 실패: {}", e.getMessage());
+            return ResponseEntity.badRequest()
+                    .body(ApiResponse.error(e.getMessage(), e.getErrorCode().getCode()));
+        } catch (Exception e) {
+            log.error("이메일 찾기 중 예상치 못한 오류 발생", e);
+            return ResponseEntity.badRequest()
+                    .body(ApiResponse.error("이메일 찾기 중 오류가 발생했습니다.", 
+                            com.dorandoran.common.exception.ErrorCode.INTERNAL_SERVER_ERROR.getCode()));
         }
     }
 }

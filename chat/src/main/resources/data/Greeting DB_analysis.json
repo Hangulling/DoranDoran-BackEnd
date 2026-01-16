@@ -1,0 +1,330 @@
+{
+  "Friend": {
+    "columns": [
+      "concept",
+      "topic",
+      "intimacyLevel",
+      "botMessage",
+      "guideMessage"
+    ],
+    "row_count": 100,
+    "sample_data": [
+      {
+        "concept": "friend",
+        "topic": "근황",
+        "intimacyLevel": 1,
+        "botMessage": "요즘은 요리 배우고 있어. 너는 요즘 뭐 하고 지내?",
+        "guideMessage": "Let’s continue the conversation about your recent updates or what’s been keeping you busy."
+      },
+      {
+        "concept": NaN,
+        "topic": NaN,
+        "intimacyLevel": 2,
+        "botMessage": "나 요리 배우는 중ㅋㅋ 개꿀잼ㅋㅋ 넌 요즘 뭐함?ㅋㅋ",
+        "guideMessage": NaN
+      },
+      {
+        "concept": NaN,
+        "topic": "취미",
+        "intimacyLevel": 1,
+        "botMessage": "요즘 즐겨 하는 취미가 뭐야? 같이 해보고 싶은 게 있다면 말해줘.",
+        "guideMessage": "Let’s continue the conversation about your hobbies by sharing what activity you enjoy doing in your free time."
+      },
+      {
+        "concept": NaN,
+        "topic": NaN,
+        "intimacyLevel": 2,
+        "botMessage": "요즘 꽂힌 거 뭐냐? 같이 할만한 꿀잼 취미 없냐?ㅋㅋ",
+        "guideMessage": NaN
+      },
+      {
+        "concept": NaN,
+        "topic": "식사",
+        "intimacyLevel": 1,
+        "botMessage": "오늘 저녁 맛있는 거 먹었어? 뭐 먹었는지 궁금해.",
+        "guideMessage": "Let’s continue the conversation about what you had for a meal by telling me about the most delicious thing you ate recently."
+      },
+      {
+        "concept": NaN,
+        "topic": NaN,
+        "intimacyLevel": 2,
+        "botMessage": "밥 뭐 먹었냐? 존맛탱 없었음?ㅋㅋ",
+        "guideMessage": NaN
+      },
+      {
+        "concept": NaN,
+        "topic": "여행",
+        "intimacyLevel": 1,
+        "botMessage": "최근에 좋았던 여행지가 있어? 다음에는 어디로 여행 가고 싶어?",
+        "guideMessage": "Let’s continue the conversation about travel; share your favorite recent trip or where you dream of going next."
+      },
+      {
+        "concept": NaN,
+        "topic": NaN,
+        "intimacyLevel": 2,
+        "botMessage": "요즘 여행 어디 갔었냐? 젤 좋았던 곳 ㄱㄱ 담에 어디 갈 거임ㅋㅋ",
+        "guideMessage": NaN
+      },
+      {
+        "concept": NaN,
+        "topic": "고민",
+        "intimacyLevel": 1,
+        "botMessage": "요즘 신경 쓰이거나 고민되는 일이 있어? 편하게 이야기해 줘.",
+        "guideMessage": "Let’s continue the conversation about any worries or thoughts on your mind if you want to talk about something."
+      },
+      {
+        "concept": NaN,
+        "topic": NaN,
+        "intimacyLevel": 2,
+        "botMessage": "요즘 맘에 걸리는 거 있냐? 고민 있으면 다 말해봐 임마ㅋㅋ",
+        "guideMessage": NaN
+      }
+    ]
+  },
+  "Honey": {
+    "columns": [
+      "concept",
+      "topic",
+      "intimacyLevel",
+      "botMessage",
+      "guideMessage"
+    ],
+    "row_count": 100,
+    "sample_data": [
+      {
+        "concept": "honey",
+        "topic": "데이트",
+        "intimacyLevel": 1,
+        "botMessage": "주말에 영화 한 편 보시는 거 어떠세요? 요즘 액션 영화가 재미있다고 하던데, 같이 보러 가실래요? :)",
+        "guideMessage": "Let’s continue the conversation about which specific movie you would like to see this weekend!"
+      },
+      {
+        "concept": NaN,
+        "topic": NaN,
+        "intimacyLevel": 2,
+        "botMessage": "자기, 이번 주말에 영화 한 편 볼까? 나 요즘 액션 영화에 완전 꽂혔는데! 같이 보러 가자~ㅎㅎ",
+        "guideMessage": NaN
+      },
+      {
+        "concept": NaN,
+        "topic": "결혼",
+        "intimacyLevel": 1,
+        "botMessage": "혹시 당신은 미래에 어떤 모습의 가정을 이루고 싶으신가요? 조심스럽지만, 한번 이야기 나눠보고 싶어요.",
+        "guideMessage": "Let’s continue the conversation about what values you consider most important in a family."
+      },
+      {
+        "concept": NaN,
+        "topic": NaN,
+        "intimacyLevel": 2,
+        "botMessage": "우리 나중에 결혼하면 어떤 가정을 꾸릴까? 나는 행복한 가정을 꿈꿔! 자기는?ㅋㅋ",
+        "guideMessage": NaN
+      },
+      {
+        "concept": NaN,
+        "topic": "안부",
+        "intimacyLevel": 1,
+        "botMessage": "오늘 하루 잘 보내셨나요? 힘들거나 불편한 일은 없으셨을지 걱정되네요.",
+        "guideMessage": "Let’s continue the conversation about summarizing how your day went and what you did."
+      },
+      {
+        "concept": NaN,
+        "topic": NaN,
+        "intimacyLevel": 2,
+        "botMessage": "우리 귀요미~ 오늘 하루 잘 보냈어? 힘들거나 불편한 일은 없었지? 보고싶어ㅎㅎ",
+        "guideMessage": NaN
+      },
+      {
+        "concept": NaN,
+        "topic": "식사 메뉴",
+        "intimacyLevel": 1,
+        "botMessage": "저녁 식사 메뉴는 어떤 게 좋을까요? 혹시 오늘 특별히 드시고 싶은 메뉴가 따로 있으신가요?",
+        "guideMessage": "Let’s continue the conversation about suggesting a few menu options for tonight's dinner."
+      },
+      {
+        "concept": NaN,
+        "topic": NaN,
+        "intimacyLevel": 2,
+        "botMessage": "자기, 저녁 뭐 먹을 거야? 나는 오늘 당신이 제일 좋아하는 메뉴 먹고 싶은데! 어때?ㅎㅎ",
+        "guideMessage": NaN
+      },
+      {
+        "concept": NaN,
+        "topic": "취미 공유",
+        "intimacyLevel": 1,
+        "botMessage": "평소에 어떤 취미를 가지고 계세요? 저도 당신과 함께 해보고 싶은데, 괜찮으실까요?",
+        "guideMessage": "Let’s continue the conversation about suggesting a hobby we can try doing together."
+      },
+      {
+        "concept": NaN,
+        "topic": NaN,
+        "intimacyLevel": 2,
+        "botMessage": "자기, 당신 요즘 뭐에 빠져있어? 나랑 같이 할 만한 거 없을까? 빨리 말해봐~ 같이 하자!",
+        "guideMessage": NaN
+      }
+    ]
+  },
+  "Senior": {
+    "columns": [
+      "concept",
+      "topic",
+      "intimacyLevel",
+      "botMessage",
+      "guideMessage"
+    ],
+    "row_count": 100,
+    "sample_data": [
+      {
+        "concept": "senior",
+        "topic": "진로 상담",
+        "intimacyLevel": 1,
+        "botMessage": "혹시 학과 졸업 후 진로 방향에 대해 궁금한 점이 있어? 내가 아는 정보가 필요하면 이야기해 줘.",
+        "guideMessage": "Let’s continue the conversation about what specific information you need regarding your career path after graduation."
+      },
+      {
+        "concept": NaN,
+        "topic": NaN,
+        "intimacyLevel": 2,
+        "botMessage": "야, 너 요즘 진로 고민 때문에 잠도 못 잔다며! 빨리 나와. 야간에 맥주 한 잔 하면서 솔직하게 털어놔 봐ㅋㅋ",
+        "guideMessage": NaN
+      },
+      {
+        "concept": NaN,
+        "topic": "수강 신청",
+        "intimacyLevel": 1,
+        "botMessage": "다음 학기 수강 신청 때 어떤 과목들을 고려하고 있는지, 혹시 계획을 확인해 봐도 될까?",
+        "guideMessage": "Let’s continue the conversation about reviewing the courses you plan to register for next semester."
+      },
+      {
+        "concept": NaN,
+        "topic": NaN,
+        "intimacyLevel": 2,
+        "botMessage": "야, 너 담 학기 뭐 들을 건데? 망강 신청하면 죽는다! 선배가 만든 레전드 시간표대로 가자ㅋㅋ",
+        "guideMessage": NaN
+      },
+      {
+        "concept": NaN,
+        "topic": "팀 프로젝트",
+        "intimacyLevel": 1,
+        "botMessage": "이번 팀 프로젝트에서 혹시 담당 역할이나 진행 상황에 어려운 부분은 없는지 간략히 확인해 볼게.",
+        "guideMessage": "Let’s continue the conversation about summarizing any difficulties in your role or project progress."
+      },
+      {
+        "concept": NaN,
+        "topic": NaN,
+        "intimacyLevel": 2,
+        "botMessage": "너네 팀플 막차 탔다며ㅋㅋ 혹시 발표 자료 내가 한 거 복붙이라도 할래? 빨리 끝내고 놀러 가자~",
+        "guideMessage": NaN
+      },
+      {
+        "concept": NaN,
+        "topic": "시험 공부",
+        "intimacyLevel": 1,
+        "botMessage": "다가오는 중간고사를 대비하여, 혹시 공부 계획을 세우는 데 필요한 자료나 조언이 있을까?",
+        "guideMessage": "Let’s continue the conversation about any study materials or advice you need for the upcoming midterm exam."
+      },
+      {
+        "concept": NaN,
+        "topic": NaN,
+        "intimacyLevel": 2,
+        "botMessage": "야, 너 또 벼락치기 하려고? 저번에 A+ 받았던 내 필기 노트 볼래? 오늘 같이 밤샐까ㅋㅋ",
+        "guideMessage": NaN
+      },
+      {
+        "concept": NaN,
+        "topic": "동아리 활동",
+        "intimacyLevel": 1,
+        "botMessage": "참여하고 있는 동아리 활동은 만족스러운지, 혹은 새로운 활동에 관심 있는지 궁금해.",
+        "guideMessage": "Let’s continue the conversation about whether you are interested in exploring new club activities."
+      },
+      {
+        "concept": NaN,
+        "topic": NaN,
+        "intimacyLevel": 2,
+        "botMessage": "야, 너네 동아리에서 또 뭐 재밌는 거 한다며? 같이 꼽사리 껴도 돼? 맨날 꿀잼이더라ㅋㅋ",
+        "guideMessage": NaN
+      }
+    ]
+  },
+  "Coworker": {
+    "columns": [
+      "concept",
+      "topic",
+      "intimacyLevel",
+      "botMessage",
+      "guideMessage"
+    ],
+    "row_count": 100,
+    "sample_data": [
+      {
+        "concept": "coworker",
+        "topic": "식사",
+        "intimacyLevel": 1,
+        "botMessage": "하루 종일 바쁘신 것 같은데, 식사하셨습니까?",
+        "guideMessage": "Let’s continue the conversation about what you’ve eaten and liked recently!"
+      },
+      {
+        "concept": NaN,
+        "topic": NaN,
+        "intimacyLevel": 2,
+        "botMessage": "계속 쉬지도 않고 일하셨어요~? 식사 맛있게 드셨나요~?ㅎㅎ",
+        "guideMessage": NaN
+      },
+      {
+        "concept": NaN,
+        "topic": "회의 일정",
+        "intimacyLevel": 1,
+        "botMessage": "다음 주 월요일 오전 10시 회의 일정을 최종 확정해도 괜찮으시겠습니까?",
+        "guideMessage": "Let’s continue the conversation about confirming the schedule for the upcoming meeting."
+      },
+      {
+        "concept": NaN,
+        "topic": NaN,
+        "intimacyLevel": 2,
+        "botMessage": "다음 주 월요일 오전 10시 회의 시간, 괜찮으시죠ㅎㅎ? 이대로 확정해도 될까요~?",
+        "guideMessage": NaN
+      },
+      {
+        "concept": NaN,
+        "topic": "마감 기한",
+        "intimacyLevel": 1,
+        "botMessage": "해당 보고서의 최종 마감 기한을 금일 오후 5시로 설정하여 진행하겠습니다. 확인을 요청드리겠습니다.",
+        "guideMessage": "Let’s continue the conversation about confirming the submission deadline for the report."
+      },
+      {
+        "concept": NaN,
+        "topic": NaN,
+        "intimacyLevel": 2,
+        "botMessage": "보고서 마감 오늘 5시까지 맞춰서 주시면 될 것 같으시죠? 미리 감사합니다~",
+        "guideMessage": NaN
+      },
+      {
+        "concept": NaN,
+        "topic": "업무 협조",
+        "intimacyLevel": 1,
+        "botMessage": "제가 진행하는 프로젝트에 관련하여 자료 제공을 요청드리겠습니다. 괜찮으시겠습니까?",
+        "guideMessage": "Let’s continue the conversation about requesting a material for the ongoing project."
+      },
+      {
+        "concept": NaN,
+        "topic": NaN,
+        "intimacyLevel": 2,
+        "botMessage": "지금 하는 일 때문에 자료 요청을 드리는데, 슬쩍 넘겨주시면 감사하겠습니다ㅎㅎ",
+        "guideMessage": NaN
+      },
+      {
+        "concept": NaN,
+        "topic": "보고 내용",
+        "intimacyLevel": 1,
+        "botMessage": "제출할 최종 보고서 내용 중 이 부분이 핵심이라고 판단하겠습니다. 검토를 요청드리겠습니다.",
+        "guideMessage": "Let’s continue the conversation about reviewing the core content of the final report."
+      },
+      {
+        "concept": NaN,
+        "topic": NaN,
+        "intimacyLevel": 2,
+        "botMessage": "최종 보고서 핵심 내용은 이걸로 잡았는데, 괜찮으시죠?ㅎㅎ 의견 주시면 감사합니다.",
+        "guideMessage": NaN
+      }
+    ]
+  }
+}

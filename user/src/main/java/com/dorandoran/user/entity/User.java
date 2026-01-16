@@ -8,6 +8,7 @@ import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
 import jakarta.persistence.*;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -40,8 +41,15 @@ public class User {
     @Column(name = "name", nullable = false, length = 50)
     private String name;
     
-    @Column(name = "password_hash", nullable = false, length = 100)
+    @Column(name = "password_hash", nullable = true, length = 100)
     private String passwordHash;
+    
+    @Enumerated(EnumType.STRING)
+    @Column(name = "oauth_provider", length = 20)
+    private OAuthProvider oauthProvider;
+    
+    @Column(name = "oauth_id", length = 255)
+    private String oauthId;
     
     @Column(name = "picture")
     private String picture;
@@ -49,6 +57,18 @@ public class User {
     @Column(name = "info", nullable = false, length = 100)
     @Builder.Default
     private String info = "";
+    
+    @Column(name = "birth_date", nullable = false)
+    @Builder.Default
+    private LocalDate birthDate = LocalDate.of(1900, 1, 1);
+    
+    @Column(name = "signup_question", nullable = false, length = 255)
+    @Builder.Default
+    private String signupQuestion = "질문이 설정되지 않았습니다.";
+    
+    @Column(name = "signup_answer", nullable = false, length = 30)
+    @Builder.Default
+    private String signupAnswer = "답변이 설정되지 않았습니다.";
     
     @Column(name = "last_conn_time", nullable = false)
     @Builder.Default
@@ -72,6 +92,10 @@ public class User {
     @Builder.Default
     private boolean exitModalDoNotShowAgain = false;
     
+    @Column(name = "is_onboard", nullable = false)
+    @Builder.Default
+    private boolean isOnboard = false;
+    
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
@@ -85,6 +109,7 @@ public class User {
     private UserProfile profile;
     
     @OneToMany(mappedBy = "user", fetch = FetchType.LAZY, cascade = CascadeType.ALL)
+    @Builder.Default
     private List<UserSetting> settings = new ArrayList<>();
     
     /**
@@ -109,6 +134,16 @@ public class User {
     public enum RoleName {
         ROLE_USER,
         ROLE_ADMIN
+    }
+    
+    /**
+     * OAuth 제공자 열거형
+     */
+    public enum OAuthProvider {
+        GOOGLE,
+        FACEBOOK,
+        KAKAO,
+        NAVER
     }
     
     /**
@@ -155,5 +190,28 @@ public class User {
      */
     public void updateExitModalDoNotShowAgain(boolean exitModalDoNotShowAgain) {
         this.exitModalDoNotShowAgain = exitModalDoNotShowAgain;
+    }
+    
+    /**
+     * 온보딩 완료 여부 업데이트
+     */
+    public void updateOnboard(boolean isOnboard) {
+        this.isOnboard = isOnboard;
+    }
+    
+    /**
+     * 인증 방법 검증
+     * passwordHash가 null이면 반드시 oauthProvider와 oauthId가 있어야 함
+     * oauthProvider가 null이면 반드시 passwordHash가 있어야 함
+     * 
+     * @throws IllegalStateException 인증 방법이 올바르지 않은 경우
+     */
+    public void validateAuthMethod() {
+        boolean hasPassword = passwordHash != null && !passwordHash.trim().isEmpty();
+        boolean hasOAuth = oauthProvider != null && oauthId != null && !oauthId.trim().isEmpty();
+        
+        if (!hasPassword && !hasOAuth) {
+            throw new IllegalStateException("비밀번호 또는 OAuth 인증 정보 중 하나는 반드시 필요합니다.");
+        }
     }
 }

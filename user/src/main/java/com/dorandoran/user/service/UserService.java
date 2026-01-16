@@ -4,10 +4,13 @@ import com.dorandoran.common.exception.DoranDoranException;
 import com.dorandoran.common.exception.ErrorCode;
 import com.dorandoran.user.entity.User;
 import com.dorandoran.user.repository.UserRepository;
+import com.dorandoran.user.util.EmailMaskingUtil;
 import com.dorandoran.shared.dto.CreateUserRequest;
 import com.dorandoran.shared.dto.UpdateUserRequest;
 import com.dorandoran.shared.dto.UserDto;
 import com.dorandoran.shared.dto.UserWithPasswordDto;
+import com.dorandoran.shared.dto.FindEmailRequest;
+import com.dorandoran.shared.dto.FindEmailResponse;
 import com.dorandoran.shared.event.UserCreatedEvent;
 import com.dorandoran.shared.event.UserStatusChangedEvent;
 import com.dorandoran.shared.event.UserUpdatedEvent;
@@ -18,7 +21,9 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -60,6 +65,9 @@ public class UserService {
         // 4. 비밀번호 암호화
         String encodedPassword = passwordEncoder.encode(request.password());
         
+        // 4-1. 생년월일 파싱 (yyyy-MM-dd)
+        LocalDate birthDate = LocalDate.parse(request.birthDate());
+        
         // 5. 사용자 생성 (ACTIVE 상태로 바로 생성)
         User user = User.builder()
             .id(UUID.randomUUID())
@@ -70,10 +78,19 @@ public class UserService {
             .passwordHash(encodedPassword)
             .picture(request.picture())
             .info(request.info() != null ? request.info() : "")
+            .birthDate(birthDate)
+            .signupQuestion(request.signupQuestion())
+            .signupAnswer(request.signupAnswer())
             .status(User.UserStatus.ACTIVE)
             .coachCheck(false)
             .exitModalDoNotShowAgain(false)
+            .isOnboard(false)
+            .oauthProvider(null)
+            .oauthId(null)
             .build();
+        
+        // 5-1. 인증 방법 검증
+        user.validateAuthMethod();
         
         // 6. 데이터베이스 저장
         User savedUser = userRepository.save(user);
@@ -144,6 +161,87 @@ public class UserService {
     }
     
     /**
+     * OAuth 사용자 조회
+     */
+    public UserDto findByOAuth(String provider, String oauthId) {
+        log.info("OAuth 사용자 조회: provider={}, oauthId={}", provider, oauthId);
+        
+        try {
+            User.OAuthProvider oauthProvider = User.OAuthProvider.valueOf(provider.toUpperCase());
+            User user = userRepository.findByOauthProviderAndOauthId(oauthProvider, oauthId)
+                    .orElseThrow(() -> new DoranDoranException(ErrorCode.USER_NOT_FOUND));
+            
+            return convertToDto(user);
+        } catch (IllegalArgumentException e) {
+            log.error("지원하지 않는 OAuth 제공자: provider={}", provider);
+            throw new DoranDoranException(ErrorCode.INVALID_REQUEST, "지원하지 않는 OAuth 제공자입니다.");
+        }
+    }
+    
+    /**
+     * OAuth 사용자 생성
+     */
+    @Transactional
+    public UserDto createOAuthUser(String email, String firstName, String lastName, String name,
+                                   String picture, String provider, String oauthId) {
+        log.info("OAuth 사용자 생성 요청: email={}, provider={}", email, provider);
+        
+        // 1. 이메일 중복 검사
+        if (userRepository.existsByEmail(email)) {
+            throw new DoranDoranException(ErrorCode.EMAIL_ALREADY_EXISTS);
+        }
+        
+        // 2. OAuth ID 중복 검사
+        try {
+            User.OAuthProvider oauthProvider = User.OAuthProvider.valueOf(provider.toUpperCase());
+            if (userRepository.findByOauthProviderAndOauthId(oauthProvider, oauthId).isPresent()) {
+                throw new DoranDoranException(ErrorCode.INVALID_REQUEST, "이미 등록된 OAuth 계정입니다.");
+            }
+            
+            // 3. 사용자 생성 (ACTIVE 상태로 바로 생성)
+            User user = User.builder()
+                    .id(UUID.randomUUID())
+                    .email(email)
+                    .firstName(firstName != null ? firstName : "")
+                    .lastName(lastName != null ? lastName : "")
+                    .name(name != null ? name : (firstName + " " + lastName).trim())
+                    .passwordHash(null) // OAuth 사용자는 비밀번호 없음
+                    .picture(picture)
+                    .info("")
+                    .status(User.UserStatus.ACTIVE)
+                    .coachCheck(false)
+                    .exitModalDoNotShowAgain(false)
+                    .isOnboard(false)
+                    .oauthProvider(oauthProvider)
+                    .oauthId(oauthId)
+                    .build();
+            
+            // 4. 인증 방법 검증
+            user.validateAuthMethod();
+            
+            // 5. 데이터베이스 저장
+            User savedUser = userRepository.save(user);
+            log.info("OAuth 사용자 생성 완료: id={}, email={}, provider={}", savedUser.getId(), savedUser.getEmail(), provider);
+            
+            // 6. 사용자 생성 이벤트 발행
+            UserCreatedEvent event = UserCreatedEvent.of(
+                    savedUser.getId(),
+                    savedUser.getEmail(),
+                    savedUser.getFirstName(),
+                    savedUser.getLastName(),
+                    savedUser.getName()
+            );
+            eventPublisher.publishEvent(event);
+            log.info("OAuth 사용자 생성 이벤트 발행: userId={}", savedUser.getId());
+            
+            return convertToDto(savedUser);
+        } catch (IllegalArgumentException e) {
+            log.error("지원하지 않는 OAuth 제공자: provider={}", provider);
+            throw new DoranDoranException(ErrorCode.INVALID_REQUEST, "지원하지 않는 OAuth 제공자입니다.");
+        }
+    }
+    
+    /**
      * 이메일 중복확인
      */
     public boolean isEmailDuplicate(String email) {
@@ -163,6 +261,21 @@ public class UserService {
         log.info("이메일 중복확인 결과: email={}, exists={}", email, exists);
         
         return exists;
+    }
+    
+    /**
+     * OAuth 사용자 여부 확인
+     */
+    public boolean isOAuthUser(String email) {
+        log.info("OAuth 사용자 여부 확인: email={}", email);
+        
+        User user = userRepository.findByEmail(email)
+            .orElseThrow(() -> new DoranDoranException(ErrorCode.USER_NOT_FOUND));
+        
+        boolean isOAuth = user.getOauthProvider() != null;
+        log.info("OAuth 사용자 여부 확인 결과: email={}, isOAuth={}", email, isOAuth);
+        
+        return isOAuth;
     }
     
     /**
@@ -357,12 +470,16 @@ public class UserService {
             user.getPasswordHash(),
             user.getPicture(),
             user.getInfo(),
+            user.getBirthDate(),
+            user.getSignupQuestion(),
+            user.getSignupAnswer(),
             null, // preferences - User 엔티티에 해당 필드가 없으므로 null로 설정
             user.getLastConnTime(),
             convertToDtoStatus(user.getStatus()),
             convertToDtoRole(user.getRole()),
             user.isCoachCheck(),
             user.isExitModalDoNotShowAgain(),
+            user.isOnboard(),
             user.getCreatedAt(),
             user.getUpdatedAt()
         );
@@ -384,12 +501,16 @@ public class UserService {
             user.getPasswordHash(),
             user.getPicture(),
             user.getInfo(),
+            user.getBirthDate(),
+            user.getSignupQuestion(),
+            user.getSignupAnswer(),
             null, // preferences - User 엔티티에 해당 필드가 없으므로 null로 설정
             user.getLastConnTime(),
             convertToDtoStatus(user.getStatus()),
             convertToDtoRole(user.getRole()),
             user.isCoachCheck(),
             user.isExitModalDoNotShowAgain(),
+            user.isOnboard(),
             user.getCreatedAt(),
             user.getUpdatedAt()
         );
@@ -441,6 +562,25 @@ public class UserService {
     }
     
     /**
+     * 사용자 온보딩 완료 여부 업데이트
+     */
+    @Transactional
+    public UserDto updateOnboard(UUID userId) {
+        log.info("사용자 온보딩 완료 업데이트: userId={}", userId);
+        
+        User user = userRepository.findById(userId)
+            .orElseThrow(() -> new DoranDoranException(ErrorCode.USER_NOT_FOUND));
+        
+        // 온보딩 완료로 업데이트
+        user.updateOnboard(true);
+        User savedUser = userRepository.save(user);
+        
+        log.info("사용자 온보딩 완료 업데이트 완료: userId={}", userId);
+        
+        return convertToDto(savedUser);
+    }
+    
+    /**
      * Entity Role을 DTO Role로 변환
      */
     private UserDto.RoleName convertToDtoRole(User.RoleName role) {
@@ -448,5 +588,51 @@ public class UserService {
             case ROLE_USER -> UserDto.RoleName.ROLE_USER;
             case ROLE_ADMIN -> UserDto.RoleName.ROLE_ADMIN;
         };
+    }
+    
+    /**
+     * 개인정보로 이메일 찾기
+     */
+    public FindEmailResponse findEmailByPersonalInfo(FindEmailRequest request) {
+        log.info("이메일 찾기 요청: firstName={}, lastName={}, birthDate={}", 
+                request.getFirstName(), request.getLastName(), request.getBirthDate());
+        
+        try {
+            // 1. birthDate를 LocalDate로 파싱
+            LocalDate birthDate = LocalDate.parse(request.getBirthDate());
+            
+            // 2. Repository에서 사용자 조회
+            Optional<User> userOpt = userRepository.findByPersonalInfo(
+                    request.getFirstName(),
+                    request.getLastName(),
+                    birthDate,
+                    request.getSignupQuestion(),
+                    request.getSignupAnswer()
+            );
+            
+            // 3. 사용자 없음 → 예외 반환
+            if (userOpt.isEmpty()) {
+                log.warn("이메일 찾기 실패: 일치하는 사용자를 찾을 수 없음");
+                throw new DoranDoranException(ErrorCode.USER_NOT_FOUND, "입력하신 정보와 일치하는 사용자를 찾을 수 없습니다.");
+            }
+            
+            // 4. 사용자 있음 → 이메일 마스킹 후 반환
+            User user = userOpt.get();
+            String maskedEmail = EmailMaskingUtil.maskEmail(user.getEmail());
+            
+            log.info("이메일 찾기 성공: userId={}, maskedEmail={}", user.getId(), maskedEmail);
+            
+            return new FindEmailResponse(maskedEmail);
+            
+        } catch (java.time.format.DateTimeParseException e) {
+            log.error("생년월일 파싱 실패: birthDate={}, error={}", request.getBirthDate(), e.getMessage());
+            throw new DoranDoranException(ErrorCode.INVALID_REQUEST, "생년월일 형식이 올바르지 않습니다. (yyyy-MM-dd 형식)");
+        } catch (DoranDoranException e) {
+            log.error("이메일 찾기 실패: {}", e.getMessage());
+            throw e;
+        } catch (Exception e) {
+            log.error("이메일 찾기 중 예상치 못한 오류: error={}", e.getMessage(), e);
+            throw new DoranDoranException(ErrorCode.INTERNAL_SERVER_ERROR, "이메일 찾기 중 오류가 발생했습니다.");
+        }
     }
 }

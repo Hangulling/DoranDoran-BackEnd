@@ -47,18 +47,15 @@ public class SecurityConfig {
         corsConfig.addAllowedOrigin("http://127.0.0.1:3000");
         corsConfig.addAllowedOrigin("http://127.0.0.1:3001");
         
-        // 향후 커스텀 도메인용
-        // corsConfig.addAllowedOrigin("https://www.doran-chat.com");
-    
-
-		// 프로덕션 도메인
-		corsConfig.addAllowedOrigin("https://doran-chat.com");
-		corsConfig.addAllowedOrigin("https://www.doran-chat.com");
-		// 와일드카드 도메인 허용 (Spring 5.3+)
-		corsConfig.addAllowedOrigin("https://*.doran-chat.com");
-		corsConfig.addAllowedOrigin("https://doran-chat.vercel.app");
-		corsConfig.addAllowedOrigin("https://*.vercel.app");
-        corsConfig.addAllowedOrigin("https://*.doran-chat.com");
+        // 프로덕션 도메인
+        corsConfig.addAllowedOrigin("https://doran-chat.com");
+        corsConfig.addAllowedOrigin("https://www.doran-chat.com");
+        corsConfig.addAllowedOrigin("https://doran-chat.vercel.app");
+        
+        // 와일드카드 도메인 허용 (Spring 5.3+)
+        // setAllowedOriginPatterns()를 사용하여 패턴 기반 허용
+        corsConfig.addAllowedOriginPattern("https://*.doran-chat.com");
+        corsConfig.addAllowedOriginPattern("https://*.vercel.app");
 
         corsConfig.addAllowedHeader("*");
         corsConfig.addAllowedMethod("*");
@@ -69,5 +66,23 @@ public class SecurityConfig {
         source.registerCorsConfiguration("/**", corsConfig);
 
         return new CorsWebFilter(source);
+    }
+    
+    /**
+     * Google OAuth 팝업과의 postMessage 통신을 위해 COOP 헤더를 설정하는 필터
+     */
+    @Bean
+    public org.springframework.web.server.WebFilter coopHeaderFilter() {
+        return (exchange, chain) -> {
+            org.springframework.http.server.reactive.ServerHttpResponse response = exchange.getResponse();
+            org.springframework.http.HttpHeaders headers = response.getHeaders();
+            
+            // COOP 헤더가 이미 설정되어 있지 않으면 unsafe-none으로 설정
+            if (!headers.containsKey("Cross-Origin-Opener-Policy")) {
+                headers.add("Cross-Origin-Opener-Policy", "unsafe-none");
+            }
+            
+            return chain.filter(exchange);
+        };
     }
 }

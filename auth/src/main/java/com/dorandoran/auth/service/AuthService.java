@@ -9,6 +9,7 @@ import com.dorandoran.auth.repository.LoginAttemptRepository;
 import com.dorandoran.auth.repository.AuthEventRepository;
 import com.dorandoran.auth.dto.LoginRequest;
 import com.dorandoran.auth.dto.LoginResponse;
+import com.dorandoran.auth.dto.OAuthLoginRequest;
 import com.dorandoran.common.exception.DoranDoranException;
 import com.dorandoran.common.exception.ErrorCode;
 import com.dorandoran.shared.dto.UserDto;
@@ -41,6 +42,10 @@ public class AuthService {
     private final LoginAttemptRepository loginAttemptRepository;
     private final AuthEventRepository authEventRepository;
     private final PasswordResetService passwordResetService;
+    private final GoogleOAuthService googleOAuthService;
+    private final FirebaseAuthService firebaseAuthService;
+    private final PasswordResetCodeRedisService passwordResetCodeRedisService;
+    private final EmailService emailService;
     
     /**
      * 로그인 (User 서비스 중심 구조)
@@ -61,9 +66,10 @@ public class AuthService {
             }
             
             // 비밀번호 검증 (User 서비스의 데이터 사용)
-            log.info("비밀번호 검증: 입력된 비밀번호={}, 저장된 해시={}", request.getPassword(), user.passwordHash());
+            // 보안: 비밀번호는 절대 로그에 기록하지 않음
+            log.debug("비밀번호 검증 시도: email={}", request.getEmail());
             boolean passwordMatches = passwordEncoder.matches(request.getPassword(), user.passwordHash());
-            log.info("비밀번호 일치 여부: {}", passwordMatches);
+            log.debug("비밀번호 검증 결과: email={}, success={}", request.getEmail(), passwordMatches);
             
             if (!passwordMatches) {
                 // 실패 시도 기록
@@ -114,12 +120,16 @@ public class AuthService {
                 null, // passwordHash는 제외
                 user.picture(),
                 user.info(),
+                user.birthDate(),
+                user.signupQuestion(),
+                user.signupAnswer(),
                 user.preferences(),
                 user.lastConnTime(),
                 user.status(),
                 user.role(),
                 user.coachCheck(),
                 user.exitModalDoNotShowAgain(),
+                user.isOnboard(),
                 user.createdAt(),
                 user.updatedAt()
             );
@@ -141,6 +151,143 @@ public class AuthService {
         }
     }
 
+    /**
+     * OAuth 로그인 (Google 또는 Firebase)
+     */
+    @Transactional
+    public LoginResponse oauthLogin(OAuthLoginRequest request) {
+        log.info("OAuth 로그인 요청: provider={}", request.provider());
+        
+        try {
+            // 1. Provider 검증 및 토큰 검증
+            String email;
+            String firstName;
+            String lastName;
+            String name;
+            String picture;
+            String oauthId;
+            String provider = request.provider().toUpperCase();
+            
+            if ("GOOGLE".equalsIgnoreCase(request.provider())) {
+                // Google OAuth 2.0 ID Token 검증
+                GoogleOAuthService.GoogleUserInfo googleUserInfo;
+                try {
+                    googleUserInfo = googleOAuthService.verifyIdToken(request.idToken());
+                } catch (Exception e) {
+                    log.error("Google ID Token 검증 실패: {}", e.getMessage());
+                    throw new DoranDoranException(ErrorCode.AUTH_TOKEN_INVALID, "Google ID Token 검증에 실패했습니다.");
+                }
+                
+                email = googleUserInfo.email();
+                firstName = googleUserInfo.firstName();
+                lastName = googleUserInfo.lastName();
+                name = googleUserInfo.name();
+                picture = googleUserInfo.picture();
+                oauthId = googleUserInfo.sub();
+                
+            } else if ("FIREBASE".equalsIgnoreCase(request.provider())) {
+                // Firebase ID Token 검증
+                FirebaseAuthService.FirebaseUserInfo firebaseUserInfo;
+                try {
+                    firebaseUserInfo = firebaseAuthService.verifyIdToken(request.idToken());
+                } catch (Exception e) {
+                    log.error("Firebase ID Token 검증 실패: {}", e.getMessage());
+                    throw new DoranDoranException(ErrorCode.AUTH_TOKEN_INVALID, "Firebase ID Token 검증에 실패했습니다.");
+                }
+                
+                email = firebaseUserInfo.email();
+                firstName = firebaseUserInfo.firstName();
+                lastName = firebaseUserInfo.lastName();
+                name = firebaseUserInfo.name();
+                picture = firebaseUserInfo.picture();
+                oauthId = firebaseUserInfo.uid();
+                
+            } else {
+                throw new DoranDoranException(ErrorCode.INVALID_REQUEST, "지원하지 않는 OAuth 제공자입니다. (google, firebase만 지원)");
+            }
+            
+            // 2. OAuth 사용자 조회 또는 생성
+            UserDto user;
+            try {
+                // 먼저 OAuth ID로 조회 시도
+                user = userIntegrationService.getUserByOAuth(provider, oauthId);
+            } catch (Exception e) {
+                // OAuth 사용자가 없으면 이메일로 조회 시도
+                try {
+                    user = userIntegrationService.getUserByEmail(email);
+                    // 기존 사용자가 있으면 OAuth 정보 연결 (향후 구현)
+                    log.info("기존 사용자 발견: email={}, OAuth 정보 연결 필요", email);
+                } catch (Exception ex) {
+                    // 신규 사용자 - 자동 회원가입
+                    log.info("신규 OAuth 사용자 자동 회원가입: email={}, provider={}", email, provider);
+                    user = userIntegrationService.createOAuthUser(
+                            email,
+                            firstName,
+                            lastName,
+                            name,
+                            picture,
+                            provider,
+                            oauthId
+                    );
+                }
+            }
+            
+            // 3. 사용자 상태 확인
+            if (user.status() == com.dorandoran.shared.dto.UserDto.UserStatus.INACTIVE) {
+                log.warn("비활성화된 사용자 OAuth 로그인 시도: email={}", email);
+                throw new DoranDoranException(ErrorCode.USER_ACCOUNT_DISABLED);
+            }
+            
+            // 4. JWT 토큰 생성
+            String accessToken = jwtService.generateAccessToken(user.id().toString(), user.email(), user.name());
+            String refreshToken = jwtService.generateRefreshToken(user.id().toString(), user.email(), user.name());
+            
+            // 5. User 엔티티 생성 (로그인 시도 기록용)
+            com.dorandoran.auth.entity.User userEntity = com.dorandoran.auth.entity.User.builder()
+                    .id(UUID.fromString(user.id()))
+                    .email(user.email())
+                    .firstName(user.firstName())
+                    .lastName(user.lastName())
+                    .name(user.name())
+                    .passwordHash(user.passwordHash())
+                    .picture(user.picture())
+                    .info(user.info())
+                    .lastConnTime(user.lastConnTime())
+                    .status(com.dorandoran.auth.entity.User.UserStatus.valueOf(user.status().name()))
+                    .role(com.dorandoran.auth.entity.User.RoleName.valueOf(user.role().name()))
+                    .coachCheck(user.coachCheck())
+                    .createdAt(user.createdAt())
+                    .updatedAt(user.updatedAt())
+                    .build();
+            
+            // 6. 성공 시도 기록
+            recordLoginAttemptWithUser(userEntity, user.email(), true);
+            
+            // 7. 리프레시 토큰 저장
+            saveRefreshTokenWithUser(userEntity, refreshToken);
+            
+            // 8. 이벤트 로깅
+            recordAuthEventWithUser(userEntity, "OAUTH_LOGIN");
+            
+            log.info("OAuth 로그인 성공: userId={}, email={}, provider={}", user.id(), user.email(), provider);
+            
+            return LoginResponse.builder()
+                    .accessToken(accessToken)
+                    .refreshToken(refreshToken)
+                    .tokenType("Bearer")
+                    .expiresIn(3600L) // 1시간 (초 단위)
+                    .user(user)
+                    .build();
+                    
+        } catch (DoranDoranException e) {
+            log.error("OAuth 로그인 실패: {}", e.getMessage());
+            throw e;
+        } catch (Exception e) {
+            log.error("OAuth 로그인 중 예상치 못한 오류 발생", e);
+            throw new DoranDoranException(ErrorCode.INTERNAL_SERVER_ERROR, "OAuth 로그인 중 오류가 발생했습니다.");
+        }
+    }
+    
     /**
      * 이메일로 사용자 조회(비밀번호 재설정 등 내부 사용)
      */
@@ -593,5 +740,125 @@ public class AuthService {
         if (!hasLetter || !hasDigit) {
             throw new DoranDoranException(ErrorCode.INVALID_PASSWORD_FORMAT);
         }
+    }
+    
+    /**
+     * 비밀번호 재설정 코드 요청
+     */
+    @Transactional
+    public void requestPasswordResetCode(String email) {
+        log.info("비밀번호 재설정 코드 요청: email={}", email);
+        
+        try {
+            // 1. 이메일로 사용자 조회
+            UserDto user = userIntegrationService.getUserByEmail(email);
+            
+            // 2. OAuth 사용자 체크
+            boolean isOAuth = userIntegrationService.isOAuthUser(email);
+            if (isOAuth) {
+                log.warn("OAuth 사용자 비밀번호 재설정 시도: email={}", email);
+                throw new DoranDoranException(ErrorCode.OAUTH_USER_CANNOT_RESET_PASSWORD);
+            }
+            
+            // 3. 기존 코드 무효화 (재발송 시)
+            passwordResetCodeRedisService.invalidateCode(email);
+            
+            // 4. 6자리 랜덤 코드 생성
+            String code = generatePasswordResetCode();
+            
+            // 5. Redis에 코드 저장 (5분 TTL)
+            passwordResetCodeRedisService.saveResetCode(email, code);
+            
+            // 6. 이메일로 코드 발송
+            emailService.sendPasswordResetCode(email, code);
+            
+            // 7. 이벤트 로깅
+            recordAuthEvent(UUID.fromString(user.id()), "PASSWORD_RESET_CODE_REQUESTED");
+            
+            log.info("비밀번호 재설정 코드 발송 완료: email={}", email);
+            
+        } catch (DoranDoranException e) {
+            log.error("비밀번호 재설정 코드 요청 실패: email={}, error={}", email, e.getMessage());
+            throw e;
+        } catch (Exception e) {
+            log.error("비밀번호 재설정 코드 요청 중 예상치 못한 오류: email={}, error={}", email, e.getMessage());
+            throw new DoranDoranException(ErrorCode.INTERNAL_SERVER_ERROR, "비밀번호 재설정 코드 요청 중 오류가 발생했습니다.");
+        }
+    }
+    
+    /**
+     * 비밀번호 재설정 코드 검증
+     */
+    public void verifyPasswordResetCode(String email, String code) {
+        log.info("비밀번호 재설정 코드 검증: email={}", email);
+        
+        try {
+            // Redis에서 코드 검증
+            boolean isValid = passwordResetCodeRedisService.verifyCode(email, code);
+            
+            if (!isValid) {
+                // 코드가 없거나 만료된 경우
+                if (!passwordResetCodeRedisService.isCodeValid(email)) {
+                    log.warn("비밀번호 재설정 코드 만료 또는 없음: email={}", email);
+                    throw new DoranDoranException(ErrorCode.VERIFICATION_CODE_EXPIRED);
+                } else {
+                    log.warn("비밀번호 재설정 코드 불일치: email={}", email);
+                    throw new DoranDoranException(ErrorCode.INVALID_VERIFICATION_CODE);
+                }
+            }
+            
+            log.info("비밀번호 재설정 코드 검증 성공: email={}", email);
+            
+        } catch (DoranDoranException e) {
+            log.error("비밀번호 재설정 코드 검증 실패: email={}, error={}", email, e.getMessage());
+            throw e;
+        } catch (Exception e) {
+            log.error("비밀번호 재설정 코드 검증 중 예상치 못한 오류: email={}, error={}", email, e.getMessage());
+            throw new DoranDoranException(ErrorCode.INTERNAL_SERVER_ERROR, "비밀번호 재설정 코드 검증 중 오류가 발생했습니다.");
+        }
+    }
+    
+    /**
+     * 비밀번호 재설정 실행 (코드 기반)
+     */
+    @Transactional
+    public void resetPasswordWithCode(String email, String code, String newPassword) {
+        log.info("비밀번호 재설정 실행 (코드 기반): email={}", email);
+        
+        try {
+            // 1. 코드 재검증
+            verifyPasswordResetCode(email, code);
+            
+            // 2. 비밀번호 정책 검증
+            validatePasswordPolicy(newPassword);
+            
+            // 3. User 서비스에서 비밀번호 업데이트
+            UserDto user = userIntegrationService.getUserByEmail(email);
+            userIntegrationService.updatePassword(UUID.fromString(user.id()), newPassword);
+            
+            // 4. 코드 무효화
+            passwordResetCodeRedisService.invalidateCode(email);
+            
+            // 5. 이벤트 로깅
+            recordAuthEvent(UUID.fromString(user.id()), "PASSWORD_RESET_COMPLETED");
+            
+            log.info("비밀번호 재설정 완료: email={}", email);
+            
+        } catch (DoranDoranException e) {
+            log.error("비밀번호 재설정 실행 실패: email={}, error={}", email, e.getMessage());
+            throw e;
+        } catch (Exception e) {
+            log.error("비밀번호 재설정 실행 중 예상치 못한 오류: email={}, error={}", email, e.getMessage());
+            throw new DoranDoranException(ErrorCode.INTERNAL_SERVER_ERROR, "비밀번호 재설정 실행 중 오류가 발생했습니다.");
+        }
+    }
+    
+    /**
+     * 비밀번호 재설정 코드 생성 (6자리 숫자)
+     */
+    private String generatePasswordResetCode() {
+        java.util.Random random = new java.util.Random();
+        int code = 100000 + random.nextInt(900000); // 100000 ~ 999999
+        return String.valueOf(code);
     }
 }

@@ -8,6 +8,7 @@ import com.dorandoran.common.exception.DoranDoranException;
 import com.dorandoran.common.exception.ErrorCode;
 import com.dorandoran.shared.dto.UserDto;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -68,6 +69,9 @@ class AuthControllerTest {
                 "$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBOsl7iKTVEFDi", // bcrypt hash
                 "https://example.com/profile.jpg",
                 "Hello World",
+                LocalDate.parse("1990-01-01"),
+                "가장 좋아하는 색은?",
+                "Blue",
                 "{}", // preferences
                 LocalDateTime.now(), // lastConnTime
                 UserDto.UserStatus.ACTIVE,

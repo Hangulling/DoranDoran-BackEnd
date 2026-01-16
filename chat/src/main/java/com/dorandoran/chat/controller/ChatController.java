@@ -73,7 +73,8 @@ public class ChatController {
             request.getChatbotId(), 
             request.getName(),
             request.getConcept(),
-            request.getIntimacyLevel()
+            request.getIntimacyLevel(),
+            request.getTestModel()
         );
         
         // 새로 생성된 채팅방에만 AI 인사말 발송 (임시 주석처리)
@@ -89,6 +90,7 @@ public class ChatController {
     @GetMapping("/chatrooms")
     public ResponseEntity<Page<ChatRoomResponse>> listRooms(
             @RequestParam(required = false) UUID userId,
+            @RequestParam(required = false) String testModel,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
         UUID uid = extractUserIdFromSecurityContext();
@@ -100,7 +102,7 @@ public class ChatController {
         }
         
         Pageable pageable = PageRequest.of(page, size);
-        Page<ChatRoom> rooms = chatService.listRooms(uid, pageable);
+        Page<ChatRoom> rooms = chatService.listRooms(uid, pageable, testModel);
         Page<ChatRoomResponse> response = rooms.map(this::toChatRoomResponse);
         return ResponseEntity.ok(response);
     }
@@ -499,27 +501,67 @@ public class ChatController {
     @GetMapping("/chatrooms/last-interactions")
     public ResponseEntity<List<com.dorandoran.chat.service.dto.LastInteractionResponse>> getLastInteractions(
             @RequestParam(required = false) UUID userId,
+            @RequestParam(required = false) String testModel,
             @RequestParam(defaultValue = "4") int limit) {
+        log.info("=== getLastInteractions 요청 시작: userId={}, testModel={}, limit={} ===", userId, testModel, limit);
+        
         UUID uid = extractUserIdFromSecurityContext();
-        if (uid == null && userId != null) uid = userId;
-        if (uid == null) return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
-        if (limit <= 0) limit = 4;
-        var list = chatService.listLastInteractionsByChatbot(uid, limit);
+        log.debug("SecurityContext에서 추출한 userId: {}", uid);
+        if (uid == null && userId != null) {
+            uid = userId;
+            log.debug("쿼리 파라미터에서 userId 사용: {}", uid);
+        }
+        if (uid == null) {
+            log.warn("=== getLastInteractions 실패: userId가 없음 ===");
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
+        }
+        if (limit <= 0) {
+            log.debug("limit이 0 이하이므로 기본값 4로 설정");
+            limit = 4;
+        }
+        
+        log.info("=== 서비스 호출 시작: userId={}, limit={}, testModel={} ===", uid, limit, testModel);
+        var list = chatService.listLastInteractionsByChatbot(uid, limit, testModel);
+        log.info("=== 서비스 호출 완료: 조회된 항목 수={} ===", list != null ? list.size() : 0);
+
+        if (list == null) {
+            log.warn("=== getLastInteractions 실패: 서비스에서 null 반환 ===");
+            list = new java.util.ArrayList<>();
+        }
 
         // 시간대: KST(UTC+9)로 변환하여 응답
         var kst = java.time.ZoneOffset.ofHours(9);
         List<com.dorandoran.chat.service.dto.LastInteractionResponse> converted = new java.util.ArrayList<>();
         for (var item : list) {
             java.time.OffsetDateTime at = item.getLastInteractionAt();
+            log.debug("변환 전 lastInteractionAt: chatbotId={}, lastInteractionAt={}", 
+                item.getChatbotId(), at);
             if (at != null) {
-                item.setLastInteractionAt(at.withOffsetSameInstant(kst));
+                java.time.OffsetDateTime kstTime = at.withOffsetSameInstant(kst);
+                item.setLastInteractionAt(kstTime);
+                log.debug("변환 후 lastInteractionAt: chatbotId={}, lastInteractionAt={}", 
+                    item.getChatbotId(), kstTime);
+            } else {
+                log.debug("lastInteractionAt이 null: chatbotId={}", item.getChatbotId());
             }
             converted.add(item);
         }
 
         // 부족분은 빈 객체로 패딩 (예: [{},{},{},{}])
+        int paddingCount = 0;
         while (converted.size() < limit) {
             converted.add(new com.dorandoran.chat.service.dto.LastInteractionResponse(null, null, null, null));
+            paddingCount++;
+        }
+        if (paddingCount > 0) {
+            log.debug("패딩 추가: {}개 빈 객체 추가", paddingCount);
+        }
+
+        log.info("=== 최종 응답 준비 완료: 총 항목 수={}, limit={} ===", converted.size(), limit);
+        for (int i = 0; i < converted.size(); i++) {
+            var item = converted.get(i);
+            log.debug("응답 항목[{}]: chatbotId={}, chatbotName={}, lastRoomId={}, lastInteractionAt={}", 
+                i, item.getChatbotId(), item.getChatbotName(), item.getLastRoomId(), item.getLastInteractionAt());
         }
 
         return ResponseEntity.ok(converted);

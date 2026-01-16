@@ -4,6 +4,6 @@ datasources:
   - name: Prometheus
     type: prometheus
     access: proxy
-    url: http://dorandoran-prometheus:9090
+    url: http://dd-prometheus:9090
     isDefault: true
     editable: true

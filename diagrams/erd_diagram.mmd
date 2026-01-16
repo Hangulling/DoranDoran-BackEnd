@@ -15,6 +15,9 @@ erDiagram
         VARCHAR status "ACTIVE|INACTIVE|SUSPENDED"
         VARCHAR role "ROLE_USER|ROLE_ADMIN"
         BOOLEAN coach_check
+        BOOLEAN exit_modal_do_not_show_again
+        VARCHAR oauth_id
+        VARCHAR oauth_provider "GOOGLE|FACEBOOK|KAKAO|NAVER"
         TIMESTAMP created_at
         TIMESTAMP updated_at
     }
@@ -53,6 +56,12 @@ erDiagram
         JSONB capabilities
         JSONB settings "concept: FRIEND|HONEY|COWORKER|SENIOR|BOSS"
         INTEGER intimacy_level "1-3"
+        TEXT intimacy_system_prompt
+        TEXT intimacy_user_prompt
+        TEXT vocabulary_system_prompt
+        TEXT vocabulary_user_prompt
+        TEXT translation_system_prompt
+        TEXT translation_user_prompt
         VARCHAR avatar_url
         BOOLEAN is_active
         TIMESTAMP created_at
@@ -98,13 +107,22 @@ erDiagram
 
     chat_schema_intimacy_progress {
         UUID id PK
-        UUID chatroom_id FK
+        UUID chatroom_id FK "UNIQUE"
         UUID user_id FK
         INTEGER intimacy_level "1-3"
         INTEGER total_corrections
         TEXT last_feedback
         TIMESTAMP last_updated
         JSONB progress_data
+    }
+
+    chat_schema_user_chatbot_last_interaction {
+        UUID user_id PK
+        UUID chatbot_id PK
+        TIMESTAMP last_interaction_at
+        UUID last_room_id
+        TIMESTAMP created_at
+        TIMESTAMP updated_at
     }
 
     %% ========================
@@ -198,6 +216,24 @@ erDiagram
     }
 
     %% ========================
+    %% Store Domain (store_schema)
+    %% ========================
+    store_schema_stores {
+        UUID id PK
+        UUID user_id FK
+        UUID message_id FK
+        UUID chatroom_id FK
+        TEXT content
+        TEXT corrected_content
+        JSONB ai_response
+        VARCHAR bot_type
+        BOOLEAN is_deleted
+        TIMESTAMP deleted_at
+        TIMESTAMP created_at
+        TIMESTAMP updated_at
+    }
+
+    %% ========================
     %% Relationships
     %% ========================
     user_schema_app_user ||--o{ user_schema_profiles : "user_id"
@@ -223,3 +259,10 @@ erDiagram
     user_schema_app_user ||--o{ billing_ai_usage_events : "user_id"
     chat_schema_chatrooms ||--o{ billing_ai_usage_events : "chatroom_id"
     billing_monthly_user_costs }o--|| user_schema_app_user : "user_id"
+
+    user_schema_app_user ||--o{ chat_schema_user_chatbot_last_interaction : "user_id"
+    chat_schema_chatbots ||--o{ chat_schema_user_chatbot_last_interaction : "chatbot_id"
+
+    user_schema_app_user ||--o{ store_schema_stores : "user_id"
+    chat_schema_chatrooms ||--o{ store_schema_stores : "chatroom_id"
+    chat_schema_messages ||--o{ store_schema_stores : "message_id"

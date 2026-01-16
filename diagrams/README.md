@@ -6,6 +6,12 @@
 
 ### 1. 핵심 아키텍처 다이어그램
 
+#### 1.0 상세 아키텍처 다이어그램 (최신)
+- **파일**: `detailed_architecture.mmd`
+- **설명**: 전체 시스템의 상세 아키텍처 (클라이언트, 게이트웨이, 마이크로서비스, 데이터, 모니터링, 외부 서비스)
+- **특징**: 모든 계층과 서비스 간 통신, 모니터링 스택, 외부 서비스 통합 포함
+- **관련 문서**: `docs/architecture/DETAILED_ARCHITECTURE.md`
+
 #### 1.1 ERD (Entity Relationship Diagram)
 - **파일**: `erd_diagram.svg`
 - **설명**: 데이터베이스 스키마 구조 및 테이블 간 관계
@@ -86,6 +92,7 @@
 ```
 diagrams/
 ├── README.md                    # 이 파일
+├── detailed_architecture.mmd   # 상세 아키텍처 다이어그램 (최신)
 ├── erd_diagram.svg             # ERD 다이어그램
 ├── msa_diagram.svg             # MSA 아키텍처
 ├── chatbot_diagram.svg         # 챗봇 아키텍처

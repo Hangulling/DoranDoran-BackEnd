@@ -1,0 +1,4 @@
+[submodule "dorandoran-frontend"]
+	path = dorandoran-frontend
+	url = https://github.com/Hangulling/DoranDoran-FrontEnd.git
+	branch = develop

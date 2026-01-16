@@ -24,6 +24,7 @@ public class MessageResponse {
     private String content;
     private String contentType;
     private Long sequenceNumber;
+    private Long turnNumber;
     private Boolean isEdited;
     private Boolean isDeleted;
     private LocalDateTime createdAt;
@@ -180,6 +181,7 @@ public class MessageResponse {
             m.getContent(),
             m.getContentType(),
             m.getSequenceNumber(),
+            m.getTurnNumber(),
             m.getIsEdited(),
             m.getIsDeleted(),
             m.getCreatedAt(),

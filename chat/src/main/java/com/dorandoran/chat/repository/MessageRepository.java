@@ -35,4 +35,20 @@ public interface MessageRepository extends JpaRepository<Message, UUID> {
     
     // 채팅방 ID와 senderType으로 메시지 존재 여부 확인
     boolean existsByChatRoomIdAndSenderType(UUID chatroomId, String senderType);
+    
+    // 채팅방 ID와 senderType으로 가장 최근 메시지 찾기 (시퀀스 기준)
+    Optional<Message> findTopByChatRoomIdAndSenderTypeOrderBySequenceNumberDesc(UUID chatroomId, String senderType);
+    
+    // 채팅방의 가장 최근 메시지 찾기 (턴 번호 기준)
+    Optional<Message> findTopByChatRoomIdOrderByTurnNumberDesc(UUID chatroomId);
+    
+    // 채팅방 ID와 턴 번호로 메시지 목록 찾기
+    List<Message> findByChatRoomIdAndTurnNumber(UUID chatroomId, Long turnNumber);
+    
+    // 채팅방 ID, 턴 번호, 발신자 타입으로 메시지 찾기
+    List<Message> findByChatRoomIdAndTurnNumberAndSenderType(UUID chatroomId, Long turnNumber, String senderType);
+    
+    // 채팅방 ID와 턴 번호 0인 bot 메시지 중 가장 최근 것 찾기 (진행 중인 턴)
+    Optional<Message> findTopByChatRoomIdAndTurnNumberAndSenderTypeOrderBySequenceNumberDesc(
+        UUID chatroomId, Long turnNumber, String senderType);
 }

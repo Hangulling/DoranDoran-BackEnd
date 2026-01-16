@@ -3,6 +3,10 @@ package com.dorandoran.auth.controller;
 import com.dorandoran.auth.dto.LoginRequest;
 import com.dorandoran.auth.dto.LoginResponse;
 import com.dorandoran.auth.dto.RefreshTokenRequest;
+import com.dorandoran.auth.dto.OAuthLoginRequest;
+import com.dorandoran.shared.dto.PasswordResetCodeRequest;
+import com.dorandoran.shared.dto.PasswordResetCodeVerifyRequest;
+import com.dorandoran.shared.dto.ResetPasswordRequest;
 import com.dorandoran.auth.service.AuthService;
 import com.dorandoran.common.response.ApiResponse;
 import com.dorandoran.common.exception.DoranDoranException;
@@ -64,6 +68,32 @@ public class AuthController {
             log.error("로그인 중 예상치 못한 오류 발생", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(ApiResponse.error("로그인 중 오류가 발생했습니다.", ErrorCode.INTERNAL_SERVER_ERROR.getCode()));
+        }
+    }
+    
+    /**
+     * OAuth 로그인
+     */
+    @Operation(summary = "OAuth 로그인", description = "Google OAuth 2.0 ID Token으로 로그인하여 JWT 토큰을 발급받습니다.")
+    @ApiResponses(value = {
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "OAuth 로그인 성공"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "잘못된 인증 정보")
+    })
+    @PostMapping("/oauth/login")
+    public ResponseEntity<ApiResponse<LoginResponse>> oauthLogin(@RequestBody OAuthLoginRequest request) {
+        log.info("OAuth 로그인 API 호출: provider={}", request.provider());
+        
+        try {
+            LoginResponse response = authService.oauthLogin(request);
+            return ResponseEntity.ok(ApiResponse.success(response, "OAuth 로그인에 성공했습니다."));
+        } catch (DoranDoranException e) {
+            log.error("OAuth 로그인 실패: {}", e.getMessage());
+            return ResponseEntity.badRequest()
+                    .body(ApiResponse.error(e.getMessage(), e.getErrorCode().getCode()));
+        } catch (Exception e) {
+            log.error("OAuth 로그인 중 예상치 못한 오류 발생", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(ApiResponse.error("OAuth 로그인 중 오류가 발생했습니다.", ErrorCode.INTERNAL_SERVER_ERROR.getCode()));
         }
     }
     
@@ -137,11 +167,85 @@ public class AuthController {
     }
     
     /**
-     * 비밀번호 재설정 요청
+     * 비밀번호 재설정 코드 요청 (새로운 방식)
      */
+    @PostMapping("/password/reset/request-code")
+    public ResponseEntity<ApiResponse<Void>> requestPasswordResetCode(@RequestBody PasswordResetCodeRequest request) {
+        log.info("비밀번호 재설정 코드 요청 API 호출: email={}", request.getEmail());
+        
+        try {
+            authService.requestPasswordResetCode(request.getEmail());
+            
+            return ResponseEntity.ok(ApiResponse.success(null, "비밀번호 재설정 코드가 이메일로 발송되었습니다."));
+        } catch (DoranDoranException e) {
+            log.error("비밀번호 재설정 코드 요청 실패: {}", e.getMessage());
+            return ResponseEntity.badRequest()
+                    .body(ApiResponse.error(e.getMessage(), e.getErrorCode().getCode()));
+        } catch (Exception e) {
+            log.error("비밀번호 재설정 코드 요청 중 예상치 못한 오류 발생", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(ApiResponse.error("비밀번호 재설정 코드 요청 중 오류가 발생했습니다.", ErrorCode.INTERNAL_SERVER_ERROR.getCode()));
+        }
+    }
+    
+    /**
+     * 비밀번호 재설정 코드 검증
+     */
+    @PostMapping("/password/reset/verify-code")
+    public ResponseEntity<ApiResponse<Void>> verifyPasswordResetCode(@RequestBody PasswordResetCodeVerifyRequest request) {
+        log.info("비밀번호 재설정 코드 검증 API 호출: email={}", request.getEmail());
+        
+        try {
+            authService.verifyPasswordResetCode(request.getEmail(), request.getCode());
+            
+            return ResponseEntity.ok(ApiResponse.success(null, "인증 코드가 확인되었습니다."));
+        } catch (DoranDoranException e) {
+            log.error("비밀번호 재설정 코드 검증 실패: {}", e.getMessage());
+            return ResponseEntity.badRequest()
+                    .body(ApiResponse.error(e.getMessage(), e.getErrorCode().getCode()));
+        } catch (Exception e) {
+            log.error("비밀번호 재설정 코드 검증 중 예상치 못한 오류 발생", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(ApiResponse.error("비밀번호 재설정 코드 검증 중 오류가 발생했습니다.", ErrorCode.INTERNAL_SERVER_ERROR.getCode()));
+        }
+    }
+    
+    /**
+     * 비밀번호 재설정 실행 (코드 기반)
+     */
+    @PostMapping("/password/reset/execute")
+    public ResponseEntity<ApiResponse<Void>> executePasswordReset(@RequestBody ResetPasswordRequest request) {
+        log.info("비밀번호 재설정 실행 API 호출: email={}", request.getEmail());
+        
+        try {
+            // 코드 기반 재설정
+            if (request.getCode() != null && !request.getCode().isEmpty()) {
+                authService.resetPasswordWithCode(request.getEmail(), request.getCode(), request.getNewPassword());
+            } else {
+                // 코드가 없으면 에러 반환
+                throw new DoranDoranException(ErrorCode.INVALID_REQUEST, "인증 코드가 필요합니다.");
+            }
+            
+            return ResponseEntity.ok(ApiResponse.success(null, "비밀번호가 성공적으로 재설정되었습니다."));
+        } catch (DoranDoranException e) {
+            log.error("비밀번호 재설정 실행 실패: {}", e.getMessage());
+            return ResponseEntity.badRequest()
+                    .body(ApiResponse.error(e.getMessage(), e.getErrorCode().getCode()));
+        } catch (Exception e) {
+            log.error("비밀번호 재설정 실행 중 예상치 못한 오류 발생", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(ApiResponse.error("비밀번호 재설정 실행 중 오류가 발생했습니다.", ErrorCode.INTERNAL_SERVER_ERROR.getCode()));
+        }
+    }
+    
+    /**
+     * 비밀번호 재설정 요청 (기존 방식 - 하위 호환성 유지)
+     * @deprecated 새로운 코드 기반 방식을 사용하세요: POST /api/auth/password/reset/request-code
+     */
+    @Deprecated
     @PostMapping("/password/reset/request")
     public ResponseEntity<ApiResponse<String>> requestPasswordReset(@RequestParam String email) {
-        log.info("비밀번호 재설정 요청 API 호출: email={}", email);
+        log.info("비밀번호 재설정 요청 API 호출 (기존 방식): email={}", email);
         
         try {
             // 비밀번호 재설정 토큰 생성 및 반환
@@ -156,31 +260,6 @@ public class AuthController {
             log.error("비밀번호 재설정 요청 중 예상치 못한 오류 발생", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(ApiResponse.error("비밀번호 재설정 요청 중 오류가 발생했습니다.", ErrorCode.INTERNAL_SERVER_ERROR.getCode()));
-        }
-    }
-    
-    /**
-     * 비밀번호 재설정 실행
-     */
-    @PostMapping("/password/reset/execute")
-    public ResponseEntity<ApiResponse<Void>> executePasswordReset(
-            @RequestParam String token,
-            @RequestParam String newPassword) {
-        log.info("비밀번호 재설정 실행 API 호출: token={}", token);
-        
-        try {
-            // 비밀번호 재설정 실행
-            authService.executePasswordReset(token, newPassword);
-            
-            return ResponseEntity.ok(ApiResponse.success(null, "비밀번호가 성공적으로 재설정되었습니다."));
-        } catch (DoranDoranException e) {
-            log.error("비밀번호 재설정 실행 실패: {}", e.getMessage());
-            return ResponseEntity.badRequest()
-                    .body(ApiResponse.error(e.getMessage(), e.getErrorCode().getCode()));
-        } catch (Exception e) {
-            log.error("비밀번호 재설정 실행 중 예상치 못한 오류 발생", e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(ApiResponse.error("비밀번호 재설정 실행 중 오류가 발생했습니다.", ErrorCode.INTERNAL_SERVER_ERROR.getCode()));
         }
     }
     

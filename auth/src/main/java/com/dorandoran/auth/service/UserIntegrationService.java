@@ -107,7 +107,7 @@ public class UserIntegrationService {
     @Retry(name = "user-service")
     public void resetPassword(String email, String newPassword) {
         log.info("User Service 호출 - resetPassword: email={}", email);
-        userServiceClient.resetPassword(new ResetPasswordRequest(email, newPassword));
+        userServiceClient.resetPassword(new ResetPasswordRequest(email, newPassword, null));
     }
 
     public void resetPasswordFallback(String email, String newPassword, Exception ex) {
@@ -127,6 +127,53 @@ public class UserIntegrationService {
     
     public boolean isEmailDuplicateFallback(String email, Exception ex) {
         log.error("User Service 호출 실패 - isEmailDuplicate: email={}, error={}", email, ex.getMessage());
+        throw new RuntimeException("User Service를 사용할 수 없습니다. 잠시 후 다시 시도해주세요.");
+    }
+    
+    /**
+     * OAuth 사용자 여부 확인
+     */
+    @CircuitBreaker(name = "user-service", fallbackMethod = "isOAuthUserFallback")
+    @Retry(name = "user-service")
+    public boolean isOAuthUser(String email) {
+        log.info("User Service 호출 - isOAuthUser: email={}", email);
+        return userServiceClient.isOAuthUser(email);
+    }
+    
+    public boolean isOAuthUserFallback(String email, Exception ex) {
+        log.error("User Service 호출 실패 - isOAuthUser: email={}, error={}", email, ex.getMessage());
+        throw new RuntimeException("User Service를 사용할 수 없습니다. 잠시 후 다시 시도해주세요.");
+    }
+    
+    /**
+     * OAuth 사용자 조회
+     */
+    @CircuitBreaker(name = "user-service", fallbackMethod = "getUserByOAuthFallback")
+    @Retry(name = "user-service")
+    public UserDto getUserByOAuth(String provider, String oauthId) {
+        log.info("User Service 호출 - getUserByOAuth: provider={}, oauthId={}", provider, oauthId);
+        return userServiceClient.getUserByOAuth(provider, oauthId);
+    }
+    
+    public UserDto getUserByOAuthFallback(String provider, String oauthId, Exception ex) {
+        log.error("User Service 호출 실패 - getUserByOAuth: provider={}, oauthId={}, error={}", provider, oauthId, ex.getMessage());
+        throw new RuntimeException("User Service를 사용할 수 없습니다. 잠시 후 다시 시도해주세요.");
+    }
+    
+    /**
+     * OAuth 사용자 생성
+     */
+    @CircuitBreaker(name = "user-service", fallbackMethod = "createOAuthUserFallback")
+    @Retry(name = "user-service")
+    public UserDto createOAuthUser(String email, String firstName, String lastName, String name, 
+                                   String picture, String provider, String oauthId) {
+        log.info("User Service 호출 - createOAuthUser: email={}, provider={}", email, provider);
+        return userServiceClient.createOAuthUser(email, firstName, lastName, name, picture, provider, oauthId);
+    }
+    
+    public UserDto createOAuthUserFallback(String email, String firstName, String lastName, String name,
+                                           String picture, String provider, String oauthId, Exception ex) {
+        log.error("User Service 호출 실패 - createOAuthUser: email={}, provider={}, error={}", email, provider, ex.getMessage());
         throw new RuntimeException("User Service를 사용할 수 없습니다. 잠시 후 다시 시도해주세요.");
     }
     

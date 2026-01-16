@@ -67,4 +67,30 @@ public interface UserServiceClient {
      */
     @GetMapping("/api/users/check-email/{email}")
     boolean isEmailDuplicate(@PathVariable("email") String email);
+    
+    /**
+     * OAuth 사용자 여부 확인
+     */
+    @GetMapping("/api/users/check-oauth/{email}")
+    boolean isOAuthUser(@PathVariable("email") String email);
+    
+    /**
+     * OAuth 사용자 조회
+     */
+    @GetMapping("/api/users/oauth/{provider}/{oauthId}")
+    UserDto getUserByOAuth(@PathVariable("provider") String provider, @PathVariable("oauthId") String oauthId);
+    
+    /**
+     * OAuth 사용자 생성
+     */
+    @org.springframework.web.bind.annotation.PostMapping("/api/users/oauth")
+    UserDto createOAuthUser(
+            @org.springframework.web.bind.annotation.RequestParam("email") String email,
+            @org.springframework.web.bind.annotation.RequestParam("firstName") String firstName,
+            @org.springframework.web.bind.annotation.RequestParam("lastName") String lastName,
+            @org.springframework.web.bind.annotation.RequestParam("name") String name,
+            @org.springframework.web.bind.annotation.RequestParam(value = "picture", required = false) String picture,
+            @org.springframework.web.bind.annotation.RequestParam("provider") String provider,
+            @org.springframework.web.bind.annotation.RequestParam("oauthId") String oauthId
+    );
 }

@@ -262,501 +262,461 @@ private GreetingResponse parseAIResponse(String aiResponse) {
 
 ---
 
-## 2025-10-28: Redis 캐싱 무한 순환 참조 문제 해결
+## 보안 위협 대응 및 IP 블랙리스트 시스템 구현
 
 ### 문제 발생 일시
-2025-10-28
+2025-11-11
 
 ### 문제 상황
-- 채팅방 생성/조회 시 500 Internal Server Error 발생
-- Jackson 직렬화 중 무한 순환 참조로 인한 중첩 깊이 초과
-- Hibernate 프록시 객체가 `@JsonIgnore`를 무시하여 순환 참조 발생
+- Gateway 로그에서 의심스러운 IP 주소 `172.104.24.172`에서 반복적인 공격 시도 감지
+- 비정상 HTTP 요청 (RTSP/1.0, SIP/2.0, 빈 요청 등) 발생
+- `Decoding failed: invalid version format` 오류 14건 발생
+- 프로토콜 혼합 공격 및 Fuzzing 공격 시도 확인
 
 ### 문제 원인 분석
 
-#### 1. Jackson 순환 참조 무한 루프
-**오류 로그**:
+#### 1. 공격 유형 분석
 ```
-Document nesting depth (1001) exceeds the maximum allowed (1000, from `StreamWriteConstraints.getMaxNestingDepth()`)
-```
-
-**순환 참조 경로**:
-```
-User["chatRooms"] → ChatRoom["user"] → User["chatRooms"] → ChatRoom["user"] → ...
+- 프로토콜 혼합 공격 (Protocol Confusion Attack)
+- Fuzzing 공격 (불법 문자 주입)
+- 빈 요청 공격
 ```
 
-#### 2. Hibernate 프록시 객체 문제
-- `@JsonIgnore` 어노테이션이 Hibernate 프록시 객체에서 무시됨
-- `org.hibernate.collection.spi.PersistentBag`가 실제 엔티티가 아닌 프록시 객체
-- Jackson 직렬화 시 프록시 객체의 필드에 직접 접근하여 순환 참조 생성
+#### 2. 공격 패턴
+- **발생 기간**: 2025년 11월 11일 05:02:29 ~ 05:03:10 (약 41초)
+- **총 로그 건수**: 9건
+- **공격 목적**: 서버 취약점 스캔 및 프로토콜 탐지 시도
 
-#### 3. Redis 캐싱 구현 과정에서 발생한 문제들
+### 해결 방법
 
-**문제 1: Redis 의존성 인식 오류**
-```
-RedisConnectionFactory cannot be resolved to a type
-Jackson2JsonRedisSerializer cannot be resolved to a type
-```
-- IDE/컴파일러가 새로 추가된 Redis 의존성을 인식하지 못함
+#### Phase 1: 즉시 대응 (난이도: 매우 낮음)
 
-**문제 2: enableStatistics() 메서드 오류**
-```
-cannot find symbol .enableStatistics()
-```
-- `RedisCacheConfiguration`에 직접 `enableStatistics()` 메서드가 없음
+**1. AWS Security Group IP 차단 스크립트 작성**
+- `scripts/security/block-ip-aws.ps1` 생성
+- AWS CLI를 통한 Security Group 관리 자동화
 
-**문제 3: SpEL 표현식 오류**
-```
-org.springframework.expression.spel.SpelEvaluationException: 
-EL1004E: Method call: Method getCurrentIntimacyLevel(java.util.UUID) cannot be found
-```
-- SpEL에서 private 메서드 호출 시도
+**2. 보안 대응 절차 문서화**
+- `docs/maintenance/2025-11-11/security-response-plan.md` 작성
+- 즉시, 단기, 장기 대응 방안 정리
 
-**문제 4: LocalDateTime 직렬화 오류**
-```
-com.fasterxml.jackson.databind.exc.InvalidDefinitionException: 
-Java 8 date/time type java.time.LocalDateTime not supported by default
-```
-- Jackson이 LocalDateTime 직렬화 모듈이 없음
+**3. 보안 모니터링 스크립트 작성**
+- `scripts/security/monitor-suspicious-ips.sh` 생성
+- Gateway 로그에서 의심스러운 IP 패턴 자동 탐지
 
-### 해결 과정
+#### Phase 2: Gateway 레벨 보안 강화 (난이도: 낮음)
 
-#### 1단계: 기본 Redis 캐싱 구현
-- `build.gradle`에 Redis 의존성 추가
-- `RedisCacheConfig` 클래스 생성
-- Entity 레벨 캐싱 적용 (`@Cacheable` 어노테이션)
-
-#### 2단계: 발생한 문제들 해결
-1. **의존성 인식 문제**: 프로젝트 재빌드로 해결
-2. **enableStatistics() 오류**: `RedisCacheManager.builder`에서 호출하도록 수정
-3. **SpEL 오류**: 메서드를 public으로 변경하고 키 단순화
-4. **LocalDateTime 오류**: `JavaTimeModule` 등록
-
-#### 3단계: 순환 참조 문제 근본 해결
-**핵심 문제**: Entity 캐싱 시 Hibernate 프록시가 `@JsonIgnore`를 무시하여 순환 참조 발생
-
-**해결 전략**: Entity 캐싱 → DTO 캐싱 전환
-
-1. **Repository 레벨 캐싱 제거**
-   - `UserRepository.findByEmail()`, `findById()`의 `@Cacheable` 제거
-   - `ChatbotRepository.findById()`의 `@Cacheable` 제거
-
-2. **새로운 DTO 클래스 생성**
-   - `UserCacheDto`: User 엔티티의 필요한 필드만 포함
-   - `ChatbotCacheDto`: Chatbot 엔티티의 필요한 필드만 포함
-   - `ChatRoomResponse`: `Serializable` 구현
-
-3. **Service 레벨 DTO 기반 캐싱 메서드 추가**
-   - `ChatService.getUserCache()`: UserCacheDto 반환
-   - `ChatService.getChatbotCache()`: ChatbotCacheDto 반환
-   - `ChatService.getChatRoomCache()`: ChatRoomResponse 반환
-   - `ChatService.listRoomsCache()`: List<ChatRoomResponse> 반환
-
-4. **캐시 무효화 로직 추가**
-   - `updateRoom()`: `@CacheEvict(value = {"chatrooms", "roomList"})`
-   - `softDeleteRoom()`: `@CacheEvict(value = {"chatrooms", "roomList"})`
-   - `updateIntimacyLevel()`: `@CacheEvict(value = {"intimacy", "chatrooms", "roomList"})`
-
-5. **Entity 정리**
-   - `Chatbot` 엔티티에서 `@JsonIgnore` 제거 (더 이상 직렬화하지 않음)
-   - `RedisCacheConfig`에 "DTO 캐싱으로 전환 완료" 주석 추가
-
-#### 4단계: 최종 정리
-- DTO 기반 캐싱 메서드들을 제거 (사용자 요청)
-- Repository 레벨 캐싱만 제거하여 순환 참조 문제 해결
-- 기본 Redis 캐싱 설정은 유지
-
-### 해결 원리
-
-#### 1. 순환 참조 차단
-- Repository 레벨에서 Entity 캐싱 제거
-- Entity 직렬화 시점에서 순환 참조 발생 방지
-
-#### 2. 안전한 캐싱 유지
-- String, Integer 등 단순 타입은 안전하게 캐싱
-- `PromptService.buildSystemPrompt()` 캐싱 유지
-- `MultiAgentOrchestrator.getCurrentIntimacyLevel()` 캐싱 유지
-- `ConversationAgent.buildMessageHistory()` 캐싱 유지
-
-### 결과
-
-#### 해결 전
-- 채팅방 생성/조회 시 500 에러 발생
-- Jackson 순환 참조 무한 루프
-- 중첩 깊이 1000 초과 오류
-
-#### 해결 후
-- ✅ 모든 컴파일 오류 해결
-- ✅ Redis 캐싱 정상 작동
-- ✅ **순환 참조 문제 근본 해결**
-- ✅ 빌드 성공 확인
-- ✅ 채팅방 생성/조회 정상 작동
-
-### 교훈
-
-1. **Entity 캐싱의 위험성**: Hibernate 프록시 객체와 Jackson 직렬화의 상호작용 주의
-2. **@JsonIgnore의 한계**: Hibernate 프록시에서는 무시될 수 있음
-3. **DTO 캐싱의 안전성**: 연관관계가 없는 DTO는 순환 참조 불가능
-4. **단계적 문제 해결**: 작은 문제부터 해결하고 근본 원인 파악
-5. **캐싱 전략의 중요성**: 어떤 데이터를 캐싱할지 신중히 결정
-
-### 관련 파일
-- `chat/src/main/java/com/dorandoran/chat/repository/UserRepository.java`
-- `chat/src/main/java/com/dorandoran/chat/repository/ChatbotRepository.java`
-- `chat/src/main/java/com/dorandoran/chat/service/dto/UserCacheDto.java`
-- `chat/src/main/java/com/dorandoran/chat/service/dto/ChatbotCacheDto.java`
-- `chat/src/main/java/com/dorandoran/chat/service/dto/ChatRoomResponse.java`
-- `chat/src/main/java/com/dorandoran/chat/config/RedisCacheConfig.java`
-- `chat/src/main/java/com/dorandoran/chat/entity/Chatbot.java`
-
----
-
-## 2025-11-02: 이메일 인증 Redis 저장 시 LocalDateTime 직렬화 문제 해결
-
-### 문제 발생 일시
-2025-11-02
-
-### 문제 상황
-- 이메일 인증 요청 시 500 Internal Server Error 발생
-- Redis에 인증 요청 정보 저장 시 `InvalidDefinitionException` 발생
-- Jackson이 `LocalDateTime`을 직렬화하지 못함
-
-### 문제 원인 분석
-
-#### 1. LocalDateTime 직렬화 오류
-**오류 로그**:
-```
-com.fasterxml.jackson.databind.exc.InvalidDefinitionException: 
-Java 8 date/time type `java.time.LocalDateTime` not supported by default: 
-add Module "com.fasterxml.jackson.datatype:jackson-datatype-jsr310" to enable handling 
-(through reference chain: com.dorandoran.auth.service.EmailVerificationRedisService$VerificationData["createdAt"])
-```
-
-**문제 원인**:
-- `EmailVerificationRedisService`에서 `VerificationData` 객체에 `LocalDateTime` 필드(`createdAt`, `expiresAt`) 포함
-- `ObjectMapper`를 기본 생성자로 생성하여 Java 8 시간 타입 지원 모듈 미등록
-- Redis에 JSON으로 저장할 때 `LocalDateTime` 직렬화 실패
-
-#### 2. Gmail SMTP 인증 실패 (추가 문제)
-- `Authentication failed: 535-5.7.8 Username and Password not accepted`
-- 잘못된 Gmail 계정 또는 App Password 사용
-
-### 해결 과정
-
-#### 1단계: LocalDateTime 직렬화 문제 해결
-
-**문제**: 기본 `ObjectMapper`는 Java 8 시간 타입을 직렬화하지 못함
-
-**해결 방법**:
+**1. IP 블랙리스트 필터 구현**
 ```java
-// EmailVerificationRedisService.java
-@Service
-@Slf4j
-public class EmailVerificationRedisService {
-
-    private final RedisTemplate<String, String> redisTemplate;
-    private final ObjectMapper objectMapper;
+// IpBlacklistFilter.java
+@Component
+public class IpBlacklistFilter implements GlobalFilter, Ordered {
+    private final Set<String> blacklistedIps;
     
-    // ObjectMapper 초기화 (생성자에서 JavaTimeModule 등록)
-    public EmailVerificationRedisService(RedisTemplate<String, String> redisTemplate) {
-        this.redisTemplate = redisTemplate;
-        this.objectMapper = new ObjectMapper();
-        this.objectMapper.registerModule(new JavaTimeModule());
-        this.objectMapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
+    @Override
+    public int getOrder() {
+        return -100; // 가장 먼저 실행
     }
-}
-```
-
-**필요한 의존성**:
-- `com.fasterxml.jackson.datatype:jackson-datatype-jsr310` (Spring Boot에 기본 포함됨)
-
-#### 2단계: 이메일 전송 실패 시 데이터 보존
-
-**문제**: 이메일 전송 실패 시 Redis에 저장된 데이터도 함께 실패 처리
-
-**해결 방법**:
-```java
-// AuthController.java
-@PostMapping("/email/request-verification")
-public ResponseEntity<ApiResponse<String>> requestEmailVerification(@RequestBody Map<String, String> request) {
-    try {
-        // 1. 이메일 중복 확인
-        // 2. 토큰 생성
-        // 3. Redis에 인증 요청 정보 저장 (이메일 전송 전에 저장)
-        emailVerificationRedisService.saveVerificationRequest(email, token);
-        
-        // 4. 이메일 발송 (실패해도 Redis 데이터는 유지)
-        try {
-            emailService.sendVerificationEmail(email, verifyLink);
-            return ResponseEntity.ok(ApiResponse.success("sent", "인증 메일이 발송되었습니다."));
-        } catch (Exception e) {
-            // 이메일 전송 실패해도 Redis에는 저장되어 있으므로 사용자가 나중에 재시도 가능
-            log.error("이메일 전송 실패 (Redis에는 저장됨): email={}, error={}", email, e.getMessage());
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(ApiResponse.error("이메일 전송에 실패했습니다. 잠시 후 다시 시도해주세요. (인증 요청은 저장되었습니다.)", ErrorCode.INTERNAL_SERVER_ERROR.getCode()));
+    
+    @Override
+    public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
+        String clientIp = extractClientIp(exchange.getRequest());
+        if (isBlacklisted(clientIp)) {
+            return handleBlockedRequest(exchange, clientIp);
         }
-    } catch (Exception e) {
-        // ...
+        return chain.filter(exchange);
     }
 }
 ```
 
-#### 3단계: Gmail SMTP 설정 수정
+**2. 블랙리스트 관리 API 구현**
+```java
+// BlacklistController.java
+@RestController
+@RequestMapping("/api/admin/blacklist")
+public class BlacklistController {
+    // GET /api/admin/blacklist - 블랙리스트 조회
+    // POST /api/admin/blacklist - IP 추가
+    // DELETE /api/admin/blacklist/{ip} - IP 제거
+    // GET /api/admin/blacklist/{ip} - 특정 IP 차단 여부 확인
+}
+```
 
-**문제**: 잘못된 Gmail 계정 사용
+**3. 설정 파일 업데이트**
+```yaml
+# application.yml
+gateway:
+  security:
+    blacklist:
+      ips: "172.104.24.172"
+```
 
-**해결 방법**:
-- Gmail 계정을 `kdhdaniel0506@gmail.com`에서 `zipizigy121@gmail.com`으로 변경
-- Docker 컨테이너 환경 변수 업데이트
+### 발견된 추가 문제점
 
-### 해결 원리
+#### 1. 인증 구조 충돌
+- **문제**: SecurityConfig의 `permitAll()` 설정과 JwtAuthFilter의 정책 불일치
+- **영향**: 설정이 혼란스럽고 향후 충돌 가능성
+- **해결**: SecurityConfig 정책을 JwtAuthFilter와 일치시키도록 수정 필요
 
-#### 1. JavaTimeModule의 역할
-- `JavaTimeModule`: Java 8 시간 타입(`LocalDateTime`, `LocalDate`, `ZonedDateTime` 등)을 JSON으로 직렬화/역직렬화하는 모듈
-- 기본 `ObjectMapper`에는 포함되지 않으므로 명시적으로 등록 필요
+#### 2. 관리자 권한 체크 없음
+- **문제**: 관리자 API에 일반 사용자도 접근 가능 (JWT 토큰만 있으면 OK)
+- **영향**: 심각한 보안 취약점
+- **해결**: JWT 토큰에서 역할(role) 클레임 확인 및 `ROLE_ADMIN` 권한 체크 추가 필요
 
-#### 2. WRITE_DATES_AS_TIMESTAMPS 비활성화
-- 기본값: `true` (날짜를 타임스탬프 숫자로 저장)
-- 비활성화 시: ISO 8601 형식 문자열로 저장 (`"2025-11-02T10:36:31"`)
-- 가독성 향상 및 다른 시스템과의 호환성 개선
-
-#### 3. 이메일 전송 실패 대응 전략
-- Redis 저장을 이메일 전송 전에 수행
-- 이메일 전송 실패 시에도 Redis 데이터는 유지
-- 사용자가 나중에 재시도 가능
+#### 3. 블랙리스트 영구 저장 없음
+- **문제**: 런타임에 추가한 IP는 서버 재시작 시 사라짐
+- **영향**: 관리자가 추가한 IP가 유지되지 않음
+- **해결**: Redis 또는 데이터베이스를 통한 영구 저장 기능 추가 필요
 
 ### 결과
 
 #### 해결 전
-- 이메일 인증 요청 시 500 에러 발생
-- Redis 저장 실패로 인한 `InvalidDefinitionException`
-- `LocalDateTime` 직렬화 불가
+- 의심스러운 IP에서 지속적인 공격 시도
+- Gateway 레벨에서 차단 기능 없음
+- 수동으로만 IP 차단 가능
 
 #### 해결 후
-- ✅ `LocalDateTime` 직렬화 정상 작동
-- ✅ Redis에 인증 요청 정보 정상 저장
-- ✅ 이메일 전송 실패 시에도 데이터 보존
-- ✅ Gmail SMTP 정상 작동
+- Gateway 레벨에서 자동 IP 차단
+- 관리자 API를 통한 런타임 블랙리스트 관리
+- 보안 모니터링 스크립트로 자동 탐지
 
 ### 교훈
 
-1. **Java 8 시간 타입 직렬화**: `ObjectMapper`에 `JavaTimeModule` 등록 필수
-2. **의존성 확인**: Spring Boot에 기본 포함되어 있지만 모듈 등록은 필요
-3. **오류 처리 전략**: 외부 서비스(SMTP) 실패 시에도 내부 데이터는 보존
-4. **단계별 문제 해결**: 직렬화 문제 → SMTP 문제 순서로 해결
+1. **보안 로그 모니터링**: 정기적인 로그 분석을 통한 위협 조기 발견
+2. **다층 방어**: AWS Security Group + Gateway 필터 + 애플리케이션 레벨 보안
+3. **자동화**: 스크립트를 통한 보안 대응 자동화
+4. **문서화**: 보안 대응 절차를 문서화하여 일관된 대응 보장
+5. **권한 관리**: 관리자 API는 반드시 권한 체크 필요
 
 ### 관련 파일
-- `auth/src/main/java/com/dorandoran/auth/service/EmailVerificationRedisService.java`
-- `auth/src/main/java/com/dorandoran/auth/controller/AuthController.java`
-- `auth/src/main/java/com/dorandoran/auth/service/EmailService.java`
+- `gateway/src/main/java/com/dorandoran/gateway/filter/IpBlacklistFilter.java`
+- `gateway/src/main/java/com/dorandoran/gateway/controller/BlacklistController.java`
+- `scripts/security/block-ip-aws.ps1`
+- `scripts/security/monitor-suspicious-ips.sh`
+- `docs/maintenance/2025-11-11/ip-172.104.24.172-security-analysis.md`
+- `docs/maintenance/2025-11-11/security-response-plan.md`
+- `docs/maintenance/2025-11-11/phase2-authentication-analysis.md`
+- `docs/maintenance/2025-11-11/security-status-check.md`
+- `docs/maintenance/2025-11-11/blacklist-storage-location.md`
 
 ---
 
-## 2025-11-03: Resilience4j Circuit Breaker 과도한 차단 문제 해결
+## 인증 구조 분석 및 개선
 
 ### 문제 발생 일시
-2025-11-03
+2025-11-11
 
 ### 문제 상황
-- 사용자 로그인 시 간헐적으로 실패 발생
-- Circuit Breaker가 OPEN 상태로 전이되어 정상 트래픽도 차단
-- 로그에서 `CircuitBreaker 'user-service' is OPEN and does not permit further calls` 오류 발생
-- `/api/auth/login`, `/api/auth/me` 엔드포인트에서 503 Service Unavailable 응답
+- SecurityConfig와 JwtAuthFilter의 정책 불일치
+- 관리자 API에 일반 사용자도 접근 가능
+- 블랙리스트 IP 저장 위치 및 영구 저장 여부 불명확
 
 ### 문제 원인 분석
 
-#### 1. Circuit Breaker 설정이 너무 엄격함
-**기존 설정 (Auth → User 서비스)**:
-```yaml
-resilience4j:
-  circuitbreaker:
-    instances:
-      user-service:
-        failure-rate-threshold: 50        # 실패율 50% 이상 시 OPEN
-        wait-duration-in-open-state: 30s  # 30초 동안 OPEN 상태 유지
-        sliding-window-size: 10          # 최근 10개 호출 기준
-        minimum-number-of-calls: 5        # 최소 5회 호출 후 평가
-        permitted-number-of-calls-in-half-open-state: 3
-  retry:
-    instances:
-      user-service:
-        max-attempts: 3                  # 최대 3회 재시도
-        wait-duration: 1s                 # 1초 대기
-        exponential-backoff-multiplier: 2
-```
-
-**문제점**:
-- `failure-rate-threshold: 50`: 낮은 임계값으로 인해 일시적 오류에도 즉시 OPEN
-- `sliding-window-size: 10`: 작은 표본 크기로 통계적 신뢰도 낮음
-- `minimum-number-of-calls: 5`: 최소 호출 수가 적어 초기 트래픽에서 오탐지 가능
-- `wait-duration-in-open-state: 30s`: OPEN 상태가 너무 길어 복구 지연
-
-#### 2. 스파이크성 오류에 과도하게 민감
-- 사용자 서비스의 일시적 지연이나 네트워크 문제 발생 시
-- 짧은 시간 내 실패율이 50%를 초과하면 즉시 OPEN
-- 정상 트래픽까지 차단되어 사용자 경험 저하
-
-#### 3. Chat 서비스의 OpenAI 통신 설정도 엄격함
-**기존 설정 (Chat → OpenAI)**:
+#### 1. SecurityConfig 정책 불일치
 ```java
-CircuitBreakerConfig.custom()
-    .failureRateThreshold(50)
-    .waitDurationInOpenState(Duration.ofSeconds(15))
-    .slidingWindowSize(20)
-    .minimumNumberOfCalls(10)
-    .timeoutDuration(Duration.ofSeconds(12))  // 타임아웃이 짧음
+// 현재 설정
+.pathMatchers("/api/**").permitAll()  // 모든 API 허용
+
+// 실제 동작
+// JwtAuthFilter가 제외 목록에 없는 경로는 인증 필요
+// SecurityConfig 설정이 무의미함
 ```
 
-**문제점**:
-- OpenAI API는 외부 서비스로 일시적 지연이 자주 발생
-- 타임아웃 12초는 스트리밍 응답에서 부족할 수 있음
-- 실패율 임계값이 낮아 정상적인 응답 지연도 오탐지 가능
+#### 2. 관리자 권한 체크 없음
+- JWT 토큰만 있으면 누구나 관리자 API 접근 가능
+- 역할(role) 기반 권한 체크 없음
 
-### 해결 과정
+#### 3. 블랙리스트 저장 위치
+- 초기 로드: `application.yml` 설정 파일
+- 런타임 저장: 메모리 (HashSet)
+- 영구 저장: 없음 (서버 재시작 시 사라짐)
 
-#### 1단계: 문제 상황 분석 및 관대한 설정 검토
-- 60~70 동시 사용자 기준으로 최적 설정 검토
-- 서비스 오픈 초기에는 더 관대한 설정 필요
-- 실제 장애 패턴 관찰 후 점진적 조정 계획 수립
+### 해결 방법
 
-#### 2단계: Auth 서비스 Circuit Breaker 설정 완화
-**변경된 설정**:
-```yaml
-resilience4j:
-  circuitbreaker:
-    instances:
-      user-service:
-        failure-rate-threshold: 70        # 50 → 70 (40% 완화)
-        wait-duration-in-open-state: 8s   # 30s → 8s (빠른 복구)
-        sliding-window-size: 50            # 10 → 50 (5배 증가)
-        minimum-number-of-calls: 20        # 5 → 20 (4배 증가)
-        permitted-number-of-calls-in-half-open-state: 5  # 3 → 5
-  retry:
-    instances:
-      user-service:
-        max-attempts: 2                   # 3 → 2 (재시도 감소)
-        wait-duration: 300ms              # 1s → 300ms (빠른 재시도)
-        exponential-backoff-multiplier: 1.8  # 2 → 1.8 (덜 공격적)
-  timelimiter:
-    instances:
-      user-service:
-        timeout-duration: 5s               # 유지
-```
+#### 1. 인증 구조 분석 문서 작성
+- `docs/maintenance/2025-11-11/phase2-authentication-analysis.md`
+- 필터 실행 순서 및 충돌 가능성 상세 분석
 
-**효과**:
-- 실패율 70% 이상일 때만 OPEN → 오탐지 감소
-- 최근 50개 호출 기준 → 통계적 신뢰도 향상
-- 최소 20회 호출 후 평가 → 초기 트래픽에서 오탐지 방지
-- OPEN 상태 8초 → 빠른 복구 시도
+#### 2. 보안 상태 점검 문서 작성
+- `docs/maintenance/2025-11-11/security-status-check.md`
+- API 접근 제어 및 관리자 권한 상태 확인
 
-#### 3단계: Chat 서비스 OpenAI 설정 완화
-**변경된 설정**:
+#### 3. 블랙리스트 저장 위치 분석 문서 작성
+- `docs/maintenance/2025-11-11/blacklist-storage-location.md`
+- 현재 저장 방식 및 영구 저장 필요성 분석
+
+### 권장 개선 사항
+
+#### 1. SecurityConfig 정책 수정 (즉시 필요)
 ```java
-CircuitBreakerConfig.custom()
-    .failureRateThreshold(60)                    // 50 → 60
-    .waitDurationInOpenState(Duration.ofSeconds(10))  // 15s → 10s
-    .slidingWindowSize(30)                      // 20 → 30
-    .minimumNumberOfCalls(15)                  // 10 → 15
-    .permittedNumberOfCallsInHalfOpenState(3)
-    .build();
-
-TimeLimiterConfig.custom()
-    .timeoutDuration(Duration.ofSeconds(15))    // 12s → 15s
-    .build();
+.pathMatchers("/api/admin/**").authenticated()  // 관리자 API는 인증 필요
+.pathMatchers("/api/auth/**").permitAll()       // Auth API는 허용
+.pathMatchers("/api/**").authenticated()        // 나머지는 인증 필요
 ```
 
-**효과**:
-- 실패율 60% 이상일 때만 OPEN → 외부 API 지연에 더 관대
-- 타임아웃 15초로 증가 → 스트리밍 응답 여유 확보
-- 더 많은 표본 수로 통계적 신뢰도 향상
+#### 2. 관리자 권한 체크 추가 (즉시 필요)
+- JWT 토큰에서 역할(role) 클레임 확인
+- `ROLE_ADMIN` 권한이 있는 사용자만 접근 허용
 
-#### 4단계: Gateway 서비스에 GET 리트라이 추가
-**추가된 설정**:
+#### 3. 블랙리스트 영구 저장 (단기 개선)
+- Redis를 활용한 영구 저장 기능 추가
+- 서버 재시작 후에도 런타임에 추가한 IP 유지
+
+### 결과
+
+#### 분석 전
+- 인증 구조의 충돌 가능성 불명확
+- 관리자 권한 체크 필요성 인지하지 못함
+- 블랙리스트 저장 위치 불명확
+
+#### 분석 후
+- 인증 구조의 충돌 지점 명확히 파악
+- 보안 취약점 발견 및 개선 방향 제시
+- 블랙리스트 저장 방식 및 개선 필요성 확인
+
+### 교훈
+
+1. **정기적인 보안 점검**: 인증/인가 구조를 정기적으로 검토
+2. **다층 보안**: 설정 파일, 필터, 컨트롤러 레벨에서 일관된 정책 적용
+3. **권한 관리**: 역할 기반 접근 제어(RBAC) 구현 필요
+4. **데이터 영구성**: 중요한 보안 설정은 영구 저장 필요
+
+### 관련 파일
+- `gateway/src/main/java/com/dorandoran/gateway/config/SecurityConfig.java`
+- `gateway/src/main/java/com/dorandoran/gateway/filter/JwtAuthFilter.java`
+- `gateway/src/main/java/com/dorandoran/gateway/filter/IpBlacklistFilter.java`
+- `docs/maintenance/2025-11-11/phase2-authentication-analysis.md`
+- `docs/maintenance/2025-11-11/security-status-check.md`
+- `docs/maintenance/2025-11-11/blacklist-storage-location.md`
+
+---
+
+## Google OAuth 2.0 로그인 구현 및 문제 해결
+
+### 문제 발생 일시
+2025-11-19
+
+### 문제 상황
+- `POST /api/auth/oauth/login` 요청 시 401 Unauthorized 에러 발생
+- 브라우저 콘솔에 "Cross-Origin-Opener-Policy policy would block the window.postMessage call" 오류
+- CORS 오류 발생
+- Google OAuth 로그인 실패
+
+### 문제 원인 분석
+
+#### 1. Gateway 레벨 인증 문제
+- **문제**: `JwtAuthFilter`가 `/api/auth/oauth/login` 경로에 대해 인증을 요구
+- **원인**: `isExcludedPath()` 메서드에 OAuth 로그인 경로가 하드코딩된 제외 목록에 없음
+- **로그 증거**:
+  ```
+  Authorization 헤더가 없거나 형식이 잘못됨: path=/api/auth/oauth/login
+  ```
+
+#### 2. Auth 서비스 레벨 HMAC 인증 문제
+- **문제**: `HmacAuthInterceptor`가 `/api/auth/oauth/login` 경로에 대해 HMAC 헤더를 요구
+- **원인**: `isExcludedPath()` 메서드에 OAuth 로그인 경로가 제외 목록에 없음
+- **로그 증거**:
+  ```
+  HMAC 헤더 누락: path=/api/auth/oauth/login, excluded=false
+  ```
+
+#### 3. CORS 설정 문제
+- **문제**: 와일드카드 도메인 패턴(`https://*.doran-chat.com`)이 `addAllowedOrigin()`에서 제대로 작동하지 않음
+- **원인**: Spring의 `CorsConfiguration`은 `addAllowedOrigin()`에서 와일드카드를 지원하지 않음
+- **해결**: `addAllowedOriginPattern()` 메서드 사용 필요
+
+#### 4. COOP (Cross-Origin-Opener-Policy) 문제
+- **문제**: Google OAuth 팝업과 메인 창 간의 `postMessage` 통신이 COOP 정책에 의해 차단됨
+- **원인**: COOP 헤더가 설정되지 않아 브라우저의 기본 정책이 적용됨
+- **영향**: Google OAuth 팝업에서 로그인 완료 후 메인 창으로 결과를 전달할 수 없음
+
+### 해결 방법
+
+#### Phase 1: Gateway 인증 제외 추가
+
+**1. JwtAuthFilter 수정**
+```java
+// gateway/src/main/java/com/dorandoran/gateway/filter/JwtAuthFilter.java
+private boolean isExcludedPath(String path) {
+    return path.startsWith("/actuator") || 
+           path.equals("/") ||
+           path.startsWith("/api/auth/login") ||
+           path.startsWith("/api/auth/refresh") ||
+           path.startsWith("/api/auth/password/reset") ||
+           path.startsWith("/api/auth/health") ||
+           path.startsWith("/api/auth/email/request-verification") ||
+           path.startsWith("/api/auth/email/verify") ||
+           path.startsWith("/api/auth/email/check") ||
+           path.startsWith("/api/auth/oauth/login") ||  // OAuth 로그인 엔드포인트 제외
+           path.equals("/api/users") ||
+           path.startsWith("/api/users/register") ||
+           path.startsWith("/api/users/health") ||
+           path.startsWith("/api/users/email/") ||
+           path.startsWith("/api/users/auth/email/") ||
+           path.startsWith("/api/users/check-email/") ||
+           path.startsWith("/api/batch/");
+}
+```
+
+**2. application.yml 설정 확인**
 ```yaml
-spring:
-  cloud:
-    gateway:
-      routes:
-        - id: auth-service
-          filters:
-            - name: Retry
-              args:
-                retries: 2
-                methods: GET
-                backoff:
-                  firstBackoff: 200ms
-                  factor: 1.5
-                  maxBackoff: 500ms
-        - id: user-service
-          filters:
-            - name: Retry
-              args:
-                retries: 2
-                methods: GET
-                backoff:
-                  firstBackoff: 200ms
-                  factor: 1.5
-                  maxBackoff: 500ms
+# gateway/src/main/resources/application.yml
+gateway:
+  auth:
+    exclusions:
+      - /actuator
+      - /
+      - /api/auth/login
+      - /api/auth/refresh
+      - /api/auth/password/reset
+      - /api/auth/health
+      - /api/auth/email/request-verification
+      - /api/auth/email/verify
+      - /api/auth/email/check
+      - /api/auth/oauth/login  # OAuth 로그인 엔드포인트 제외
 ```
 
-**효과**:
-- 간헐적 네트워크 문제에 대해 GET 요청만 자동 재시도
-- POST/PUT 등 멱등성이 없는 메서드는 재시도하지 않아 안전성 보장
+#### Phase 2: Auth 서비스 HMAC 인증 제외 추가
 
-### 해결 원리
+**HmacAuthInterceptor 수정**
+```java
+// auth/src/main/java/com/dorandoran/auth/config/HmacAuthInterceptor.java
+private boolean isExcludedPath(String path) {
+    return path.startsWith("/actuator") || 
+           path.equals("/") || 
+           path.startsWith("/swagger-ui") || 
+           path.startsWith("/v3/api-docs") || 
+           path.startsWith("/api-docs") || 
+           path.startsWith("/api/auth/login") || 
+           path.startsWith("/api/auth/refresh") || 
+           path.startsWith("/api/auth/password/reset") || 
+           path.startsWith("/api/auth/health") ||
+           path.startsWith("/api/auth/validate") ||
+           path.startsWith("/api/auth/email/request-verification") ||
+           path.startsWith("/api/auth/email/verify") ||
+           path.startsWith("/api/auth/email/check") ||
+           path.startsWith("/api/auth/oauth/login") ||  // OAuth 로그인 엔드포인트 제외
+           path.startsWith("/error");
+}
+```
 
-#### 1. 오탐지 감소
-- **더 높은 실패율 임계값**: 50% → 70%로 증가하여 일시적 오류에 덜 민감
-- **더 큰 표본 크기**: 10 → 50으로 증가하여 통계적 신뢰도 향상
-- **더 많은 최소 호출 수**: 5 → 20으로 증가하여 초기 트래픽에서 오탐지 방지
+#### Phase 3: CORS 설정 개선
 
-#### 2. 빠른 복구
-- **짧은 OPEN 상태 지속 시간**: 30s → 8s로 감소하여 빠른 복구 시도
-- **HALF_OPEN 상태에서 더 많은 테스트**: 3 → 5로 증가하여 복구 신뢰도 향상
+**SecurityConfig 수정**
+```java
+// gateway/src/main/java/com/dorandoran/gateway/config/SecurityConfig.java
+@Bean
+public CorsWebFilter corsWebFilter() {
+    CorsConfiguration corsConfig = new CorsConfiguration();
+    corsConfig.setAllowCredentials(true);
 
-#### 3. 과도한 재시도 방지
-- **재시도 횟수 감소**: 3회 → 2회로 감소하여 부하 완화
-- **재시도 대기 시간 단축**: 1s → 300ms로 감소하여 빠른 응답
-- **덜 공격적인 백오프**: multiplier 2.0 → 1.8로 조정
+    // 로컬 개발 환경
+    corsConfig.addAllowedOrigin("http://localhost:3000");
+    corsConfig.addAllowedOrigin("http://localhost:3001");
+    corsConfig.addAllowedOrigin("http://127.0.0.1:3000");
+    corsConfig.addAllowedOrigin("http://127.0.0.1:3001");
+    
+    // 프로덕션 도메인
+    corsConfig.addAllowedOrigin("https://doran-chat.com");
+    corsConfig.addAllowedOrigin("https://www.doran-chat.com");
+    corsConfig.addAllowedOrigin("https://doran-chat.vercel.app");
+    
+    // 와일드카드 도메인 허용 (Spring 5.3+)
+    // addAllowedOriginPattern()을 사용하여 패턴 기반 허용
+    corsConfig.addAllowedOriginPattern("https://*.doran-chat.com");
+    corsConfig.addAllowedOriginPattern("https://*.vercel.app");
+
+    corsConfig.addAllowedHeader("*");
+    corsConfig.addAllowedMethod("*");
+    corsConfig.addExposedHeader("*");
+
+    UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+    source.registerCorsConfiguration("/**", corsConfig);
+
+    return new CorsWebFilter(source);
+}
+```
+
+#### Phase 4: COOP 헤더 설정
+
+**SecurityConfig에 COOP 필터 추가**
+```java
+// gateway/src/main/java/com/dorandoran/gateway/config/SecurityConfig.java
+/**
+ * Google OAuth 팝업과의 postMessage 통신을 위해 COOP 헤더를 설정하는 필터
+ */
+@Bean
+public org.springframework.web.server.WebFilter coopHeaderFilter() {
+    return (exchange, chain) -> {
+        org.springframework.http.server.reactive.ServerHttpResponse response = exchange.getResponse();
+        org.springframework.http.HttpHeaders headers = response.getHeaders();
+        
+        // COOP 헤더가 이미 설정되어 있지 않으면 unsafe-none으로 설정
+        if (!headers.containsKey("Cross-Origin-Opener-Policy")) {
+            headers.add("Cross-Origin-Opener-Policy", "unsafe-none");
+        }
+        
+        return chain.filter(exchange);
+    };
+}
+```
+
+**CorsResponseFilter에도 COOP 헤더 추가**
+```java
+// gateway/src/main/java/com/dorandoran/gateway/filter/CorsResponseFilter.java
+if (origin != null && isAllowedOrigin(origin)) {
+    headers.add(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN, origin);
+    headers.add(HttpHeaders.ACCESS_CONTROL_ALLOW_CREDENTIALS, "true");
+    headers.add(HttpHeaders.ACCESS_CONTROL_ALLOW_METHODS, "GET, POST, PUT, DELETE, OPTIONS, PATCH");
+    headers.add(HttpHeaders.ACCESS_CONTROL_ALLOW_HEADERS, "*");
+    headers.add(HttpHeaders.ACCESS_CONTROL_EXPOSE_HEADERS, "*");
+    
+    // SSE를 위한 추가 헤더
+    headers.add(HttpHeaders.CACHE_CONTROL, "no-cache");
+    headers.add(HttpHeaders.CONNECTION, "keep-alive");
+    
+    // Google OAuth 팝업과의 postMessage 통신을 위해 COOP 헤더 설정
+    headers.add("Cross-Origin-Opener-Policy", "unsafe-none");
+}
+```
 
 ### 결과
 
 #### 해결 전
-- 사용자 로그인 시 간헐적 실패 발생
-- Circuit Breaker가 자주 OPEN 상태로 전이
-- 정상 트래픽도 차단되어 503 에러 발생
-- 사용자 경험 저하
+- OAuth 로그인 요청 시 401 Unauthorized 에러
+- CORS 오류로 인한 요청 실패
+- Google OAuth 팝업과 메인 창 간 통신 차단
+- 로그:
+  ```
+  Authorization 헤더가 없거나 형식이 잘못됨: path=/api/auth/oauth/login
+  HMAC 헤더 누락: path=/api/auth/oauth/login, excluded=false
+  Cross-Origin-Opener-Policy policy would block the window.postMessage call
+  ```
 
 #### 해결 후
-- ✅ Circuit Breaker 오탐지 대폭 감소
-- ✅ 정상 트래픽 차단 최소화
-- ✅ 빠른 복구로 서비스 가용성 향상
-- ✅ 재시도 로직 최적화로 부하 완화
+- OAuth 로그인 요청 정상 처리
+- CORS 헤더 정상 설정
+- Google OAuth 팝업과 메인 창 간 통신 정상
+- 응답 헤더:
+  ```
+  access-control-allow-origin: https://www.doran-chat.com
+  access-control-allow-credentials: true
+  cross-origin-opener-policy: unsafe-none
+  ```
 
 ### 교훈
 
-1. **서비스 오픈 초기 설정 전략**: 보수적인(엄격한) 설정보다 관대한 설정으로 시작
-2. **통계적 신뢰도**: 작은 표본 크기는 오탐지를 유발할 수 있음
-3. **점진적 조정**: 실제 장애 패턴을 관찰한 후 설정값을 점진적으로 조정
-4. **모니터링의 중요성**: Circuit Breaker 상태 전이를 모니터링하여 설정값 검증
-5. **서비스 특성 고려**: 외부 API(OpenAI)는 내부 서비스보다 더 관대한 설정 필요
-
-### 권장 사항
-
-#### 서비스 오픈 초기 권장 설정 (60~70 동시 사용자 기준)
-- `failure-rate-threshold`: 70 (일시적 오류에 덜 민감)
-- `sliding-window-size`: 50 이상 (충분한 표본)
-- `minimum-number-of-calls`: 20 이상 (초기 오탐지 방지)
-- `wait-duration-in-open-state`: 8~10s (빠른 복구)
-- `max-attempts`: 2회 (과도한 재시도 방지)
-
-#### 모니터링 지표
-- Circuit Breaker 상태 전이 빈도 (OPEN → HALF_OPEN → CLOSED)
-- 실패율 추이 (실제 장애 vs 오탐지)
-- 재시도 성공률
-- 타임아웃 발생 빈도
+1. **인증 제외 경로 관리**: 새로운 공개 API 엔드포인트 추가 시 Gateway와 각 서비스의 인증 필터 모두에 제외 경로 추가 필요
+2. **CORS 설정 주의**: 와일드카드 도메인은 `addAllowedOriginPattern()` 사용, 정확한 도메인은 `addAllowedOrigin()` 사용
+3. **COOP 헤더 이해**: OAuth 팝업 통신을 위해서는 COOP 헤더를 `unsafe-none`으로 설정해야 함
+4. **다층 인증 체크**: Gateway 레벨과 서비스 레벨 모두에서 인증 제외 경로 확인 필요
+5. **로그 분석**: 401 에러 발생 시 어느 레벨에서 차단되었는지 로그로 확인
 
 ### 관련 파일
-- `auth/src/main/resources/application-docker.yml`
-- `chat/src/main/java/com/dorandoran/chat/config/ResilienceConfig.java`
+- `gateway/src/main/java/com/dorandoran/gateway/filter/JwtAuthFilter.java`
+- `gateway/src/main/java/com/dorandoran/gateway/config/SecurityConfig.java`
+- `gateway/src/main/java/com/dorandoran/gateway/filter/CorsResponseFilter.java`
+- `auth/src/main/java/com/dorandoran/auth/config/HmacAuthInterceptor.java`
+- `gateway/src/main/resources/application.yml`
 - `gateway/src/main/resources/application-docker.yml`
+- `docs/GOOGLE_OAUTH_FRONTEND_INTEGRATION.md`

@@ -1,6 +1,9 @@
 package com.dorandoran.chat.service;
 
 import com.dorandoran.chat.config.AIConfig;
+import com.dorandoran.chat.entity.ChatRoom;
+import com.dorandoran.chat.repository.ChatRoomRepository;
+import com.fasterxml.jackson.databind.JsonNode;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpHeaders;
@@ -8,14 +11,16 @@ import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.BodyInserters;
 import org.springframework.web.reactive.function.client.WebClient;
+import org.springframework.web.reactive.function.client.WebClientResponseException;
 import reactor.core.publisher.Flux;
-import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+import java.util.UUID;
 
 @Component
 @RequiredArgsConstructor
@@ -23,6 +28,7 @@ import java.util.Map;
 public class OpenAIClient {
 
     private final AIConfig aiConfig;
+    private final ChatRoomRepository chatRoomRepository;
 
     private WebClient webClient() {
         return WebClient.builder()
@@ -31,29 +37,119 @@ public class OpenAIClient {
             .defaultHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
             .build();
     }
+    
+    /**
+     * 채팅방 ID로 모델 선택
+     * settings에 testModel이 있으면 해당 테스트 모델 사용, 없으면 기본 모델 사용
+     */
+    public String getModelForChatRoom(UUID chatroomId) {
+        Optional<ChatRoom> roomOpt = chatRoomRepository.findById(chatroomId);
+        if (roomOpt.isEmpty()) {
+            log.warn("채팅방을 찾을 수 없음: chatroomId={}, 기본 모델 사용", chatroomId);
+            return aiConfig.getModel();
+        }
+        
+        ChatRoom room = roomOpt.get();
+        JsonNode settings = room.getSettings();
+        if (settings != null && settings.has("testModel")) {
+            String testModel = settings.get("testModel").asText();
+            String selectedModel = switch (testModel) {
+                case "a" -> aiConfig.getTestModels().getModelA();
+                case "b" -> aiConfig.getTestModels().getModelB();
+                case "c" -> aiConfig.getTestModels().getModelC();
+                default -> aiConfig.getModel();
+            };
+            log.info("테스트 모델 사용: chatroomId={}, testModel={}, selectedModel={}", chatroomId, testModel, selectedModel);
+            return selectedModel;
+        }
+        
+        return aiConfig.getModel();
+    }
+
+    /**
+     * 모델명에 따라 max_tokens 또는 max_completion_tokens 파라미터 사용 여부 결정
+     * gpt-4o, gpt-5.1 등 일부 모델은 max_completion_tokens 사용 필요
+     */
+    private boolean requiresMaxCompletionTokens(String model) {
+        if (model == null || model.isBlank()) {
+            return false;
+        }
+        // gpt-4o 시리즈와 gpt-5 시리즈는 max_completion_tokens 사용
+        return model.startsWith("gpt-4o") || model.startsWith("gpt-5");
+    }
 
     /**
      * OpenAI Chat Completions API (stream=true) 호출 - RAW 라인 스트림
+     * 기본 temperature 0.85 사용
      */
     public Flux<String> streamRawCompletion(String systemPrompt, String userContent) {
-        log.info("OpenAI API 요청 시작");
+        return streamRawCompletion(systemPrompt, userContent, 0.85, aiConfig.getMaxOutputTokens());
+    }
+    
+    /**
+     * OpenAI Chat Completions API (stream=true) 호출 - RAW 라인 스트림
+     * Temperature와 maxTokens를 파라미터로 받는 오버로드
+     */
+    public Flux<String> streamRawCompletion(String systemPrompt, String userContent, Double temperature, Integer maxTokens) {
+        return streamRawCompletion(systemPrompt, userContent, temperature, maxTokens, null);
+    }
+    
+    /**
+     * OpenAI Chat Completions API (stream=true) 호출 - RAW 라인 스트림
+     * 채팅방 ID를 받아서 모델 선택
+     */
+    public Flux<String> streamRawCompletion(String systemPrompt, String userContent, Double temperature, Integer maxTokens, UUID chatroomId) {
+        String model = chatroomId != null ? getModelForChatRoom(chatroomId) : aiConfig.getModel();
+        log.info("OpenAI API 요청 시작 (model={}, temperature={}, maxTokens={})", model, temperature, maxTokens);
         
-        Map<String, Object> req = Map.of(
-            "model", aiConfig.getModel(),
-            "stream", true,
-            "max_tokens", aiConfig.getMaxOutputTokens(),
-            "temperature", 0.85,
-            "messages", new Object[]{
-                Map.of(
-                    "role", "system",
-                    "content", systemPrompt == null ? "" : systemPrompt
-                ),
-                Map.of(
-                    "role", "user",
-                    "content", userContent
-                )
-            }
-        );
+        // 프롬프트 검증 및 로깅
+        if (systemPrompt == null || systemPrompt.isBlank()) {
+            log.warn("⚠️⚠️⚠️ OpenAIClient: systemPrompt가 null이거나 비어있습니다! 빈 문자열로 전송됩니다.");
+        } else {
+            log.debug("OpenAIClient: systemPrompt 길이={}, 내용 (처음 200자)={}", 
+                systemPrompt.length(), systemPrompt.substring(0, Math.min(200, systemPrompt.length())));
+        }
+        
+        int tokenLimit = maxTokens != null ? maxTokens : aiConfig.getMaxOutputTokens();
+        boolean useMaxCompletionTokens = requiresMaxCompletionTokens(model);
+        
+        // 모델별 파라미터 분기 처리
+        Map<String, Object> req;
+        if (useMaxCompletionTokens) {
+            req = Map.of(
+                "model", model,
+                "stream", true,
+                "max_completion_tokens", tokenLimit,
+                "temperature", temperature != null ? temperature : 0.85,
+                "messages", new Object[]{
+                    Map.of(
+                        "role", "system",
+                        "content", systemPrompt == null ? "" : systemPrompt
+                    ),
+                    Map.of(
+                        "role", "user",
+                        "content", userContent
+                    )
+                }
+            );
+        } else {
+            req = Map.of(
+                "model", model,
+                "stream", true,
+                "max_tokens", tokenLimit,
+                "temperature", temperature != null ? temperature : 0.85,
+                "messages", new Object[]{
+                    Map.of(
+                        "role", "system",
+                        "content", systemPrompt == null ? "" : systemPrompt
+                    ),
+                    Map.of(
+                        "role", "user",
+                        "content", userContent
+                    )
+                }
+            );
+        }
 
         return webClient()
             .post()
@@ -62,7 +158,14 @@ public class OpenAIClient {
             .accept(MediaType.TEXT_EVENT_STREAM, MediaType.APPLICATION_JSON)
             .retrieve()
             .bodyToFlux(String.class)
-            .doOnError(error -> log.error("OpenAI 스트림 오류: {}", error.getMessage()))
+            .doOnError(error -> {
+                if (error instanceof WebClientResponseException ex) {
+                    log.error("OpenAI 스트림 오류: status={}, responseBody={}", 
+                        ex.getStatusCode(), ex.getResponseBodyAsString());
+                } else {
+                    log.error("OpenAI 스트림 오류: {}", error.getMessage());
+                }
+            })
             .filter(s -> s != null && !s.isEmpty())
             .takeWhile(s -> !"[DONE]".equals(s.trim()));
     }
@@ -126,27 +229,52 @@ public class OpenAIClient {
      * @return AI 응답 텍스트
      */
     public String simpleCompletion(String systemPrompt, String userMessage) {
-        log.info("OpenAI 동기 호출 시작: systemPrompt={}, userMessage={}", 
-            systemPrompt != null ? systemPrompt.substring(0, Math.min(50, systemPrompt.length())) : "", 
-            userMessage);
+        return simpleCompletion(systemPrompt, userMessage, null);
+    }
+    
+    /**
+     * 동기 방식 OpenAI 완료 호출 (채팅방 ID로 모델 선택)
+     * GreetingService 등 일회성 호출에 사용
+     * 
+     * @param systemPrompt 시스템 프롬프트
+     * @param userMessage 사용자 메시지
+     * @param chatroomId 채팅방 ID (모델 선택용)
+     * @return AI 응답 텍스트
+     */
+    public String simpleCompletion(String systemPrompt, String userMessage, UUID chatroomId) {
+        log.info("=== OpenAIClient.simpleCompletion() ===");
+        log.info("systemPrompt 길이={}자", systemPrompt != null ? systemPrompt.length() : 0);
+        log.info("systemPrompt 내용 (처음 500자): {}", 
+            systemPrompt != null ? systemPrompt.substring(0, Math.min(500, systemPrompt.length())) : "null");
+        if (systemPrompt != null && systemPrompt.length() > 500) {
+            log.info("systemPrompt 내용 (마지막 300자): {}", 
+                systemPrompt.substring(Math.max(0, systemPrompt.length() - 300)));
+        }
+        log.info("userMessage={}", userMessage);
         
         try {
-            List<String> chunks = streamRawCompletion(systemPrompt, userMessage)
+            List<String> chunks = streamRawCompletion(systemPrompt, userMessage, 0.85, aiConfig.getMaxOutputTokens(), chatroomId)
                 .flatMap(this::extractText)
                 .collectList()
                 .block(Duration.ofSeconds(30));  // 30초 타임아웃 설정
             
             if (chunks == null || chunks.isEmpty()) {
-                log.warn("OpenAI 응답이 비어있습니다");
+                log.warn("⚠️⚠️⚠️ OpenAI 응답이 비어있습니다");
                 return "";
             }
             
             String result = String.join("", chunks);
-            log.info("OpenAI 동기 호출 완료: length={}", result.length());
+            log.info("OpenAI 동기 호출 완료: 응답 길이={}자", result.length());
+            log.info("OpenAI 응답 내용 (전체): {}", result);
             return result;
             
         } catch (Exception e) {
-            log.error("OpenAI 동기 호출 실패", e);
+            if (e instanceof WebClientResponseException ex) {
+                log.error("⚠️⚠️⚠️ OpenAI 동기 호출 실패: status={}, responseBody={}", 
+                    ex.getStatusCode(), ex.getResponseBodyAsString(), ex);
+            } else {
+                log.error("⚠️⚠️⚠️ OpenAI 동기 호출 실패", e);
+            }
             throw new RuntimeException("AI 응답 생성 실패", e);
         }
     }
@@ -161,7 +289,23 @@ public class OpenAIClient {
             String systemPrompt,
             List<Map<String, String>> messageHistory,
             String userContent) {
-        log.info("OpenAI API 요청 시작 (히스토리 포함): {} 개 메시지", messageHistory.size());
+        return streamRawCompletionWithHistory(systemPrompt, messageHistory, userContent, null);
+    }
+    
+    /**
+     * OpenAI Chat Completions API (stream=true) - 히스토리 포함 (채팅방 ID로 모델 선택)
+     * @param systemPrompt 시스템 프롬프트
+     * @param messageHistory 대화 히스토리 List<Map<String, String>> 형식
+     * @param userContent 현재 사용자 메시지
+     * @param chatroomId 채팅방 ID (모델 선택용)
+     */
+    public Flux<String> streamRawCompletionWithHistory(
+            String systemPrompt,
+            List<Map<String, String>> messageHistory,
+            String userContent,
+            UUID chatroomId) {
+        String model = chatroomId != null ? getModelForChatRoom(chatroomId) : aiConfig.getModel();
+        log.info("OpenAI API 요청 시작 (히스토리 포함, model={}): {} 개 메시지", model, messageHistory.size());
         
         // messages 배열 구성: [system, ...history, user]
         List<Object> messages = new ArrayList<>();
@@ -183,13 +327,26 @@ public class OpenAIClient {
         // 3. 사용자 메시지
         messages.add(Map.of("role", "user", "content", userContent));
         
-        Map<String, Object> req = Map.of(
-            "model", aiConfig.getModel(),
-            "stream", true,
-            "max_tokens", aiConfig.getMaxOutputTokens(),
-            "temperature", 0.85,
-            "messages", messages.toArray()
-        );
+        // 모델별 파라미터 분기 처리
+        boolean useMaxCompletionTokens = requiresMaxCompletionTokens(model);
+        Map<String, Object> req;
+        if (useMaxCompletionTokens) {
+            req = Map.of(
+                "model", model,
+                "stream", true,
+                "max_completion_tokens", aiConfig.getMaxOutputTokens(),
+                "temperature", 0.85,
+                "messages", messages.toArray()
+            );
+        } else {
+            req = Map.of(
+                "model", model,
+                "stream", true,
+                "max_tokens", aiConfig.getMaxOutputTokens(),
+                "temperature", 0.85,
+                "messages", messages.toArray()
+            );
+        }
 
         return webClient()
             .post()
@@ -198,7 +355,14 @@ public class OpenAIClient {
             .accept(MediaType.TEXT_EVENT_STREAM, MediaType.APPLICATION_JSON)
             .retrieve()
             .bodyToFlux(String.class)
-            .doOnError(error -> log.error("OpenAI 스트림 오류: {}", error.getMessage()))
+            .doOnError(error -> {
+                if (error instanceof WebClientResponseException ex) {
+                    log.error("OpenAI 스트림 오류: status={}, responseBody={}", 
+                        ex.getStatusCode(), ex.getResponseBodyAsString());
+                } else {
+                    log.error("OpenAI 스트림 오류: {}", error.getMessage());
+                }
+            })
             .filter(s -> s != null && !s.isEmpty())
             .takeWhile(s -> !"[DONE]".equals(s.trim()));
     }

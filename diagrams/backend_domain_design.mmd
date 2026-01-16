@@ -1,0 +1,83 @@
+graph TB
+    %% ============================================
+    %% Backend Domain Design
+    %% ============================================
+    
+    subgraph "User Domain (user_schema)"
+        User[app_user<br/>UUID id PK<br/>email, name, password_hash<br/>status, role, oauth_provider]
+        Profile[profiles<br/>user_id FK<br/>bio, avatar_url, settings JSONB]
+        Setting[settings<br/>user_id FK<br/>setting_key, setting_value]
+        
+        User ||--o{ Profile : "has"
+        User ||--o{ Setting : "has"
+    end
+    
+    subgraph "Auth Domain (auth_schema)"
+        RefreshToken[refresh_tokens<br/>user_id FK<br/>token, expires_at, revoked]
+        LoginAttempt[login_attempts<br/>user_id FK<br/>succeeded, ip_address]
+        EmailVerification[email_verifications<br/>user_id FK<br/>token_hash, verified]
+        PasswordReset[password_reset_tokens<br/>user_id FK<br/>token_hash, used]
+        TokenBlacklist[token_blacklist<br/>token_hash<br/>token_type, reason]
+        AuthEvent[auth_events<br/>user_id FK<br/>event_type, metadata JSONB]
+        
+        User ||--o{ RefreshToken : "has"
+        User ||--o{ LoginAttempt : "has"
+        User ||--o{ EmailVerification : "has"
+        User ||--o{ PasswordReset : "has"
+        User ||--o{ AuthEvent : "has"
+    end
+    
+    subgraph "Chat Domain (chat_schema)"
+        Chatbot[chatbots<br/>UUID id PK<br/>name, bot_type, model_name<br/>personality JSONB<br/>system_prompt<br/>intimacy_level 1-3<br/>settings JSONB]
+        Chatroom[chatrooms<br/>UUID id PK<br/>chatbot_id FK<br/>user_id FK<br/>settings JSONB<br/>context_data JSONB]
+        Message[messages<br/>UUID id PK<br/>chatroom_id FK<br/>sender_type, content<br/>sequence_number<br/>parent_message_id FK]
+        IntimacyProgress[intimacy_progress<br/>chatroom_id FK UNIQUE<br/>user_id FK<br/>intimacy_level 1-3<br/>progress_data JSONB]
+        UserChatbotInteraction[user_chatbot_last_interaction<br/>user_id PK<br/>chatbot_id PK<br/>last_interaction_at]
+        
+        User ||--o{ Chatbot : "created_by"
+        Chatbot ||--o{ Chatroom : "has"
+        User ||--o{ Chatroom : "owns"
+        Chatroom ||--o{ Message : "contains"
+        Message ||--o{ Message : "parent"
+        Chatroom ||--o| IntimacyProgress : "has"
+        User ||--o{ IntimacyProgress : "has"
+        User ||--o{ UserChatbotInteraction : "has"
+        Chatbot ||--o{ UserChatbotInteraction : "has"
+    end
+    
+    subgraph "Store Domain (store_schema)"
+        Store[stores<br/>UUID id PK<br/>user_id FK<br/>message_id FK<br/>chatroom_id FK<br/>content, corrected_content<br/>ai_response JSONB]
+        
+        User ||--o{ Store : "has"
+        Chatroom ||--o{ Store : "references"
+        Message ||--o{ Store : "references"
+    end
+    
+    subgraph "Billing Domain"
+        AiUsageEvent[ai_usage_events<br/>UUID id PK<br/>user_id FK<br/>chatroom_id FK<br/>provider, model<br/>input_tokens, output_tokens<br/>cost_in, cost_out]
+        MonthlyUserCost[monthly_user_costs<br/>billing_month PK<br/>user_id PK<br/>input_tokens, output_tokens<br/>total_cost]
+        
+        User ||--o{ AiUsageEvent : "has"
+        Chatroom ||--o{ AiUsageEvent : "has"
+        User ||--|| MonthlyUserCost : "has"
+    end
+    
+    %% Cross-domain relationships
+    User -.->|references| Chatbot
+    User -.->|references| Chatroom
+    User -.->|references| Store
+    
+    %% Styling
+    classDef userDomain fill:#e3f2fd,stroke:#0277bd,stroke-width:2px
+    classDef authDomain fill:#fff3e0,stroke:#f57c00,stroke-width:2px
+    classDef chatDomain fill:#f3e5f5,stroke:#4a148c,stroke-width:2px
+    classDef storeDomain fill:#e8f5e9,stroke:#1b5e20,stroke-width:2px
+    classDef billingDomain fill:#fce4ec,stroke:#c2185b,stroke-width:2px
+    
+    class User,Profile,Setting userDomain
+    class RefreshToken,LoginAttempt,EmailVerification,PasswordReset,TokenBlacklist,AuthEvent authDomain
+    class Chatbot,Chatroom,Message,IntimacyProgress,UserChatbotInteraction chatDomain
+    class Store storeDomain
+    class AiUsageEvent,MonthlyUserCost billingDomain
+
+
