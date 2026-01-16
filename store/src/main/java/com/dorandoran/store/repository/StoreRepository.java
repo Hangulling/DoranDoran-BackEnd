@@ -131,4 +131,15 @@ public interface StoreRepository extends JpaRepository<Store, UUID> {
       "AND ai_response->>'description' != ''",
       nativeQuery = true)
   long countByUserIdWithAiDescription(@Param("userId") UUID userId);
+
+  /**
+   * 봇 타입별 보관 수 조회
+   * 사용자별로 각 봇 타입에 몇 개씩 저장했는지 카운트
+   *
+   * @param userId 사용자 ID
+   * @param botType 봇 타입 (friend, honey, coworker, senior)
+   * @return 해당 봇 타입의 보관 수
+   */
+  long countByUserIdAndBotTypeAndIsDeletedFalse(UUID userId, String botType);
+
 }
