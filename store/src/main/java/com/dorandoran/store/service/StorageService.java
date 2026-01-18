@@ -3,6 +3,7 @@ package com.dorandoran.store.service;
 import com.dorandoran.store.client.ChatServiceClient;
 import com.dorandoran.store.client.dto.ChatRoomDto;
 import com.dorandoran.store.dto.request.BookmarkRequest;
+import com.dorandoran.store.dto.response.BookmarkCountByBotResponse;
 import com.dorandoran.store.dto.response.BookmarkResponse;
 import com.dorandoran.store.dto.response.StorageListResponse;
 import com.dorandoran.store.entity.Store;
@@ -359,6 +360,36 @@ public class StorageService {
     });
   }
 
+  /**
+   * 봇 타입별 보관 수 조회
+   * DB 직접 조회로 실시간 정확도 보장
+   *
+   * @param userId 사용자 ID
+   * @return 봇 타입별 보관 수
+   */
+  public BookmarkCountByBotResponse countBookmarksByBotType(UUID userId) {
+    log.info("봇 타입별 보관 수 조회 시작: userId={}", userId);
+
+    // DB 직접 조회 (COUNT 쿼리는 인덱스로 충분히 빠름)
+    Long friendCount = storeRepository.countByUserIdAndBotTypeAndIsDeletedFalse(userId, "friend");
+    Long honeyCount = storeRepository.countByUserIdAndBotTypeAndIsDeletedFalse(userId, "honey");
+    Long coworkerCount = storeRepository.countByUserIdAndBotTypeAndIsDeletedFalse(userId, "coworker");
+    Long seniorCount = storeRepository.countByUserIdAndBotTypeAndIsDeletedFalse(userId, "senior");
+
+    BookmarkCountByBotResponse response = BookmarkCountByBotResponse.builder()
+        .friendCount(friendCount)
+        .honeyCount(honeyCount)
+        .coworkerCount(coworkerCount)
+        .seniorCount(seniorCount)
+        .build();
+
+    response.calculateTotal();
+
+    log.info("봇 타입별 보관 수 조회 완료: userId={}, friend={}, honey={}, coworker={}, senior={}, total={}",
+        userId, friendCount, honeyCount, coworkerCount, seniorCount, response.getTotalCount());
+
+    return response;
+  }
 
   // ========== 캐시 관련 메서드 추가 ==========
 
