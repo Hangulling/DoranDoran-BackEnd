@@ -1,6 +1,7 @@
 package com.dorandoran.store.controller;
 
 import com.dorandoran.store.dto.request.BookmarkRequest;
+import com.dorandoran.store.dto.response.BookmarkCountByBotResponse;
 import com.dorandoran.store.dto.response.BookmarkResponse;
 import com.dorandoran.store.dto.response.StorageListResponse;
 import com.dorandoran.store.service.StorageService;
@@ -33,6 +34,23 @@ import java.util.UUID;
 public class StorageController {
 
   private final StorageService storageService;
+
+  /**
+   * X-User-Id 헤더 파싱
+   * @param userIdHeader X-User-Id 헤더 값
+   * @return UUID 또는 null
+   */
+  private UUID parseUserIdHeader(String userIdHeader) {
+    if (userIdHeader == null || userIdHeader.isBlank()) {
+      return null;
+    }
+    try {
+      return UUID.fromString(userIdHeader);
+    } catch (IllegalArgumentException e) {
+      log.warn("Invalid X-User-Id header format: {}", userIdHeader);
+      return null;
+    }
+  }
 
   /**
    * 표현 보관하기
@@ -277,6 +295,28 @@ public class StorageController {
   }
 
   /**
+   * 봇 타입별 보관 수 조회
+   */
+  @GetMapping("/count/by-bot")
+  @Operation(summary = "봇 타입별 보관 수", description = "사용자의 봇 타입별 보관함 개수 조회 (friend, honey, coworker, senior)")
+  public ResponseEntity<BookmarkCountByBotResponse> countBookmarksByBotType(
+      @Parameter(description = "사용자 ID", required = true)
+      @RequestHeader(value = "X-User-Id", required = false) String userIdHeader) {
+
+    UUID userId = parseUserIdHeader(userIdHeader);
+    if (userId == null) {
+      log.warn("X-User-Id header is missing or invalid");
+      return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
+    }
+
+    log.info("GET /api/store/bookmarks/count/by-bot - userId: {}", userId);
+
+    BookmarkCountByBotResponse response = storageService.countBookmarksByBotType(userId);
+
+    return ResponseEntity.ok(response);
+  }
+
+  /**
    * Cursor 기반 페이징 조회
    */
   @GetMapping("/cursor")
@@ -302,23 +342,6 @@ public class StorageController {
     Page<StorageListResponse> response = storageService.getBookmarksWithCursor(userId, lastId, pageable);
 
     return ResponseEntity.ok(response);
-  }
-
-  /**
-   * X-User-Id 헤더 파싱
-   * @param userIdHeader X-User-Id 헤더 값
-   * @return UUID 또는 null
-   */
-  private UUID parseUserIdHeader(String userIdHeader) {
-    if (userIdHeader == null || userIdHeader.isBlank()) {
-      return null;
-    }
-    try {
-      return UUID.fromString(userIdHeader);
-    } catch (IllegalArgumentException e) {
-      log.warn("Invalid X-User-Id header format: {}", userIdHeader);
-      return null;
-    }
   }
 
   /**
