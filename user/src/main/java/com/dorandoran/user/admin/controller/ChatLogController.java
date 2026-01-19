@@ -1,7 +1,6 @@
 package com.dorandoran.user.admin.controller;
 
 import com.dorandoran.user.admin.dto.request.ChatLogSearchRequest;
-import com.dorandoran.user.admin.dto.request.ExportRequest;
 import com.dorandoran.user.admin.dto.response.*;
 import com.dorandoran.user.admin.service.ChatLogService;
 import java.util.UUID;
@@ -13,8 +12,6 @@ import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -94,35 +91,4 @@ public class ChatLogController {
     return ResponseEntity.ok(timeline);
   }
 
-  /**
-   * 채팅 로그 내보내기 요청
-   * POST /api/admin/chat-logs/export
-   *
-   * @param request 내보내기 요청 (형식, 범위, 필터)
-   * @return 내보내기 응답 (요청 ID 및 상태)
-   */
-  @PostMapping("/export")
-  public ResponseEntity<ExportResponse> exportChatLogs(
-      @Validated @RequestBody ExportRequest request) {
-
-    ExportResponse response = chatLogService.requestExport(request);
-
-    return ResponseEntity.accepted().body(response);
-  }
-
-  /**
-   * 내보내기 상태 조회
-   * GET /api/admin/chat-logs/export/{exportId}
-   *
-   * @param exportId 내보내기 요청 ID
-   * @return 내보내기 상태 정보
-   */
-  @GetMapping("/export/{exportId}")
-  public ResponseEntity<ExportResponse> getExportStatus(
-      @PathVariable UUID exportId) {
-
-    ExportResponse response = chatLogService.getExportStatus(exportId);
-
-    return ResponseEntity.ok(response);
-  }
 }

@@ -1,6 +1,7 @@
 package com.dorandoran.user.admin.service;
 
 import com.dorandoran.user.admin.dto.request.ManagementQueueRequest;
+import com.dorandoran.user.admin.dto.response.ManagementQueueCountResponse;
 import com.dorandoran.user.admin.dto.response.ManagementQueueResponse;
 import com.dorandoran.user.admin.entity.ManagementQueue;
 import com.dorandoran.user.admin.entity.QueueStatus;
@@ -8,6 +9,7 @@ import com.dorandoran.user.admin.entity.QueueType;
 import com.dorandoran.user.admin.repository.ManagementQueueRepository;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -259,6 +261,46 @@ public class ManagementQueueService {
   }
 
   /**
+   * 감사 로그 조회 (기간별, 타입별, 관리자별 필터링)
+   *
+   * @param queueType 큐 타입 (nullable)
+   * @param adminName 관리자 이메일 (nullable)
+   * @param startDate 시작일
+   * @param endDate 종료일
+   * @param page 페이지 번호
+   * @param size 페이지 크기
+   * @return 페이징된 감사 로그 목록
+   */
+  public Page<ManagementQueueResponse> getAuditLogs(
+      QueueType queueType,
+      String adminName,
+      LocalDateTime startDate,
+      LocalDateTime endDate,
+      int page,
+      int size
+  ) {
+    log.info("감사 로그 조회: queueType={}, adminName={}, startDate={}, endDate={}, page={}, size={}",
+        queueType, adminName, startDate, endDate, page, size);
+
+    // 페이징 설정 (최신순 정렬)
+    Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
+
+    // 필터 조회
+    Page<ManagementQueue> queuePage = repository.findByFilters(
+        queueType,
+        adminName,
+        startDate,
+        endDate,
+        pageable
+    );
+
+    log.info("감사 로그 조회 완료: totalElements={}", queuePage.getTotalElements());
+
+    // Entity -> DTO 변환
+    return queuePage.map(this::toResponse);
+  }
+
+  /**
    * JSONB String을 Map으로 파싱
    *
    * @param jsonbString JSONB 문자열
@@ -275,5 +317,173 @@ public class ManagementQueueService {
       log.error("JSONB 파싱 실패: {}", jsonbString, e);
       return Map.of(); // 빈 Map 반환
     }
+  }
+
+  /**
+   * 관리 필요 내역 타입별 카운트 조회
+   *
+   * requestData.items 배열 내 type 필드를 집계
+   * - intimacy, conversation, voca 타입별 PENDING 건수
+   *
+   * @param status 상태 (PENDING/COMPLETED)
+   * @return 타입별 카운트
+   */
+  public ManagementQueueCountResponse getCountByItemType(QueueStatus status) {
+    log.info("관리 필요 내역 타입별 카운트 조회: status={}", status);
+
+    // 상태별 전체 조회
+    List<ManagementQueue> queues = status != null
+        ? repository.findByStatus(status, PageRequest.of(0, Integer.MAX_VALUE)).getContent()
+        : repository.findAll();
+
+    long intimacyCount = 0;
+    long conversationCount = 0;
+    long vocaCount = 0;
+
+    // requestData 파싱하여 items의 type 집계
+    for (ManagementQueue queue : queues) {
+      Map<String, Object> requestData = parseJsonb(queue.getRequestData());
+
+      if (requestData == null || !requestData.containsKey("items")) {
+        continue;
+      }
+
+      List<Map<String, Object>> items = (List<Map<String, Object>>) requestData.get("items");
+
+      if (items == null) {
+        continue;
+      }
+
+      for (Map<String, Object> item : items) {
+        String type = (String) item.get("type");
+
+        if (type == null) {
+          continue;
+        }
+
+        switch (type.toLowerCase()) {
+          case "intimacy":
+            intimacyCount++;
+            break;
+          case "conversation":
+          case "conver":  // 약어 처리
+            conversationCount++;
+            break;
+          case "vocabulary":
+          case "voca":  // 약어 처리
+            vocaCount++;
+            break;
+          default:
+            log.warn("알 수 없는 아이템 타입: {}", type);
+        }
+      }
+    }
+
+    long totalPendingCount = status == QueueStatus.PENDING
+        ? repository.countByStatus(QueueStatus.PENDING)
+        : queues.size();
+
+    log.info("타입별 카운트 조회 완료: intimacy={}, conversation={}, voca={}, total={}",
+        intimacyCount, conversationCount, vocaCount, totalPendingCount);
+
+    return ManagementQueueCountResponse.builder()
+        .intimacyCount(intimacyCount)
+        .conversationCount(conversationCount)
+        .vocaCount(vocaCount)
+        .totalPendingCount(totalPendingCount)
+        .build();
+  }
+
+  /**
+   * 관리 필요 내역 일괄 처리 완료
+   *
+   * @param ids 처리 완료할 관리 내역 ID 리스트
+   * @param processedBy 처리자 이메일
+   * @param note 처리 노트
+   * @return 처리 완료된 건수
+   */
+  @Transactional
+  public int batchCompleteManagementQueue(
+      List<UUID> ids,
+      String processedBy,
+      String note
+  ) {
+    log.info("관리 필요 내역 일괄 처리 완료: ids={}, processedBy={}, count={}",
+        ids, processedBy, ids.size());
+
+    int completedCount = 0;
+
+    for (UUID id : ids) {
+      try {
+        ManagementQueue queue = repository.findById(id)
+            .orElseThrow(() -> new IllegalArgumentException("관리 필요 내역을 찾을 수 없습니다: " + id));
+
+        // 이미 완료된 항목은 스킵
+        if (queue.getStatus() == QueueStatus.COMPLETED) {
+          log.warn("이미 처리 완료된 항목입니다: id={}", id);
+          continue;
+        }
+
+        // result_data 생성
+        Map<String, Object> resultData = Map.of(
+            "processedBy", processedBy,
+            "processedAt", LocalDateTime.now().toString(),
+            "action", "BATCH_COMPLETED",
+            "note", note
+        );
+
+        String resultDataJson = objectMapper.writeValueAsString(resultData);
+
+        // Entity 업데이트
+        queue.complete(processedBy, note);
+        queue.setResultData(resultDataJson);
+
+        completedCount++;
+
+      } catch (JsonProcessingException e) {
+        log.error("관리 필요 내역 처리 완료 실패: id={}", id, e);
+        throw new IllegalArgumentException("처리 완료 실패: " + id, e);
+      } catch (IllegalArgumentException e) {
+        log.error("관리 필요 내역을 찾을 수 없습니다: id={}", id);
+        throw e;
+      }
+    }
+
+    log.info("관리 필요 내역 일괄 처리 완료: 성공={}/{}", completedCount, ids.size());
+
+    return completedCount;
+  }
+
+  /**
+   * 관리 필요 내역 일괄 삭제
+   *
+   * @param ids 삭제할 관리 내역 ID 리스트
+   * @return 삭제된 건수
+   */
+  @Transactional
+  public int batchDeleteManagementQueue(List<UUID> ids) {
+    log.info("관리 필요 내역 일괄 삭제: ids={}, count={}", ids, ids.size());
+
+    int deletedCount = 0;
+
+    for (UUID id : ids) {
+      try {
+        if (!repository.existsById(id)) {
+          log.warn("관리 필요 내역을 찾을 수 없습니다: id={}", id);
+          continue;
+        }
+
+        repository.deleteById(id);
+        deletedCount++;
+
+      } catch (Exception e) {
+        log.error("관리 필요 내역 삭제 실패: id={}", id, e);
+        throw new IllegalArgumentException("삭제 실패: " + id, e);
+      }
+    }
+
+    log.info("관리 필요 내역 일괄 삭제 완료: 성공={}/{}", deletedCount, ids.size());
+
+    return deletedCount;
   }
 }
