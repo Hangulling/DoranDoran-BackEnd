@@ -5,6 +5,13 @@ spring:
   application:
     name: auth-service
   
+  # Flyway 설정
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: true
+    schemas: auth_schema
+  
   # Auth 서비스 공유 데이터베이스 설정
   datasource:
     url: jdbc:postgresql://localhost:5432/dorandoran
@@ -82,7 +89,7 @@ resilience4j:
       user-service:
         max-attempts: 3
         wait-duration: 1s
-        exponential-backoff-multiplier: 2qwda  
+        exponential-backoff-multiplier: 2  
   timelimiter:
     instances:
       user-service:

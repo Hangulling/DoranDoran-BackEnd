@@ -5,6 +5,13 @@ spring:
   application:
     name: user-service
   
+  # Flyway 설정
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: true
+    schemas: user_schema
+  
   # Spring Security 자동 생성 비밀번호 비활성화
   security:
     user:
@@ -63,6 +70,10 @@ gateway:
 auth:
   service:
     url: ${AUTH_SERVICE_URL:http://localhost:8081}
+
+chat:
+  service:
+    url: ${CHAT_SERVICE_URL:http://localhost:8083}
 
 # SpringDoc OpenAPI 설정
 springdoc:

@@ -1,0 +1,751 @@
+Admin 기능 명세서 (MVP)
+0. 목적과 범위
+
+본 문서는 Koach Admin(어드민)에서 제공하는 다음 기능을 구현하기 위한 API/DB/상태흐름을 정의한다.
+
+사용자 채팅 내역 조회(리스트/상세)
+
+상세 로그에서 “관리 필요 내역”으로 내보내기(티켓 생성)
+
+관리 필요 내역(미처리/처리완료, 탭 필터, 수정/삭제/완료)
+
+프롬프트 테스트/편집/저장/적용(Active 반영)
+
+프롬프트 버전 관리(조회/롤백/배포)
+
+관리 이력(감사 로그) 조회
+
+1. 공통 규칙
+1.1 인증/인가
+
+모든 /admin/** API는 Admin Access Token 필요
+
+권한(Role) 예시(확장 가능)
+
+VIEWER: 조회만
+
+REVIEWER: 관리 필요 내역 처리
+
+PROMPT_MANAGER: 프롬프트 편집/적용/배포
+
+SUPER_ADMIN: 관리자/권한 관리(본 문서 범위 밖)
+
+MVP에서는 최소 VIEWER, REVIEWER, PROMPT_MANAGER 3개만으로 시작 가능.
+
+1.2 페이징 규격
+
+요청 파라미터: page(0-base), size, sort (선택)
+
+응답 구조:
+
+{
+  "content": [],
+  "page": { "number": 0, "size": 10, "totalPages": 8, "totalElements": 73 }
+}
+
+1.3 공통 Enum
+
+AgentType: intimacy | conver | voca
+
+MessageRole: bot | system | user
+
+ReviewStatus: OPEN | DONE
+
+Env: prod | stage (MVP는 prod만 써도 됨)
+
+2. API 목록
+A) 인증
+A-1. 로그인
+
+POST /admin/auth/login
+
+req
+
+{ "username": "admin", "password": "****" }
+
+
+res
+
+{
+  "accessToken": "jwt...",
+  "admin": { "id": 1, "name": "유서정", "roles": ["PROMPT_MANAGER"] }
+}
+
+A-2. 내 정보
+
+GET /admin/me
+
+res
+
+{ "id": 1, "name": "유서정", "roles": ["PROMPT_MANAGER"] }
+
+A-3. 로그아웃 (선택)
+
+POST /admin/auth/logout
+
+B) 사용자 채팅 내역(리스트) — (스크린샷 155246)
+B-1. 채팅룸 옵션
+
+GET /admin/meta/chat-rooms
+
+res
+
+[{ "roomKey": "Friend", "label": "Friend" }]
+
+B-2. 친밀도 옵션
+
+GET /admin/meta/intimacy-levels
+
+res
+
+[1,2,3]
+
+B-3. 대화 목록 조회
+
+GET /admin/conversations
+
+query
+
+dateFrom (YYYY-MM-DD)
+
+dateTo (YYYY-MM-DD)
+
+roomKey?
+
+intimacyLevel?
+
+userEmail? (옵션)
+
+page,size
+
+res
+
+{
+  "content": [
+    {
+      "conversationId": 123,
+      "userEmail": "user@email.com",
+      "startedAt": "2025-02-02T09:32:21",
+      "roomKey": "Friend",
+      "intimacyLevel": 1,
+      "sequence": 13
+    }
+  ],
+  "page": { "number": 0, "size": 10, "totalPages": 8, "totalElements": 73 }
+}
+
+C) 사용자 채팅 상세(타임라인) — (스크린샷 155304/155314)
+C-1. 대화 상세 조회
+
+GET /admin/conversations/{conversationId}
+
+res (MVP 예시)
+
+{
+  "conversation": {
+    "id": 123,
+    "userEmail": "user@email.com",
+    "roomKey": "Friend",
+    "intimacyLevel": 1,
+    "sequence": 13
+  },
+  "timeline": [
+    { "time": "2025-02-02T09:32:21", "type": "bot", "messageId": 9001, "content": "요즘 좋아하는 애니 있어?" },
+    { "time": "2025-02-02T09:32:21", "type": "system", "messageId": 9002, "content": "Let's continue..." },
+    { "time": "2025-02-02T09:32:21", "type": "user", "messageId": 9003, "content": "{userMessage} 나는 가아라" },
+
+    {
+      "time": "2025-02-02T09:32:21",
+      "type": "intimacy",
+      "messageId": 9003,
+      "detection": { "detectedLevel": 1 },
+      "payload": { "correctedSentence": "나는 가아라", "feedback": "문장이 어색합니다..." }
+    },
+    {
+      "time": "2025-02-02T09:32:21",
+      "type": "conver",
+      "messageId": 9003,
+      "payload": { "text": "가아라 완전 멋지지..." }
+    },
+    {
+      "time": "2025-02-02T09:32:21",
+      "type": "voca",
+      "messageId": 9003,
+      "payload": { "word": "매력", "difficulty": 2, "context": "..." }
+    }
+  ]
+}
+
+D) “관리 필요 내역으로 내보내기”(모달 등록) — (스크린샷 155323)
+D-1. 티켓 생성
+
+POST /admin/review-tickets
+
+req
+
+{
+  "conversationId": 123,
+  "items": [
+    { "messageId": 9003, "agentType": "intimacy" },
+    { "messageId": 9003, "agentType": "voca" }
+  ],
+  "note": "관리가 필요한 부분..."
+}
+
+
+res
+
+{ "ticketId": 555, "status": "OPEN" }
+
+E) 관리 필요 내역 큐 — (스크린샷 155349)
+E-1. 목록 조회(탭/상태/페이징)
+
+GET /admin/review-tickets
+
+query
+
+status=OPEN|DONE
+
+agentType=intimacy|conver|voca (탭 클릭)
+
+page,size
+
+res
+
+{
+  "content": [
+    {
+      "ticketId": 555,
+      "status": "OPEN",
+      "agentType": "intimacy",
+      "note": "관리가 필요한 부분...",
+      "createdAt": "2025-02-02T09:40:00",
+      "items": [
+        { "messageId": 9003, "agentType": "intimacy", "snapshot": { "correctedSentence": "...", "detectedLevel": 1 } }
+      ]
+    }
+  ],
+  "page": { "number": 0, "size": 10, "totalPages": 8, "totalElements": 73 }
+}
+
+E-2. 탭 카운트 조회
+
+GET /admin/review-tickets/counts
+
+query: status=OPEN|DONE
+
+res
+
+{ "intimacy": 4, "conver": 10, "voca": 0 }
+
+E-3. 티켓 메모 수정(MVP: note만)
+
+PATCH /admin/review-tickets/{ticketId}
+
+req
+
+{ "note": "수정된 메모..." }
+
+E-4. 삭제
+
+DELETE /admin/review-tickets/{ticketId}
+
+E-5. 처리 완료(다건)
+
+POST /admin/review-tickets/complete
+
+req
+
+{ "ticketIds": [555, 556] }
+
+F) 프롬프트 테스트/편집/적용 — (스크린샷 155400)
+F-1. Active 프롬프트 조회
+
+GET /admin/prompts/active
+
+query: agentType, env?
+
+res
+
+{ "env": "prod", "agentType": "intimacy", "versionId": 901, "version": "v0.1", "content": "..." }
+
+F-2. 프롬프트 테스트 실행
+
+POST /admin/prompts/test
+
+req
+
+{ "agentType": "intimacy", "inputText": "나는 가아라", "promptVersionId": 901 }
+
+
+res
+
+{ "outputText": "....", "latencyMs": 832, "tokens": 214 }
+
+F-3. 새 버전 생성(저장)
+
+POST /admin/prompts/versions
+
+req
+
+{ "agentType": "intimacy", "content": "새 프롬프트...", "memo": "오탈자 수정" }
+
+
+res
+
+{ "versionId": 902, "version": "v0.2" }
+
+F-4. 적용(Active 전환)
+
+POST /admin/prompts/activate
+
+req
+
+{ "env": "prod", "agentType": "intimacy", "versionId": 902 }
+
+G) 프롬프트 버전 관리 — (스크린샷 155408)
+G-1. 버전 목록
+
+GET /admin/prompts/versions
+
+query: agentType, page,size
+
+res
+
+{
+  "content": [
+    { "versionId": 902, "agentType": "intimacy", "version": "v0.2", "createdAt": "2025-02-02T10:00:00", "createdBy": "유서정", "memo": "..." }
+  ],
+  "page": { "number": 0, "size": 10, "totalPages": 2, "totalElements": 12 }
+}
+
+G-2. 버전 조회
+
+GET /admin/prompts/versions/{versionId}
+
+G-3. 배포(= 새 버전 생성 + 적용)
+
+MVP는 UI에서 POST /admin/prompts/versions 후 POST /admin/prompts/activate를 연속 호출로 처리
+
+H) 관리 이력(감사 로그) — (스크린샷 155413)
+H-1. 감사 로그 조회
+
+GET /admin/audit-logs
+
+query: from?,to?,actionType?,adminId?,page,size
+
+res
+
+{
+  "content": [
+    { "id": 1, "adminName": "유서정", "createdAt": "2025-02-02T10:01:10", "feature": "프롬프트", "action": "ACTIVATE", "summary": "intimacy v0.2 적용", "ip": "55.55.55.55" }
+  ],
+  "page": { "number": 0, "size": 20, "totalPages": 8, "totalElements": 150 }
+}
+
+3. DB 테이블 설계 (MVP)
+A) Admin
+admin_users
+
+id BIGINT PK
+
+username VARCHAR UNIQUE
+
+password_hash VARCHAR
+
+name VARCHAR
+
+is_active BOOLEAN
+
+created_at, updated_at TIMESTAMP
+
+admin_roles
+
+id BIGINT PK
+
+role_name VARCHAR UNIQUE
+
+admin_user_roles
+
+admin_user_id FK
+
+admin_role_id FK
+
+PK(admin_user_id, admin_role_id)
+
+B) 채팅 로그(조회/상세)
+conversations
+
+id BIGINT PK
+
+user_email VARCHAR (또는 user_id FK)
+
+room_key VARCHAR
+
+intimacy_level INT
+
+sequence INT
+
+started_at, ended_at TIMESTAMP
+
+created_at TIMESTAMP
+
+INDEX
+
+idx_conv_started_at (started_at)
+
+idx_conv_room_intimacy_started (room_key, intimacy_level, started_at)
+
+idx_conv_user_started (user_email, started_at)
+
+chat_messages
+
+id BIGINT PK
+
+conversation_id BIGINT FK
+
+seq INT
+
+role VARCHAR(bot/system/user)
+
+content TEXT
+
+created_at TIMESTAMP
+
+INDEX
+
+idx_msg_conv_seq (conversation_id, seq)
+
+agent_results
+
+id BIGINT PK
+
+message_id BIGINT FK
+
+agent_type VARCHAR(intimacy/conver/voca)
+
+payload_json JSON/JSONB
+
+created_at TIMESTAMP
+
+INDEX
+
+idx_result_message_agent (message_id, agent_type)
+
+C) 관리 필요 내역(티켓)
+review_tickets
+
+id BIGINT PK
+
+conversation_id BIGINT FK
+
+status VARCHAR(OPEN/DONE)
+
+agent_type VARCHAR (탭 분류용 대표값, 또는 null 허용)
+
+note TEXT
+
+created_by_admin_id BIGINT FK
+
+assignee_admin_id BIGINT FK NULL
+
+created_at, updated_at, done_at TIMESTAMP NULL
+
+INDEX
+
+idx_ticket_status_created (status, created_at)
+
+idx_ticket_agent_status_created (agent_type, status, created_at)
+
+review_ticket_items
+
+id BIGINT PK
+
+ticket_id BIGINT FK
+
+message_id BIGINT FK
+
+agent_type VARCHAR
+
+snapshot_json JSON/JSONB
+
+created_at TIMESTAMP
+
+INDEX
+
+idx_ticket_items_ticket (ticket_id)
+
+idx_ticket_items_msg_agent (message_id, agent_type)
+
+D) 프롬프트/버전/Active
+prompt_versions
+
+id BIGINT PK
+
+agent_type VARCHAR
+
+version VARCHAR (예: v0.1 / 또는 숫자 증가도 가능)
+
+content TEXT
+
+memo VARCHAR NULL
+
+created_by_admin_id BIGINT FK
+
+created_at TIMESTAMP
+
+INDEX
+
+idx_prompt_agent_created (agent_type, created_at DESC)
+
+uk_prompt_agent_version (agent_type, version) UNIQUE
+
+prompt_actives
+
+env VARCHAR(prod/stage)
+
+agent_type VARCHAR
+
+prompt_version_id BIGINT FK
+
+activated_by_admin_id BIGINT FK
+
+activated_at TIMESTAMP
+
+PK(env, agent_type)
+
+Redis 캐시를 쓴다면 키 예시: prompt:{env}:{agentType}:active
+
+E) 감사 로그
+admin_audit_logs
+
+id BIGINT PK
+
+admin_user_id BIGINT FK
+
+action_type VARCHAR (예: PROMPT_CREATE, PROMPT_ACTIVATE, REVIEW_EXPORT, REVIEW_COMPLETE, REVIEW_DELETE)
+
+target_type VARCHAR (PROMPT_VERSION, REVIEW_TICKET)
+
+target_id BIGINT
+
+summary VARCHAR
+
+before_json JSON/JSONB NULL
+
+after_json JSON/JSONB NULL
+
+ip VARCHAR
+
+user_agent VARCHAR
+
+created_at TIMESTAMP
+
+INDEX
+
+idx_audit_created (created_at DESC)
+
+idx_audit_admin_created (admin_user_id, created_at DESC)
+
+idx_audit_action_created (action_type, created_at DESC)
+
+4. 화면별 상태 흐름 (State Flow)
+4.1 사용자 채팅 내역(리스트) — 155246
+
+Idle
+
+화면 진입
+
+meta(채팅룸/친밀도) 로드
+
+FilterEditing
+
+날짜/드롭다운 변경
+
+Searching
+
+조회하기 클릭 → /admin/conversations
+
+Success
+
+리스트 렌더 + 페이징
+
+Empty
+
+결과 없음 표시
+
+Error
+
+오류 토스트/패널
+
+전이:
+
+Idle → Searching → (Success|Empty|Error)
+
+Success → (페이지 이동) → Searching
+
+4.2 사용자 채팅 상세 — 155304/155314
+
+Loading
+
+/admin/conversations/{id} 호출
+
+Ready
+
+타임라인 표시
+
+선택 0개 → 내보내기 disabled
+
+Selecting
+
+선택 1개 이상 → 내보내기 enabled
+
+ExportModalOpen
+
+모달 오픈(4.3)
+
+전이:
+
+Ready ↔ Selecting(체크 토글)
+
+Selecting → ExportModalOpen
+
+4.3 내보내기 모달 — 155323
+
+Open
+
+기본 선택값 세팅(상세에서 선택한 항목 반영)
+
+Validating
+
+선택 0개면 등록 disabled 또는 에러
+
+Submitting
+
+등록 클릭 → POST /admin/review-tickets
+
+SubmitSuccess
+
+모달 닫기 + 토스트 + (옵션) 큐 카운트 갱신
+
+SubmitError
+
+에러 표시 유지
+
+전이:
+
+Open → Submitting → (SubmitSuccess|SubmitError)
+
+4.4 관리 필요 내역(큐) — 155349
+
+Loading
+
+/admin/review-tickets + /counts
+
+Ready
+
+목록 표시(선택 0개)
+
+Selecting
+
+선택 1개 이상 → 하단 버튼 활성
+
+Editing
+
+수정 → note 수정 후 저장(PATCH)
+
+DeletingConfirm
+
+삭제 확인 → DELETE
+
+Completing
+
+처리 완료 → POST /complete → 재조회
+
+전이:
+
+Ready ↔ Selecting
+
+Selecting → Editing → Loading
+
+Selecting → DeletingConfirm → Loading
+
+Selecting → Completing → Loading
+
+4.5 프롬프트 테스트/적용 — 155400
+
+AgentLoading
+
+agentType 변경 → /admin/prompts/active
+
+EditReady
+
+프롬프트 편집 가능
+
+Testing
+
+테스트 실행 → /admin/prompts/test
+
+SavingVersion
+
+저장 → /admin/prompts/versions
+
+Activating
+
+적용 → /admin/prompts/activate (캐시 갱신/즉시 반영)
+
+전이:
+
+AgentLoading → EditReady
+
+EditReady → Testing → EditReady
+
+EditReady → SavingVersion → EditReady
+
+EditReady → Activating → EditReady
+
+4.6 프롬프트 버전 관리 — 155408
+
+Loading
+
+/admin/prompts/versions
+
+Ready
+
+조회/롤백/배포 가능
+
+Viewing
+
+조회 → /admin/prompts/versions/{id}
+
+RollingBack
+
+롤백 → /admin/prompts/activate
+
+Deploying
+
+(UI 흐름) versions 생성 → activate
+
+전이:
+
+Ready → Viewing → Ready
+
+Ready → RollingBack → Loading
+
+Ready → Deploying → Loading
+
+4.7 감사 로그 — 155413
+
+Loading → (Ready|Empty|Error)
+
+페이지 이동마다 재조회
+
+5. (선택) 운영 품질을 위한 최소 권장사항
+
+MVP에서 나중에 크게 고생 안 하려면 아래는 강추:
+
+프롬프트 적용 시 prompt_actives 업데이트 + Redis 캐시 갱신을 하나의 트랜잭션/원자적 흐름으로 처리
+
+review_ticket_items.snapshot_json은 “내보내기 당시 payload”를 고정 저장(나중에 원본 로그/프롬프트가 바뀌어도 티켓은 유지)
+
+프롬프트/티켓/삭제/완료 같은 모든 액션은 admin_audit_logs에 기록

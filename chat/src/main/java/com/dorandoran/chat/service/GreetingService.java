@@ -35,6 +35,7 @@ public class GreetingService {
     private final OpenAIClient openAIClient;
     private final SSEManager sseManager;
     private final ObjectMapper objectMapper = new ObjectMapper();
+    private final PromptLoaderService promptLoaderService;
     
     @Transactional
     public GreetingResponse sendGreeting(UUID chatroomId, UUID userId, ChatRoomConcept concept, int intimacyLevel) {
@@ -156,14 +157,14 @@ public class GreetingService {
     }
     
     private String buildGreetingSystemPrompt(ChatRoomConcept concept, int intimacyLevel) {
-        // 파일에서 프롬프트 로드 시도
-        String prompt = loadPromptFromFile(concept, intimacyLevel);
+        // PromptLoaderService를 사용하여 DB 우선, 파일 fallback으로 프롬프트 로드
+        String prompt = promptLoaderService.loadPrompt("GREETING", concept.name(), intimacyLevel, "prod");
         if (prompt != null && !prompt.isEmpty()) {
             return prompt;
         }
         
-        // 파일 로드 실패 시 fallback (기존 하드코딩 메서드 사용)
-        log.warn("Greeting 프롬프트 파일 로드 실패, fallback 사용: concept={}, intimacyLevel={}", concept, intimacyLevel);
+        // DB와 파일 모두 실패 시 fallback (기존 하드코딩 메서드 사용)
+        log.warn("Greeting 프롬프트 로드 실패 (DB 및 파일), fallback 사용: concept={}, intimacyLevel={}", concept, intimacyLevel);
         return switch (concept) {
             case FRIEND -> buildFriendGreetingPrompt(intimacyLevel);
             case HONEY -> buildHoneyGreetingPrompt(intimacyLevel);
@@ -171,32 +172,6 @@ public class GreetingService {
             case BOSS -> buildBossGreetingPrompt(intimacyLevel);
             case COWORKER -> buildCoworkerGreetingPrompt(intimacyLevel);
         };
-    }
-    
-    /**
-     * 컨셉과 친밀도 레벨에 해당하는 프롬프트 파일을 로드합니다.
-     * 
-     * @param concept 컨셉 (FRIEND, HONEY, SENIOR, BOSS, COWORKER)
-     * @param intimacyLevel 친밀도 레벨 (1 또는 3)
-     * @return 프롬프트 내용, 파일이 없거나 읽기 실패 시 null
-     */
-    private String loadPromptFromFile(ChatRoomConcept concept, int intimacyLevel) {
-        // 파일명 생성: {concept}_{intimacyLevel}.txt (예: honey_1.txt)
-        String filename = String.format("prompts/greeting/%s_%d.txt", 
-            concept.name().toLowerCase(), intimacyLevel);
-        
-        try {
-            ClassPathResource resource = new ClassPathResource(filename);
-            if (!resource.exists()) {
-                return null;
-            }
-            
-            String content = resource.getContentAsString(StandardCharsets.UTF_8);
-            return content;
-            
-        } catch (IOException e) {
-            return null;
-        }
     }
     
     private String buildFriendGreetingPrompt(int intimacyLevel) {

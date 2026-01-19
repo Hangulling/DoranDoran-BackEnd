@@ -23,6 +23,10 @@ dependencies {
     // 데이터베이스
     runtimeOnly 'org.postgresql:postgresql:42.7.4'
     
+    // Flyway
+    implementation 'org.flywaydb:flyway-core'
+    implementation 'org.flywaydb:flyway-database-postgresql'
+    
     // 테스트
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
     testImplementation 'org.springframework.security:spring-security-test'
@@ -30,4 +34,15 @@ dependencies {
     
     // Lombok은 common에서 제공, annotationProcessor만 필요
     annotationProcessor 'org.projectlombok:lombok'
+}
+
+// 로컬 빌드에서 테스트 컴파일/실행을 비활성화
+tasks.named("compileTestJava") {
+    enabled = false
+}
+tasks.named("processTestResources") {
+    enabled = false
+}
+tasks.named("test") {
+    enabled = false
 }

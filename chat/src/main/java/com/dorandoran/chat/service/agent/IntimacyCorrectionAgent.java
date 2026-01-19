@@ -2,6 +2,7 @@ package com.dorandoran.chat.service.agent;
 
 import com.dorandoran.chat.config.AIConfig;
 import com.dorandoran.chat.service.OpenAIClient;
+import com.dorandoran.chat.service.PromptLoaderService;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.ArrayList;
@@ -28,6 +29,7 @@ public class IntimacyCorrectionAgent {
     private final OpenAIClient openAIClient;
     private final AIConfig aiConfig;
     private final ObjectMapper objectMapper;
+    private final PromptLoaderService promptLoaderService;
     
     /**
      * 교정 및 대안 표현 제안 생성
@@ -96,10 +98,15 @@ public class IntimacyCorrectionAgent {
         String problemExpression = analysisResult.problematicExpressions().isEmpty() ? "없음" : 
             analysisResult.problematicExpressions().get(0).original();
         
-        // 파일에서 프롬프트 로드 시도
-        String promptTemplate = loadCorrectionPromptFromFile(concept, intimacyLevel);
+        if (concept == null) {
+            concept = "FRIEND";
+        }
+        String normalizedConcept = concept.toUpperCase();
+        
+        // PromptLoaderService를 사용하여 DB 우선, 파일 fallback으로 프롬프트 로드
+        String promptTemplate = promptLoaderService.loadPrompt("INTIMACY_CORRECTION", normalizedConcept, intimacyLevel, "prod");
         if (promptTemplate != null && !promptTemplate.isEmpty()) {
-            log.info("=== IntimacyCorrectionAgent: 프롬프트 파일 로드 성공 - concept={}, level={} ===", 
+            log.info("=== IntimacyCorrectionAgent: 프롬프트 로드 성공 - concept={}, level={} ===", 
                 concept, intimacyLevel);
             
             // 플레이스홀더 치환
@@ -115,8 +122,8 @@ public class IntimacyCorrectionAgent {
             return prompt;
         }
         
-        // 파일 로드 실패 시 fallback (기존 하드코딩 메서드 사용)
-        log.warn("Correction 프롬프트 파일 로드 실패, fallback 사용: concept={}, intimacyLevel={}", concept, intimacyLevel);
+        // DB와 파일 모두 실패 시 fallback (기존 하드코딩 메서드 사용)
+        log.warn("Correction 프롬프트 로드 실패 (DB 및 파일), fallback 사용: concept={}, intimacyLevel={}", concept, intimacyLevel);
         String toneGuideline = getToneGuideline(concept, intimacyLevel);
         
         return String.format("""
@@ -151,35 +158,6 @@ public class IntimacyCorrectionAgent {
             - 교정이 불필요하면 원문 유지
             - JSON 형식 외의 텍스트는 출력하지 말 것
             """, concept, intimacyLevel, problemExpression, toneGuideline);
-    }
-    
-    /**
-     * 파일에서 교정 프롬프트 로드
-     */
-    private String loadCorrectionPromptFromFile(String concept, int intimacyLevel) {
-        if (concept == null) {
-            concept = "FRIEND";
-        }
-        String normalizedConcept = concept.toUpperCase();
-        String filename = String.format("prompts/intimacy/correction/%s_%d.txt",
-            normalizedConcept.toLowerCase(), intimacyLevel);
-        
-        try {
-            ClassPathResource resource = new ClassPathResource(filename);
-            if (!resource.exists()) {
-                log.debug("IntimacyCorrectionAgent: 프롬프트 파일 없음 - {}", filename);
-                return null;
-            }
-            
-            String content = resource.getContentAsString(StandardCharsets.UTF_8);
-            log.info("IntimacyCorrectionAgent: 프롬프트 파일 로드 성공 - {}, 길이={}자", 
-                filename, content.length());
-            return content;
-            
-        } catch (IOException e) {
-            log.error("IntimacyCorrectionAgent: 프롬프트 파일 로드 실패 - {}", filename, e);
-            return null;
-        }
     }
     
     /**

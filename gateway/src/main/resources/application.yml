@@ -67,6 +67,22 @@ spring:
                   factor: 2
                   maxBackoff: 500ms
                   basedOnPreviousValue: true
+
+        # Admin 서비스 라우팅 (User Service)
+        - id: admin-service
+          uri: http://dorandoran-user:8082
+          predicates:
+            - Path=/api/admin/**
+          filters:
+            - name: Retry
+              args:
+                retries: 2
+                methods: GET
+                backoff:
+                  firstBackoff: 200ms
+                  factor: 2
+                  maxBackoff: 500ms
+                  basedOnPreviousValue: true
         
         # Chat 서비스 라우팅
         - id: chat-service
