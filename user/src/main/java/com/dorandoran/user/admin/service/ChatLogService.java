@@ -241,7 +241,7 @@ public class ChatLogService {
     // 1. UUID 생성
     UUID exportId = UUID.randomUUID();
 
-    // 2. 관리 큐에 등록 (Phase 4 Day 2에서 구현)
+    // 2. 관리 큐에 등록
     // TODO: managementQueueService.enqueueExport(exportId, request);
 
     // 3. 응답 생성
@@ -260,15 +260,14 @@ public class ChatLogService {
    * @return 내보내기 상태 정보
    */
   public ExportResponse getExportStatus(UUID exportId) {
-    // Phase 4 Day 2에서 ManagementQueue를 통해 실제 상태 조회 구현
-    // TODO: ManagementQueue에서 상태 조회
+    // TODO: ManagementQueue에서 내보내기 상태 조회
 
-    // 임시 응답 (Day 2에서 실제 구현)
+    // 임시 응답
     return ExportResponse.builder()
         .exportId(exportId)
         .status(ExportResponse.ExportStatus.PENDING)
         .requestedAt(LocalDateTime.now())
-        .message("내보내기 상태 조회 기능은 Phase 4 Day 2에서 구현됩니다.")
+        .message("내보내기 상태 조회 기능.")
         .build();
   }
 }
