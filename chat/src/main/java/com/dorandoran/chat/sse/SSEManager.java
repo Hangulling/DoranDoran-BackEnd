@@ -25,6 +25,11 @@ public class SSEManager {
 		return emitter;
 	}
 
+	public boolean hasEmitters(UUID chatroomId) {
+		List<SseEmitter> list = emitters.get(chatroomId);
+		return list != null && !list.isEmpty();
+	}
+
 	public void send(UUID chatroomId, String eventName, Object data) {
 		List<SseEmitter> list = emitters.get(chatroomId);
 		if (list == null || list.isEmpty()) return;

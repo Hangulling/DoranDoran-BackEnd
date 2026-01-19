@@ -19,6 +19,9 @@ dependencies {
     
     // Web Client (Auth 서비스 통신용)
     implementation 'org.springframework.boot:spring-boot-starter-web'
+
+    // Firebase Admin SDK (FCM 전송)
+    implementation 'com.google.firebase:firebase-admin:9.2.0'
     
     // 데이터베이스
     runtimeOnly 'org.postgresql:postgresql:42.7.4'

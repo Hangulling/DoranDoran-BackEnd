@@ -68,6 +68,26 @@ auth:
   service:
     url: ${AUTH_SERVICE_URL:http://dorandoran-auth:8081}
 
+instagram:
+  enabled: ${INSTAGRAM_ENABLED:false}
+  access-token: ${INSTAGRAM_ACCESS_TOKEN:}
+  user-id: ${INSTAGRAM_USER_ID:}
+  refresh:
+    cron: ${INSTAGRAM_REFRESH_CRON:0 5 9 * * *}
+
+notification:
+  daily:
+    cron: ${NOTIFICATION_DAILY_CRON:0 0 9 * * *}
+
+firebase:
+  admin:
+    json: ${FIREBASE_ADMIN_JSON:}
+
+app:
+  deeplink:
+    scheme: ${APP_DEEPLINK_SCHEME:dorandoran://chat}
+    universal-base: ${APP_DEEPLINK_UNIVERSAL_BASE:https://www.doran-chat.com/chat}
+
 # Gateway HMAC 검증 설정
 gateway:
   jwt:
