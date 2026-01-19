@@ -3,6 +3,7 @@ package com.dorandoran.chat.client;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import com.dorandoran.shared.security.HmacVerifier;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
@@ -13,6 +14,7 @@ import org.springframework.web.client.RestTemplate;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.UUID;
 
 /**
  * User Service 클라이언트
@@ -27,6 +29,9 @@ public class UserServiceClient {
 
     @Value("${user.service.url:http://localhost:8082}")
     private String userServiceUrl;
+
+    @Value("${gateway.jwt.hmac-secret:}")
+    private String hmacSecret;
 
     /**
      * Active 프롬프트 조회
@@ -44,11 +49,8 @@ public class UserServiceClient {
         String url = String.format("%s/api/admin/prompts/active?agentType=%s&concept=%s&intimacyLevel=%d&env=%s",
             userServiceUrl, agentType, concept, intimacyLevel, env);
 
-        HttpHeaders headers = new HttpHeaders();
+        HttpHeaders headers = buildHmacHeaders("00000000-0000-0000-0000-000000000000");
         headers.setContentType(MediaType.APPLICATION_JSON);
-        // 내부 서비스 간 통신이므로 X-User-Id 헤더는 선택적으로 처리
-        // User Service에서 내부 호출 시 헤더를 선택적으로 받도록 수정 필요할 수 있음
-        headers.set("X-User-Id", "00000000-0000-0000-0000-000000000000"); // 시스템 사용자 ID
 
         HttpEntity<String> entity = new HttpEntity<>(headers);
 
@@ -82,5 +84,31 @@ public class UserServiceClient {
                 agentType, concept, intimacyLevel, env, e.getMessage());
             return null;
         }
+    }
+
+    /**
+     * 퍼펙트 누적 횟수 증가
+     */
+    public void incrementPerfect(UUID userId) {
+        String url = String.format("%s/api/users/%s/stats/perfect", userServiceUrl, userId);
+        HttpHeaders headers = buildHmacHeaders("00000000-0000-0000-0000-000000000000");
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        HttpEntity<String> entity = new HttpEntity<>(headers);
+        try {
+            restTemplate.exchange(url, HttpMethod.POST, entity, Map.class);
+        } catch (Exception e) {
+            log.warn("퍼펙트 누적 호출 실패: userId={}, error={}", userId, e.getMessage());
+        }
+    }
+
+    private HttpHeaders buildHmacHeaders(String userId) {
+        long ts = System.currentTimeMillis();
+        String message = userId + "|" + ts;
+        String sign = HmacVerifier.hmacSha256Hex(hmacSecret, message);
+        HttpHeaders headers = new HttpHeaders();
+        headers.set("X-User-Id", userId);
+        headers.set("X-Auth-Ts", Long.toString(ts));
+        headers.set("X-Auth-Sign", sign);
+        return headers;
     }
 }

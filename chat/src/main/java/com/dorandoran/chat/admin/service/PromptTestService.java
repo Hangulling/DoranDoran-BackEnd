@@ -3,6 +3,9 @@ package com.dorandoran.chat.admin.service;
 import com.dorandoran.chat.admin.dto.PromptTestRequest;
 import com.dorandoran.chat.admin.dto.PromptTestResponse;
 import com.dorandoran.chat.service.agent.*;
+import com.dorandoran.chat.service.GreetingService;
+import com.dorandoran.chat.service.OpenAIClient;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -23,8 +26,9 @@ public class PromptTestService {
     private final IntimacyCorrectionAgent intimacyCorrectionAgent;
     private final VocabularyExtractionAgent vocabularyExtractionAgent;
     private final VocabularyExplanationAgent vocabularyExplanationAgent;
-    @SuppressWarnings("unused")
     private final ConversationAgent conversationAgent;
+    private final GreetingService greetingService;
+    private final ObjectMapper objectMapper;
 
     /**
      * 프롬프트 테스트 실행
@@ -35,7 +39,7 @@ public class PromptTestService {
         log.info("  - concept: {}", request.getConcept());
         log.info("  - intimacyLevel: {}", request.getIntimacyLevel());
         log.info("  - inputText: {}", request.getInputText());
-        log.info("  - ⚠️ 주의: Agent는 DB 우선, 파일 fallback으로 프롬프트를 읽습니다.");
+        log.info("  - ⚠️ 주의: Agent는 resources/prompts/ 디렉토리의 파일을 읽습니다.");
         
         Instant startTime = Instant.now();
         
