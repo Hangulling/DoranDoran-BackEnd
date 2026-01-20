@@ -44,11 +44,17 @@ spring:
           useUnicode: true
     database-platform: org.hibernate.dialect.PostgreSQLDialect
 
-  # Redis
+    # Redis 설정 (Docker 프로필)
   data:
     redis:
-      host: redis  # Docker 환경
-      port: 6379
+      host: ${SPRING_REDIS_HOST:dorandoran-redis}
+      port: ${SPRING_REDIS_PORT:6379}
+      timeout: 2000ms
+      lettuce:
+        pool:
+          max-active: 8
+          max-idle: 8
+          min-idle: 0
 
 server:
   port: 8084

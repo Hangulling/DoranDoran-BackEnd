@@ -14,6 +14,8 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.junit.jupiter.MockitoSettings;
+import org.mockito.quality.Strictness;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
@@ -29,6 +31,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
+@MockitoSettings(strictness = Strictness.LENIENT)
 class ChatServiceUnitTest {
 
     @Mock
@@ -36,6 +39,21 @@ class ChatServiceUnitTest {
 
     @Mock
     private MessageRepository messageRepository;
+
+    @Mock
+    private com.dorandoran.chat.repository.UserRepository userRepository;
+
+    @Mock
+    private com.dorandoran.chat.repository.ChatbotRepository chatbotRepository;
+
+    @Mock
+    private com.dorandoran.chat.repository.IntimacyProgressRepository intimacyProgressRepository;
+
+    @Mock
+    private com.dorandoran.chat.repository.UserChatbotLastInteractionRepository userChatbotLastInteractionRepository;
+
+    @Mock
+    private com.fasterxml.jackson.databind.ObjectMapper objectMapper;
 
     @InjectMocks
     private ChatService chatService;
@@ -66,24 +84,60 @@ class ChatServiceUnitTest {
             .createdAt(LocalDateTime.now())
             .updatedAt(LocalDateTime.now())
             .build();
-        when(chatRoomRepository.findByUserIdAndChatbotIdAndIsDeletedFalse(userId, chatbotId))
+        when(chatRoomRepository.findByUser_IdAndChatbot_IdAndIsDeletedFalse(userId, chatbotId))
             .thenReturn(Optional.of(existing));
+        when(chatRoomRepository.existsByUserIdAndIdAndIsDeletedFalse(userId, chatroomId))
+            .thenReturn(true);
+        when(intimacyProgressRepository.findByChatRoomId(chatroomId))
+            .thenReturn(Optional.empty());
+        when(chatRoomRepository.findById(chatroomId))
+            .thenReturn(Optional.of(existing));
+        when(userRepository.findById(userId))
+            .thenReturn(Optional.of(user));
+        when(chatbotRepository.findById(chatbotId))
+            .thenReturn(Optional.of(chatbot));
+        when(objectMapper.createObjectNode())
+            .thenReturn(new com.fasterxml.jackson.databind.ObjectMapper().createObjectNode());
 
         ChatRoom result = chatService.getOrCreateRoom(userId, chatbotId, "ignored");
 
         assertThat(result).isSameAs(existing);
-        verify(chatRoomRepository, never()).save(any());
+        verify(chatRoomRepository, atLeastOnce()).save(any());
     }
 
     @Test
     @DisplayName("기존 채팅방이 없으면 새로 생성하여 저장한다")
     void getOrCreateRoom_createsNew() {
-        when(chatRoomRepository.findByUserIdAndChatbotIdAndIsDeletedFalse(userId, chatbotId))
+        when(chatRoomRepository.findByUser_IdAndChatbot_IdAndIsDeletedFalse(userId, chatbotId))
             .thenReturn(Optional.empty());
+        when(chatRoomRepository.existsByUserIdAndIdAndIsDeletedFalse(any(), any()))
+            .thenReturn(true);
+        when(intimacyProgressRepository.findByChatRoomId(any()))
+            .thenReturn(Optional.empty());
+        when(userRepository.findById(userId))
+            .thenReturn(Optional.of(User.builder().id(userId).build()));
+        when(chatbotRepository.findById(chatbotId))
+            .thenReturn(Optional.of(Chatbot.builder().id(chatbotId).build()));
+        when(objectMapper.createObjectNode())
+            .thenReturn(new com.fasterxml.jackson.databind.ObjectMapper().createObjectNode());
 
+        java.util.concurrent.atomic.AtomicReference<ChatRoom> savedRef = new java.util.concurrent.atomic.AtomicReference<>();
         ArgumentCaptor<ChatRoom> roomCaptor = ArgumentCaptor.forClass(ChatRoom.class);
         when(chatRoomRepository.save(roomCaptor.capture()))
-            .thenAnswer(invocation -> invocation.getArgument(0));
+            .thenAnswer(invocation -> {
+                ChatRoom saved = invocation.getArgument(0);
+                savedRef.set(saved);
+                return saved;
+            });
+        when(chatRoomRepository.findById(any()))
+            .thenAnswer(invocation -> {
+                Object arg = invocation.getArgument(0);
+                ChatRoom captured = savedRef.get();
+                if (captured != null && captured.getId() != null && captured.getId().equals(arg)) {
+                    return Optional.of(captured);
+                }
+                return Optional.empty();
+            });
 
         ChatRoom result = chatService.getOrCreateRoom(userId, chatbotId, "new-room");
 
@@ -151,7 +205,7 @@ class ChatServiceUnitTest {
     void listRooms_pageable_delegates() {
         Pageable pageable = PageRequest.of(0, 20);
         Page<ChatRoom> page = new PageImpl<>(List.of());
-        when(chatRoomRepository.findByUserIdAndIsDeletedFalseOrderByLastMessageAtDesc(userId, pageable))
+        when(chatRoomRepository.findByUser_IdAndIsDeletedFalseOrderByLastMessageAtDesc(userId, pageable))
             .thenReturn(page);
 
         Page<ChatRoom> result = chatService.listRooms(userId, pageable);

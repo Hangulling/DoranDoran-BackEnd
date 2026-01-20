@@ -5,6 +5,13 @@ spring:
   application:
     name: user-service
   
+  # Flyway 설정
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: true
+    schemas: user_schema
+  
   # Spring Security 자동 생성 비밀번호 비활성화
   security:
     user:
@@ -63,6 +70,30 @@ gateway:
 auth:
   service:
     url: ${AUTH_SERVICE_URL:http://localhost:8081}
+
+chat:
+  service:
+    url: ${CHAT_SERVICE_URL:http://localhost:8083}
+
+instagram:
+  enabled: ${INSTAGRAM_ENABLED:false}
+  access-token: ${INSTAGRAM_ACCESS_TOKEN:}
+  user-id: ${INSTAGRAM_USER_ID:}
+  refresh:
+    cron: ${INSTAGRAM_REFRESH_CRON:0 5 9 * * *}
+
+notification:
+  daily:
+    cron: ${NOTIFICATION_DAILY_CRON:0 0 9 * * *}
+
+firebase:
+  admin:
+    json: ${FIREBASE_ADMIN_JSON:}
+
+app:
+  deeplink:
+    scheme: ${APP_DEEPLINK_SCHEME:dorandoran://chat}
+    universal-base: ${APP_DEEPLINK_UNIVERSAL_BASE:https://www.doran-chat.com/chat}
 
 # SpringDoc OpenAPI 설정
 springdoc:

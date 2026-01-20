@@ -24,6 +24,8 @@ public class CorsResponseFilter implements GlobalFilter, Ordered {
             "http://localhost:3001",
             "http://127.0.0.1:3000",
             "http://127.0.0.1:3001",
+            "https://localhost",
+            "capacitor://localhost",
             "https://doran-chat.com",
             "https://www.doran-chat.com",
             "https://doran-chat.vercel.app"
@@ -78,7 +80,8 @@ public class CorsResponseFilter implements GlobalFilter, Ordered {
         
         // 와일드카드 패턴 매칭
         return origin.matches("https://.*\\.doran-chat\\.com") ||
-               origin.matches("https://.*\\.vercel\\.app");
+               origin.matches("https://.*\\.vercel\\.app") ||
+               origin.matches("https://.*\\.netlify\\.app");
     }
 
     @Override

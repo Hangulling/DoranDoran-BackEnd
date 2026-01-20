@@ -28,6 +28,7 @@ public class PromptService {
     private final ChatRoomRepository chatRoomRepository;
     private final ChatbotRepository chatbotRepository;
     private final IntimacyProgressRepository intimacyProgressRepository;
+    private final PromptLoaderService promptLoaderService;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     /**
@@ -227,15 +228,15 @@ public class PromptService {
         int intimacyLevel = getCurrentIntimacyLevel(room.getId());
         String concept = extractConceptFromSettings(room.getSettings());
         
-        // 파일에서 프롬프트 로드 시도
-        String filePrompt = loadConversationPromptFromFile(concept, intimacyLevel);
+        // PromptLoaderService를 사용하여 DB 우선, 파일 fallback으로 프롬프트 로드
+        String filePrompt = promptLoaderService.loadPrompt("CONVERSATION", concept.toUpperCase(), intimacyLevel, "prod");
         if (filePrompt != null && !filePrompt.isEmpty()) {
             prompt.append(filePrompt);
             return;
         }
         
-        // 파일 로드 실패 시 fallback (기존 하드코딩 메서드 사용)
-        log.warn("Conversation 프롬프트 파일 로드 실패, fallback 사용: concept={}, intimacyLevel={}", concept, intimacyLevel);
+        // DB와 파일 모두 실패 시 fallback (기존 하드코딩 메서드 사용)
+        log.warn("Conversation 프롬프트 로드 실패 (DB 및 파일), fallback 사용: concept={}, intimacyLevel={}", concept, intimacyLevel);
         
         prompt.append("\n[현재 상태]\n");
         prompt.append("현재 친밀도 레벨: ").append(intimacyLevel).append("\n");

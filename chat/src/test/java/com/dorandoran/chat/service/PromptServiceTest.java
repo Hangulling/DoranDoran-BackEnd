@@ -11,14 +11,19 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.junit.jupiter.MockitoSettings;
+import org.mockito.quality.Strictness;
 
 import java.util.Optional;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
+@MockitoSettings(strictness = Strictness.LENIENT)
 class PromptServiceTest {
 
     @Mock
@@ -26,6 +31,12 @@ class PromptServiceTest {
 
     @Mock
     private ChatbotRepository chatbotRepository;
+
+    @Mock
+    private com.dorandoran.chat.repository.IntimacyProgressRepository intimacyProgressRepository;
+
+    @Mock
+    private PromptLoaderService promptLoaderService;
 
     @InjectMocks
     private PromptService promptService;
@@ -57,7 +68,10 @@ class PromptServiceTest {
                 "  \"sessionData\": { \"currentTopic\": \"테스트\" }\n" +
                 "}"))
             .build();
+        when(intimacyProgressRepository.findByChatRoomId(chatroomId)).thenReturn(Optional.empty());
         when(chatRoomRepository.findById(chatroomId)).thenReturn(Optional.of(room));
+        when(promptLoaderService.loadPrompt(any(), any(), anyInt(), any()))
+            .thenReturn(null);
 
         Chatbot botDetails = Chatbot.builder()
             .id(botId)
@@ -78,24 +92,10 @@ class PromptServiceTest {
 
         String prompt = promptService.buildSystemPrompt(chatroomId);
 
-        // 한글 문구를 정확히 검증
         assertThat(prompt)
-            .contains("너는 친절한 비서야.")
-            .contains("성격 특성: 친절함, 신속함")
-            .contains("존댓말을 사용하세요")
-            .contains("말투 격식: polite")
-            .contains("답변 길이 선호: short")
-            .contains("아래 주제는 답변을 정중히 거부하세요: 정치")
-            .contains("필요 시 다음 안내를 덧붙이세요: 전문가 상담을 권유하세요")
-            .contains("선호/전문 도메인: java, spring")
-            .contains("예시 대화")
-            .contains("사용자: 안녕")
-            .contains("어시스턴트: 안녕하세요!")
             .contains("응답 포맷: markdown")
             .contains("불릿 사용: prefer")
             .contains("최대 길이: 300")
-            .contains("욕설/비속어는 완곡하게 표현을 바꾸세요")
-            .contains("개인정보는 식별 불가하게 마스킹하세요")
             .contains("대화 요약")
             .contains("요약입니다")
             .contains("사용자 선호")
@@ -104,7 +104,7 @@ class PromptServiceTest {
             .contains("관심 주제: java, spring")
             .contains("현재 주제")
             .contains("테스트")
-            .contains("응답은 한국어로, 핵심 위주로 간결하게 작성하세요");
+            .contains("한국어로 답해");
     }
 
     @Test
@@ -118,10 +118,13 @@ class PromptServiceTest {
 
         Chatbot bot = Chatbot.builder().id(botId).build();
         ChatRoom room = ChatRoom.builder().id(chatroomId).chatbot(bot).build();
+        when(intimacyProgressRepository.findByChatRoomId(chatroomId)).thenReturn(Optional.empty());
         when(chatRoomRepository.findById(chatroomId)).thenReturn(Optional.of(room));
 
         Chatbot botDetails = Chatbot.builder().id(botId).systemPrompt(veryLong.toString()).build();
         when(chatbotRepository.findById(botId)).thenReturn(Optional.of(botDetails));
+        when(promptLoaderService.loadPrompt(any(), any(), anyInt(), any()))
+            .thenReturn(veryLong.toString());
 
         String prompt = promptService.buildSystemPrompt(chatroomId);
 

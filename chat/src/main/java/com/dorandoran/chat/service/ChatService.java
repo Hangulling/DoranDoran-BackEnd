@@ -238,6 +238,7 @@ public class ChatService {
             .turnNumber(turnNumber)
             .isDeleted(false)
             .isEdited(false)
+            .isCancelled(false)
             .createdAt(now)
             .updatedAt(now)
             .build();
@@ -273,6 +274,35 @@ public class ChatService {
         }
 
         return saved;
+    }
+
+    /**
+     * 메시지 취소 처리
+     */
+    @Transactional
+    public Message cancelMessage(UUID messageId, UUID userId) {
+        Message message = messageRepository.findById(messageId)
+            .orElseThrow(() -> new RuntimeException("Message not found: " + messageId));
+        ChatRoom room = message.getChatRoom();
+        if (!chatRoomRepository.existsByUserIdAndIdAndIsDeletedFalse(userId, room.getId())) {
+            throw new RuntimeException("Access denied or room deleted: " + room.getId());
+        }
+        if (Boolean.TRUE.equals(message.getIsCancelled())) {
+            return message;
+        }
+        message.setIsCancelled(true);
+        message.setCancelledAt(LocalDateTime.now());
+        return messageRepository.save(message);
+    }
+
+    /**
+     * 메시지 취소 여부 확인
+     */
+    @Transactional
+    public boolean isMessageCancelled(UUID messageId) {
+        return messageRepository.findById(messageId)
+            .map(m -> Boolean.TRUE.equals(m.getIsCancelled()))
+            .orElse(false);
     }
 
     /**

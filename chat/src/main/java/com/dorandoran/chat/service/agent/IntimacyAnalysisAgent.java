@@ -2,6 +2,7 @@ package com.dorandoran.chat.service.agent;
 
 import com.dorandoran.chat.config.AIConfig;
 import com.dorandoran.chat.service.OpenAIClient;
+import com.dorandoran.chat.service.PromptLoaderService;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
@@ -28,6 +29,7 @@ public class IntimacyAnalysisAgent {
     private final OpenAIClient openAIClient;
     private final AIConfig aiConfig;
     private final ObjectMapper objectMapper;
+    private final PromptLoaderService promptLoaderService;
     
     /**
      * 사용자 메시지 분석
@@ -72,21 +74,26 @@ public class IntimacyAnalysisAgent {
                 return Mono.just(new IntimacyAnalysisResult(1, List.of(), originalMessage));
             });
     }
-    
+
     /**
      * 분석 프롬프트 생성
      */
     private String buildAnalysisPrompt(String concept, int intimacyLevel) {
-        // 파일에서 프롬프트 로드 시도
-        String prompt = loadAnalysisPromptFromFile(concept, intimacyLevel);
+        if (concept == null) {
+            concept = "FRIEND";
+        }
+        String normalizedConcept = concept.toUpperCase();
+        
+        // PromptLoaderService를 사용하여 DB 우선, 파일 fallback으로 프롬프트 로드
+        String prompt = promptLoaderService.loadPrompt("INTIMACY_ANALYSIS", normalizedConcept, intimacyLevel, "prod");
         if (prompt != null && !prompt.isEmpty()) {
-            log.info("=== IntimacyAnalysisAgent: 프롬프트 파일 사용 - concept={}, level={} ===", 
+            log.info("=== IntimacyAnalysisAgent: 프롬프트 로드 성공 - concept={}, level={} ===", 
                 concept, intimacyLevel);
             return prompt;
         }
         
-        // 파일 로드 실패 시 fallback (기존 하드코딩 메서드 사용)
-        log.warn("Analysis 프롬프트 파일 로드 실패, fallback 사용: concept={}, intimacyLevel={}", concept, intimacyLevel);
+        // DB와 파일 모두 실패 시 fallback (기존 하드코딩 메서드 사용)
+        log.warn("Analysis 프롬프트 로드 실패 (DB 및 파일), fallback 사용: concept={}, intimacyLevel={}", concept, intimacyLevel);
         String conceptCriteria = getConceptExtractionCriteria(concept, intimacyLevel);
         
         return String.format("""
@@ -127,35 +134,6 @@ public class IntimacyAnalysisAgent {
             - 문제 표현이 없으면 빈 배열 반환
             - JSON 형식 외의 텍스트는 출력하지 말 것
             """, concept, intimacyLevel, conceptCriteria);
-    }
-    
-    /**
-     * 파일에서 분석 프롬프트 로드
-     */
-    private String loadAnalysisPromptFromFile(String concept, int intimacyLevel) {
-        if (concept == null) {
-            concept = "FRIEND";
-        }
-        String normalizedConcept = concept.toUpperCase();
-        String filename = String.format("prompts/intimacy/analysis/%s_%d.txt",
-            normalizedConcept.toLowerCase(), intimacyLevel);
-        
-        try {
-            ClassPathResource resource = new ClassPathResource(filename);
-            if (!resource.exists()) {
-                log.debug("IntimacyAnalysisAgent: 프롬프트 파일 없음 - {}", filename);
-                return null;
-            }
-            
-            String content = resource.getContentAsString(StandardCharsets.UTF_8);
-            log.info("IntimacyAnalysisAgent: 프롬프트 파일 로드 성공 - {}, 길이={}자", 
-                filename, content.length());
-            return content;
-            
-        } catch (IOException e) {
-            log.error("IntimacyAnalysisAgent: 프롬프트 파일 로드 실패 - {}", filename, e);
-            return null;
-        }
     }
     
     /**

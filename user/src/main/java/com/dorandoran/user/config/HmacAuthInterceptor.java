@@ -81,6 +81,7 @@ public class HmacAuthInterceptor implements HandlerInterceptor {
                path.startsWith("/api-docs") || 
                path.equals("/api/users") ||  // POST /api/users (회원가입) 제외
                path.startsWith("/api/users/register") || 
+               path.startsWith("/api/home") ||
                path.startsWith("/api/users/find-email") ||  // 이메일 찾기 제외
                path.startsWith("/api/users/health") ||
                path.startsWith("/api/users/email/") ||

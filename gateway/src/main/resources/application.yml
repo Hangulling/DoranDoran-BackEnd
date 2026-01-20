@@ -67,6 +67,24 @@ spring:
                   factor: 2
                   maxBackoff: 500ms
                   basedOnPreviousValue: true
+
+
+        # Home/Support/Notification 라우팅 (User 서비스)
+        - id: user-service-home
+          uri: http://dorandoran-user:8082
+          predicates:
+            - Path=/api/home/**
+          filters: []
+        - id: user-service-support
+          uri: http://dorandoran-user:8082
+          predicates:
+            - Path=/api/support/**
+          filters: []
+        - id: user-service-notifications
+          uri: http://dorandoran-user:8082
+          predicates:
+            - Path=/api/notifications/**
+          filters: []
         
         # Chat 서비스 라우팅
         - id: chat-service
@@ -74,7 +92,7 @@ spring:
           predicates:
             - Path=/api/chat/**
           filters: []
-        
+
         # Store 서비스 라우팅
         - id: store-service
           uri: http://dorandoran-store:8084

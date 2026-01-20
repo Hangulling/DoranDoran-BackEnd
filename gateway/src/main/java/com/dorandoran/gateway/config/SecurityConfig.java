@@ -46,6 +46,8 @@ public class SecurityConfig {
         corsConfig.addAllowedOrigin("http://localhost:3001");
         corsConfig.addAllowedOrigin("http://127.0.0.1:3000");
         corsConfig.addAllowedOrigin("http://127.0.0.1:3001");
+        corsConfig.addAllowedOrigin("https://localhost");
+        corsConfig.addAllowedOrigin("capacitor://localhost");
         
         // 프로덕션 도메인
         corsConfig.addAllowedOrigin("https://doran-chat.com");
@@ -56,6 +58,7 @@ public class SecurityConfig {
         // setAllowedOriginPatterns()를 사용하여 패턴 기반 허용
         corsConfig.addAllowedOriginPattern("https://*.doran-chat.com");
         corsConfig.addAllowedOriginPattern("https://*.vercel.app");
+        corsConfig.addAllowedOriginPattern("https://*.netlify.app");
 
         corsConfig.addAllowedHeader("*");
         corsConfig.addAllowedMethod("*");

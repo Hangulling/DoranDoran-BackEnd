@@ -3,6 +3,7 @@ package com.dorandoran.chat.service;
 import com.dorandoran.chat.entity.IntimacyProgress;
 import com.dorandoran.chat.entity.Message;
 import com.dorandoran.chat.entity.ChatRoom;
+import com.dorandoran.chat.client.UserServiceClient;
 import com.dorandoran.chat.repository.IntimacyProgressRepository;
 import com.dorandoran.chat.repository.ChatRoomRepository;
 import com.dorandoran.chat.sse.SSEManager;
@@ -41,10 +42,17 @@ public class MultiAgentOrchestrator {
     private final IntimacyProgressRepository intimacyProgressRepository;
     private final ChatService chatService;
     private final ChatRoomRepository chatRoomRepository;
+    private final UserServiceClient userServiceClient;
     
     public void processUserMessage(UUID chatroomId, UUID userId, Message userMessage) {
         log.info("=== MultiAgentOrchestrator.processUserMessage() 호출됨 ===");
         String content = userMessage.getContent();
+
+        if (shouldAbort(chatroomId, userMessage.getId(), userId)) {
+            log.info("메시지 취소로 처리 중단: messageId={}", userMessage.getId());
+            sseManager.send(chatroomId, "conversation_cancelled", Map.of("messageId", userMessage.getId()));
+            return;
+        }
         
         // 기존 Multi-Agent 로직 실행
         processWithAgents(chatroomId, userId, userMessage, content);
@@ -80,6 +88,10 @@ public class MultiAgentOrchestrator {
                         : List.of()
                 ));
                 updateIntimacyProgress(chatroomId, userId, resp);
+
+                if (resp.correctedSentence() != null && "perfect".equalsIgnoreCase(resp.correctedSentence().trim())) {
+                    userServiceClient.incrementPerfect(userId);
+                }
             })
             .doOnError(ex -> log.error("IntimacyAgent 오류", ex))
             .doOnSuccess(resp -> log.info("IntimacyAgent 스트림 완료"))
@@ -152,6 +164,12 @@ public class MultiAgentOrchestrator {
                                     log.warn("메타데이터 생성 실패 - metadata 없이 저장합니다.", e);
                                 }
 
+                                if (shouldAbort(chatroomId, userMessage.getId(), userId)) {
+                                    log.info("메시지 취소로 봇 응답 저장 중단: messageId={}", userMessage.getId());
+                                    sseManager.send(chatroomId, "conversation_cancelled", Map.of("messageId", userMessage.getId()));
+                                    return;
+                                }
+
                                 Message botMessage = chatService.sendMessage(
                                     chatroomId, null, "bot", actualContent, "text", metadataJson
                                 );
@@ -184,6 +202,12 @@ public class MultiAgentOrchestrator {
                                     log.warn("메타데이터 생성 실패 - metadata 없이 저장합니다.", e);
                                 }
 
+                                if (shouldAbort(chatroomId, userMessage.getId(), userId)) {
+                                    log.info("메시지 취소로 봇 응답 저장 중단: messageId={}", userMessage.getId());
+                                    sseManager.send(chatroomId, "conversation_cancelled", Map.of("messageId", userMessage.getId()));
+                                    return;
+                                }
+
                                 Message botMessage = chatService.sendMessage(
                                     chatroomId, null, "bot", actualContent, "text", metadataJson
                                 );
@@ -210,6 +234,12 @@ public class MultiAgentOrchestrator {
                     .doOnError(ex -> {
                         log.error("IntimacyAgent 결과 수집 실패", ex);
                         // IntimacyAgent 실패 시에도 봇 메시지 저장
+                        if (shouldAbort(chatroomId, userMessage.getId(), userId)) {
+                            log.info("메시지 취소로 봇 응답 저장 중단: messageId={}", userMessage.getId());
+                            sseManager.send(chatroomId, "conversation_cancelled", Map.of("messageId", userMessage.getId()));
+                            return;
+                        }
+
                         Message botMessage = chatService.sendMessage(
                             chatroomId, null, "bot", actualContent, "text", null
                         );
@@ -574,5 +604,18 @@ public class MultiAgentOrchestrator {
             log.warn("요약/키워드 후처리 실패 - 무시하고 진행합니다.", ex);
         })
         .subscribe(); // 비동기 실행, 결과 대기하지 않음
+    }
+
+    private boolean shouldAbort(UUID chatroomId, UUID messageId, UUID userId) {
+        if (chatService.isMessageCancelled(messageId)) {
+            return true;
+        }
+        if (!sseManager.hasEmitters(chatroomId)) {
+            try {
+                chatService.cancelMessage(messageId, userId);
+            } catch (Exception ignored) {}
+            return true;
+        }
+        return false;
     }
 }

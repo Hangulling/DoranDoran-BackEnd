@@ -74,7 +74,7 @@ spring:
                   factor: 2
                   maxBackoff: 500ms
                   basedOnPreviousValue: true
-        
+
         # Chat 서비스 라우팅
         - id: chat-service
           uri: http://dorandoran-chat:8083

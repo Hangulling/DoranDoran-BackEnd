@@ -27,6 +27,7 @@ public class MessageResponse {
     private Long turnNumber;
     private Boolean isEdited;
     private Boolean isDeleted;
+    private Boolean isCancelled;
     private LocalDateTime createdAt;
     private MessageMetadata metadata;  // 구조화된 객체
     
@@ -184,6 +185,7 @@ public class MessageResponse {
             m.getTurnNumber(),
             m.getIsEdited(),
             m.getIsDeleted(),
+            m.getIsCancelled(),
             m.getCreatedAt(),
             metadata
         );
