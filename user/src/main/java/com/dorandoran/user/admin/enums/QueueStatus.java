@@ -1,4 +1,4 @@
-package com.dorandoran.user.admin.entity;
+package com.dorandoran.user.admin.enums;
 
 /**
  * 관리 필요 내역 큐 상태

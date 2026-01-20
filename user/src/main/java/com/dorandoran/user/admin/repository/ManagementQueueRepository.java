@@ -1,8 +1,8 @@
 package com.dorandoran.user.admin.repository;
 
 import com.dorandoran.user.admin.entity.ManagementQueue;
-import com.dorandoran.user.admin.entity.QueueStatus;
-import com.dorandoran.user.admin.entity.QueueType;
+import com.dorandoran.user.admin.enums.QueueStatus;
+import com.dorandoran.user.admin.enums.QueueType;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -11,7 +11,6 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.time.LocalDateTime;
-import java.util.List;
 import java.util.UUID;
 
 

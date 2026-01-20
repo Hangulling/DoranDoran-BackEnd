@@ -1,6 +1,6 @@
 package com.dorandoran.user.admin.dto.request;
 
-import com.dorandoran.user.admin.entity.QueueType;
+import com.dorandoran.user.admin.enums.QueueType;
 import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;
 import lombok.Builder;

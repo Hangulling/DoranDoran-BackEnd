@@ -1,7 +1,7 @@
 package com.dorandoran.user.admin.dto.response;
 
-import com.dorandoran.user.admin.entity.QueueStatus;
-import com.dorandoran.user.admin.entity.QueueType;
+import com.dorandoran.user.admin.enums.QueueStatus;
+import com.dorandoran.user.admin.enums.QueueType;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import lombok.AllArgsConstructor;
 import lombok.Builder;

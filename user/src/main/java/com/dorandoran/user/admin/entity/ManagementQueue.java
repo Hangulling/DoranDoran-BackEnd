@@ -1,5 +1,7 @@
 package com.dorandoran.user.admin.entity;
 
+import com.dorandoran.user.admin.enums.QueueStatus;
+import com.dorandoran.user.admin.enums.QueueType;
 import jakarta.persistence.*;
 import lombok.*;
 
