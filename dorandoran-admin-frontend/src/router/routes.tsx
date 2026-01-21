@@ -10,6 +10,12 @@ const PromptsTestAndApplyPage = lazy(() => import('../pages/admin/PromptsTestAnd
 const PromptVersionsPage = lazy(() => import('../pages/admin/PromptVersionsPage'))
 const HistoryPage = lazy(() => import('../pages/admin/HistoryPage'))
 
+// 추가
+const MyChatLogListPage = lazy(() => import('../pages/admin/MyChatLogListPage'))
+const MyChatLogDetailPage = lazy(() => import('../pages/admin/MyChatLogDetailPage'))
+const MyManagementQueuePage = lazy(() => import('../pages/admin/MyManagementQueuePage'))
+const MyAuditLogPage = lazy(() => import('../pages/admin/MyAuditLogPage'))
+
 export function Routes() {
   return (
     <RouterRoutes>
@@ -62,6 +68,41 @@ export function Routes() {
           </AdminPrivateRoute>
         }
       />
+
+      <Route
+        path="/my/chat-logs"
+        element={
+          <AdminPrivateRoute>
+            <MyChatLogListPage />
+          </AdminPrivateRoute>
+        }
+      />
+      <Route
+        path="/my/chat-logs/:chatroomId"
+        element={
+          <AdminPrivateRoute>
+            <MyChatLogDetailPage />
+          </AdminPrivateRoute>
+        }
+      />
+      <Route
+        path="/my/management-queue"
+        element={
+          <AdminPrivateRoute>
+            <MyManagementQueuePage />
+          </AdminPrivateRoute>
+        }
+      />
+      <Route
+        path="/my/audit-logs"
+        element={
+          <AdminPrivateRoute>
+            <MyAuditLogPage />
+          </AdminPrivateRoute>
+        }
+      />
+
+
       <Route path="*" element={<Navigate to="/" replace />} />
     </RouterRoutes>
   )

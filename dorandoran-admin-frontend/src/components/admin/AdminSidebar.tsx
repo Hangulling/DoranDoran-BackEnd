@@ -15,6 +15,7 @@ type MenuSection = {
 }
 
 const menuSections: MenuSection[] = [
+  // TODO : 중복 확인 필요
   {
     title: '채팅 로그 조회',
     items: [
@@ -33,6 +34,15 @@ const menuSections: MenuSection[] = [
     title: '히스토리 관리',
     items: [
       { label: '관리 이력 조회', path: '/history' },
+    ],
+  },
+  // ===== 신규 구현 (아카이브 DB 기반) =====
+  {
+    title: '채팅 로그 조회',  // ✅ 사용자 관점 이름
+    items: [
+      { label: '채팅 로그 조회', path: '/my/chat-logs' },
+      { label: '관리 필요 내역', path: '/my/management-queue' },
+      { label: '감사 로그', path: '/my/audit-logs' },
     ],
   },
 ]
