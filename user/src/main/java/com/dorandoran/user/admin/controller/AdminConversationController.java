@@ -20,6 +20,12 @@ import java.util.UUID;
 /**
  * 관리자 대화 조회 Controller (User Service -> Chat Service)
  */
+// TODO: ChatLogController와 유사하지만 데이터 소스와 목적이 다름 - 둘 다 필요
+// - AdminConversationController: Chat Service (Feign Client) → 실시간 chat_schema 데이터 조회
+// - ChatLogController: 직접 Repository 조회 → 아카이브 archive_schema 데이터 조회
+// 역할 구분:
+//   * AdminConversationController: 현재 진행 중인 대화 관리 (실시간 모니터링)
+//   * ChatLogController: 과거 아카이브 데이터 분석 (Agent 결과 포함)
 @RestController
 @RequestMapping("/api/admin/conversations")
 @RequiredArgsConstructor
@@ -30,17 +36,20 @@ public class AdminConversationController {
     private final ChatServiceClient chatServiceClient;
     private final UserRepository userRepository;
 
+    // TODO: ChatLogController.searchChatLogs()와 유사하지만 데이터 소스가 다름
+    // - 이 메서드: Chat Service의 실시간 데이터 (chat_schema)
+    // - searchChatLogs(): 아카이브 데이터 (archive_schema)
     @GetMapping
     @Operation(summary = "대화 목록 조회", description = "관리자용 대화 목록을 조회합니다.")
     public ResponseEntity<Map<String, Object>> getConversations(
-            @RequestParam(required = false) String userEmail,
-            @RequestParam(required = false) String from,
-            @RequestParam(required = false) String to,
-            @RequestParam(required = false) String roomKey,
-            @RequestParam(required = false) Integer intimacyLevel,
-            @RequestParam(required = false, defaultValue = "chat") String dataSource,
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size
+        @RequestParam(required = false) String userEmail,
+        @RequestParam(required = false) String from,
+        @RequestParam(required = false) String to,
+        @RequestParam(required = false) String roomKey,
+        @RequestParam(required = false) Integer intimacyLevel,
+        @RequestParam(required = false, defaultValue = "chat") String dataSource,
+        @RequestParam(defaultValue = "0") int page,
+        @RequestParam(defaultValue = "20") int size
     ) {
         try {
             UUID userId = null;
@@ -71,11 +80,14 @@ public class AdminConversationController {
         }
     }
 
+    // TODO: ChatLogController.getMessageTimeline()과 유사하지만 데이터 소스가 다름
+    // - 이 메서드: Chat Service의 실시간 데이터
+    // - getMessageTimeline(): 아카이브 데이터 + Agent 결과 상세 파싱
     @GetMapping("/{conversationId}")
     @Operation(summary = "대화 상세 조회", description = "관리자용 대화 상세를 조회합니다.")
     public ResponseEntity<Map<String, Object>> getConversationDetail(
-            @PathVariable UUID conversationId,
-            @RequestParam(required = false, defaultValue = "chat") String dataSource
+        @PathVariable UUID conversationId,
+        @RequestParam(required = false, defaultValue = "chat") String dataSource
     ) {
         try {
             Map<String, Object> response = chatServiceClient.getAdminConversationDetail(conversationId, dataSource);
