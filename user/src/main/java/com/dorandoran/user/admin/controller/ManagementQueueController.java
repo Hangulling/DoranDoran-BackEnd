@@ -10,6 +10,8 @@ import com.dorandoran.user.admin.dto.response.ManagementQueueResponse;
 import com.dorandoran.user.admin.enums.QueueStatus;
 import com.dorandoran.user.admin.enums.QueueType;
 import com.dorandoran.user.admin.service.ManagementQueueService;
+import com.dorandoran.user.entity.User;
+import com.dorandoran.user.repository.UserRepository;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -35,6 +37,7 @@ import java.util.UUID;
 public class ManagementQueueController {
 
   private final ManagementQueueService service;
+  private final UserRepository userRepository;
 
   /**
    * 관리 필요 내역 등록
@@ -49,8 +52,18 @@ public class ManagementQueueController {
   ) {
     log.info("관리 필요 내역 등록 API 호출: queueType={}", request.getQueueType());
 
-    // TODO: 인증 구현 시 실제 관리자 정보로 교체
-    String adminName = "admin@company.com";  // 임시 하드코딩
+    // X-User-Id 헤더에서 관리자 정보 추출
+    String userIdHeader = httpRequest.getHeader("X-User-Id");
+    if (userIdHeader == null || userIdHeader.isEmpty()) {
+      log.error("관리자 정보 없음: X-User-Id 헤더가 비어있습니다");
+      return ResponseEntity.status(401).build();
+    }
+
+    UUID adminUserId = UUID.fromString(userIdHeader);
+    User admin = userRepository.findById(adminUserId)
+        .orElseThrow(() -> new IllegalArgumentException("관리자를 찾을 수 없습니다: " + adminUserId));
+
+    String adminName = admin.getEmail();
     String adminIp = httpRequest.getRemoteAddr();
 
     ManagementQueueResponse response = service.createManagementQueue(
@@ -179,20 +192,31 @@ public class ManagementQueueController {
       @Parameter(description = "관리 내역 ID")
       @PathVariable UUID id,
 
-      @Valid @RequestBody CompleteRequest request
+      @Valid @RequestBody CompleteRequest request,
+      HttpServletRequest servletRequest  // ✅ 추가!
   ) {
     log.info("관리 필요 내역 처리 완료 API 호출: id={}", id);
 
-    // TODO: 인증 구현 시 실제 관리자 정보로 교체
-    String processedBy = "admin@company.com";  // 임시 하드코딩
+    // ✅ X-User-Id 헤더에서 관리자 정보 추출
+    String userIdHeader = servletRequest.getHeader("X-User-Id");
+    if (userIdHeader == null || userIdHeader.isEmpty()) {
+      log.error("관리자 정보 없음: X-User-Id 헤더가 비어있습니다");
+      return ResponseEntity.status(401).build();
+    }
+
+    UUID adminUserId = UUID.fromString(userIdHeader);
+    User admin = userRepository.findById(adminUserId)
+        .orElseThrow(() -> new IllegalArgumentException("관리자를 찾을 수 없습니다: " + adminUserId));
+
+    String processedBy = admin.getEmail();
 
     ManagementQueueResponse response = service.completeManagementQueue(
         id,
         processedBy,
-        request.getNote()
+        request.getNote()  // ✅ CompleteRequest의 getNote()
     );
 
-    log.info("관리 필요 내역 처리 완료: id={}", id);
+    log.info("관리 필요 내역 처리 완료: id={}, processedBy={}", id, processedBy);
 
     return ResponseEntity.ok(response);
   }
@@ -283,22 +307,33 @@ public class ManagementQueueController {
    */
   @PatchMapping("/complete-batch")
   @Operation(summary = "관리 필요 내역 일괄 처리 완료", description = "선택한 여러 관리 필요 내역을 한 번에 처리 완료합니다")
-  public ResponseEntity<Map<String, Object>> batchCompleteManagementQueue(
-      @Valid @RequestBody BatchCompleteRequest request,
-      HttpServletRequest httpRequest
+  public ResponseEntity<Map<String, Object>> batchCompleteManagementQueue(  // ✅ 메서드 이름 수정!
+      @Valid @RequestBody BatchCompleteRequest request,  // ✅ BatchCompleteRequest!
+      HttpServletRequest httpRequest  // ✅ 이름은 httpRequest로
   ) {
     log.info("관리 필요 내역 일괄 처리 완료 API 호출: ids={}", request.getIds());
 
-    // TODO: 인증 구현 시 실제 관리자 정보로 교체
-    String processedBy = "admin@company.com";  // 임시 하드코딩
+    // ✅ X-User-Id 헤더에서 관리자 정보 추출
+    String userIdHeader = httpRequest.getHeader("X-User-Id");
+    if (userIdHeader == null || userIdHeader.isEmpty()) {
+      log.error("관리자 정보 없음: X-User-Id 헤더가 비어있습니다");
+      return ResponseEntity.status(401).build();
+    }
+
+    UUID adminUserId = UUID.fromString(userIdHeader);
+    User admin = userRepository.findById(adminUserId)
+        .orElseThrow(() -> new IllegalArgumentException("관리자를 찾을 수 없습니다: " + adminUserId));
+
+    String processedBy = admin.getEmail();
 
     int completedCount = service.batchCompleteManagementQueue(
-        request.getIds(),
+        request.getIds(),  // ✅ BatchCompleteRequest의 getIds()
         processedBy,
-        request.getNote()
+        request.getNote()  // ✅ BatchCompleteRequest의 getNote()
     );
 
-    log.info("관리 필요 내역 일괄 처리 완료: 성공={}/{}", completedCount, request.getIds().size());
+    log.info("관리 필요 내역 일괄 처리 완료: 성공={}/{}, processedBy={}",
+        completedCount, request.getIds().size(), processedBy);
 
     return ResponseEntity.ok(Map.of(
         "completedCount", completedCount,

@@ -156,10 +156,10 @@ public class ChatLogService {
           case "intimacy":
             builder.intimacy(parseIntimacyResult(resultData));
             break;
-          case "conversation":
+          case "conver":
             builder.conversation(parseConversationResult(resultData));
             break;
-          case "vocabulary":
+          case "voca":
             builder.vocabulary(parseVocabularyResult(resultData));
             break;
           default:
