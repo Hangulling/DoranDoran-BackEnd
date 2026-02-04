@@ -1,0 +1,53 @@
+# 새 태그 이름 형식 (v1.2.3)
+name-template: 'Release $RESOLVED_VERSION'
+tag-template: 'v$RESOLVED_VERSION'
+
+# 릴리즈 노트에 표시할 카테고리 정의
+categories:
+  - title: '🎁 새로운 기능이 추가되었어요'
+    labels:
+      - 'feat'
+      - 'Feat' # 팀의 대문자 컨벤션 지원
+
+  - title: '🐞 버그가 수정되었어요'
+    labels:
+      - 'fix'
+      - 'Fix'
+
+  - title: '🎨 디자인 및 UI 개선'
+    labels:
+      - 'design'
+      - 'Design'
+
+  - title: '🛠️ 유지보수 및 리팩토링'
+    labels:
+      - 'chore'
+      - 'Chore'
+      - 'refactor'
+      - 'style'
+
+# 변경된 내용 하나하나를 표시할 형식 정의
+change-template: '- $TITLE ([#$NUMBER]($URL)) @$AUTHOR'
+
+# 전체 릴리즈 노트의 레이아웃
+template: |
+  ## 이번 버전의 변경사항은 아래와 같아요
+  ---
+  $CHANGES # 여기서 위에서 정의한 카테고리들이 표시됩니다.
+
+no-changes-template: '이번 릴리즈에는 사용자에게 노출할 변경사항이 없어요.'
+
+# 버전 계산 로직
+version-resolver:
+  major:
+    labels:
+      - 'breaking'
+      - 'major'
+  minor:
+    labels:
+      - 'feat'
+  patch:
+    labels:
+      - 'fix'
+      - 'patch'
+  default: patch

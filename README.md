@@ -1,6 +1,6 @@
 # 🚀 DoranDoran
 
-> 마이크로서비스 아키텍처 기반의 웹 애플리케이션
+> 마이크로서비스 아키텍처 기반의 웹 애플리케이션 · [도란도란](https://doran-chat.com) — AI 한국어 챗봇 메이트
 
 [![Java](https://img.shields.io/badge/Java-21-orange.svg)](https://openjdk.java.net/)
 [![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.3.4-brightgreen.svg)](https://spring.io/projects/spring-boot)
@@ -250,5 +250,15 @@ chore: 빌드 설정 변경
 
 ## 📝 라이선스
 
-이 프로젝트는 MIT 라이선스 하에 배포됩니다. 
+이 프로젝트는 MIT 라이선스 하에 배포됩니다.
+
 ---
+
+## 프론트엔드 (DoranDoran Web)
+
+이 저장소 루트에는 **DoranDoran Web** 프론트엔드(Vite + React + TypeScript)가 포함되어 있습니다.
+
+- **요구사항**: Node >= 22.0.0, Vite ^7.1.12, React ^19.1.1, TypeScript ~5.8.3
+- **실행**: `npm install` 후 `npm run dev`
+- **개요**: 관계/친밀도에 맞는 한국어 표현을 제안하는 AI 챗봇 메이트
+
