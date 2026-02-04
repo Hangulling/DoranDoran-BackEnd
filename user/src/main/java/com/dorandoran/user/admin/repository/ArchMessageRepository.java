@@ -10,17 +10,21 @@ import org.springframework.stereotype.Repository;
 
 import java.util.UUID;
 
-/**
- * ArchMessage Repository
- *
- * Archive 스키마의 메시지 조회 (읽기 전용)
- */
 @Repository
 public interface ArchMessageRepository extends JpaRepository<ArchMessage, UUID> {
 
   /**
-   * 특정 채팅방의 메시지 조회 (페이징)
+   * 특정 채팅방의 메시지를 순서대로 조회 (페이징)
+   *
+   * @param chatroomId 채팅방 ID
+   * @param pageable 페이징 정보
+   * @return 메시지 페이지
    */
-  @Query("SELECT m FROM ArchMessage m WHERE m.archChatroomId = :chatroomId ORDER BY m.sequenceNumber ASC")
-  Page<ArchMessage> findByChatroomIdOrderBySequence(@Param("chatroomId") UUID chatroomId, Pageable pageable);
+  @Query("SELECT m FROM ArchMessage m " +
+      "WHERE m.archChatroomId = :chatroomId " +
+      "ORDER BY m.sequenceNumber ASC")
+  Page<ArchMessage> findByChatroomIdOrderBySequence(
+      @Param("chatroomId") UUID chatroomId,
+      Pageable pageable
+  );
 }

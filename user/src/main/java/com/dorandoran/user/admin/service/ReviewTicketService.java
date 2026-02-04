@@ -32,6 +32,7 @@ public class ReviewTicketService {
     /**
      * 티켓 목록 조회
      */
+    // TODO: ManagementQueueService의 getManagementQueueList()와 100% 중복 - 팀 내 통합 논의 필요
     @Transactional(readOnly = true)
     public Page<ReviewTicket> getTickets(ReviewStatus status, String agentType, Pageable pageable) {
         if (agentType != null && !agentType.isEmpty()) {
@@ -43,14 +44,15 @@ public class ReviewTicketService {
     /**
      * 탭별 카운트 조회
      */
+    // TODO: ManagementQueueService의 getCountByItemType()와 100% 중복 - 팀 내 통합 논의 필요
     @Transactional(readOnly = true)
     public Map<String, Long> getTicketCounts(ReviewStatus status) {
         Map<String, Long> counts = new HashMap<>();
-        
+
         // 전체 카운트
         long total = reviewTicketRepository.countByStatus(status);
         counts.put("total", total);
-        
+
         // 에이전트 타입별 카운트
         List<Object[]> results = reviewTicketRepository.countByStatusGroupByAgentType(status);
         for (Object[] result : results) {
@@ -58,13 +60,14 @@ public class ReviewTicketService {
             Long count = (Long) result[1];
             counts.put(agentType != null ? agentType : "UNKNOWN", count);
         }
-        
+
         return counts;
     }
 
     /**
      * 티켓 생성
      */
+    // TODO: ManagementQueueService의 createManagementQueue()와 100% 중복 - 팀 내 통합 논의 필요
     @Transactional
     public ReviewTicket createTicket(UUID conversationId, String agentType, String note, UUID createdBy) {
         ReviewTicket ticket = ReviewTicket.builder()
@@ -83,6 +86,7 @@ public class ReviewTicketService {
     /**
      * 티켓 항목 저장
      */
+    // TODO: ManagementQueue는 JSONB items 배열 사용, ReviewTicket은 별도 테이블 사용 - 구조 차이 존재
     @Transactional
     public void saveTicketItems(ReviewTicket ticket, List<ReviewTicketItem> items) {
         for (ReviewTicketItem item : items) {
@@ -99,6 +103,7 @@ public class ReviewTicketService {
     /**
      * 티켓 상세 조회
      */
+    // TODO: ManagementQueueService의 getManagementQueue()와 100% 중복 - 팀 내 통합 논의 필요
     @Transactional(readOnly = true)
     public ReviewTicket getTicket(Long ticketId) {
         return reviewTicketRepository.findById(ticketId)
@@ -113,11 +118,12 @@ public class ReviewTicketService {
     /**
      * 티켓 메모 수정
      */
+    // TODO: ManagementQueueService의 updateManagementQueue()와 100% 중복 - 팀 내 통합 논의 필요
     @Transactional
     public ReviewTicket updateTicket(Long ticketId, String note) {
         ReviewTicket ticket = reviewTicketRepository.findById(ticketId)
             .orElseThrow(() -> new RuntimeException("ReviewTicket not found: " + ticketId));
-        
+
         ticket = ReviewTicket.builder()
             .id(ticket.getId())
             .conversationId(ticket.getConversationId())
@@ -130,13 +136,14 @@ public class ReviewTicketService {
             .updatedAt(LocalDateTime.now())
             .doneAt(ticket.getDoneAt())
             .build();
-        
+
         return reviewTicketRepository.save(ticket);
     }
 
     /**
      * 티켓 삭제
      */
+    // TODO: ManagementQueueService의 deleteManagementQueue()와 100% 중복 - 팀 내 통합 논의 필요
     @Transactional
     public void deleteTicket(Long ticketId) {
         if (!reviewTicketRepository.existsById(ticketId)) {
@@ -148,10 +155,11 @@ public class ReviewTicketService {
     /**
      * 다건 처리 완료
      */
+    // TODO: ManagementQueueService의 batchCompleteManagementQueue()와 100% 중복 - 팀 내 통합 논의 필요
     @Transactional
     public void completeTickets(List<Long> ticketIds) {
         List<ReviewTicket> tickets = reviewTicketRepository.findByIdIn(ticketIds);
-        
+
         LocalDateTime now = LocalDateTime.now();
         for (ReviewTicket ticket : tickets) {
             ticket = ReviewTicket.builder()
@@ -166,7 +174,7 @@ public class ReviewTicketService {
                 .updatedAt(now)
                 .doneAt(now)
                 .build();
-            
+
             reviewTicketRepository.save(ticket);
         }
     }
