@@ -2,6 +2,7 @@ package com.dorandoran.chat.service.agent;
 
 import com.dorandoran.chat.config.AIConfig;
 import com.dorandoran.chat.service.OpenAIClient;
+import com.dorandoran.chat.service.PromptLoaderService;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
@@ -26,6 +27,7 @@ public class VocabularyExplanationAgent {
     private final OpenAIClient openAIClient;
     private final AIConfig aiConfig;
     private final ObjectMapper objectMapper;
+    private final PromptLoaderService promptLoaderService;
 
     /**
      * 추출된 어휘에 대한 설명을 컨셉/레벨에 맞는 말투로 생성
@@ -114,14 +116,19 @@ public class VocabularyExplanationAgent {
      * @return 시스템 프롬프트 문자열
      */
     private String buildExplanationPrompt(String concept, int intimacyLevel) {
-        // 파일에서 프롬프트 로드 시도
-        String prompt = loadExplanationPromptFromFile(concept, intimacyLevel);
+        if (concept == null) {
+            concept = "FRIEND";
+        }
+        String normalizedConcept = concept.toUpperCase();
+        
+        // PromptLoaderService를 사용하여 DB 우선, 파일 fallback으로 프롬프트 로드
+        String prompt = promptLoaderService.loadPrompt("VOCABULARY_EXPLANATION", normalizedConcept, intimacyLevel, "prod");
         if (prompt != null && !prompt.isEmpty()) {
             return prompt;
         }
         
-        // 파일 로드 실패 시 fallback (기존 하드코딩 메서드 사용)
-        log.warn("Explanation 프롬프트 파일 로드 실패, fallback 사용: concept={}, intimacyLevel={}", concept, intimacyLevel);
+        // DB와 파일 모두 실패 시 fallback (기존 하드코딩 메서드 사용)
+        log.warn("Explanation 프롬프트 로드 실패 (DB 및 파일), fallback 사용: concept={}, intimacyLevel={}", concept, intimacyLevel);
         String toneGuideline = getToneGuideline(concept, intimacyLevel);
         
         return String.format("""

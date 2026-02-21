@@ -1,0 +1,129 @@
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@100..900&family=Noto+Sans:ital,wght@0,100..900;1,100..900&display=swap');
+
+@import 'tailwindcss';
+@plugin "daisyui";
+
+@theme {
+  --font-family-sans: 'Noto Sans', 'Noto Sans KR', sans-serif;
+
+  --color-gray-0: #ffffff;
+  --color-gray-10: #fafafa;
+  --color-gray-50: #f7f7f8;
+  --color-gray-100: #dedddf;
+  --color-gray-200: #c4c3c6;
+  --color-gray-300: #aba9ad;
+  --color-gray-400: #918f94;
+  --color-gray-500: #78757a;
+  --color-gray-600: #5f5c60;
+  --color-gray-700: #454346;
+  --color-gray-800: #2c2a2c;
+  --color-gray-900: #121112;
+  
+  --color-primary-10: #f3f1fd;
+  --color-primary-50: #e3defc;
+  --color-primary-100: #bbaff8;
+  --color-primary-200: #9480f4;
+  --color-primary-300: #6c51f0;
+  --color-primary-400: #4422ec;
+  --color-primary-500: #3012ca;
+  --color-primary-600: #250d9b;
+  --color-primary-700: #1a096c;
+  --color-primary-800: #0f053d;
+  --color-primary-900: #03010e;
+
+  --color-secondary-50: #e8f7fc;
+  --color-secondary-100: #bbe7f6;
+  --color-secondary-200: #8ed8f0;
+  --color-secondary-300: #61c8ea;
+  --color-secondary-400: #34b8e5;
+  --color-secondary-500: #1a9fc8;
+  --color-secondary-600: #157c9e;
+  --color-secondary-700: #0f5871;
+  --color-secondary-800: #093544;
+  --color-secondary-900: #031217;
+
+  --color-purple-10: #eee8fd;
+  --color-purple-50: #e4d9fc;
+  --color-purple-100: #c2aaf8;
+  --color-purple-200: #a17bf4;
+  --color-purple-300: #7f4cf0;
+  --color-purple-400: #5d1dec;
+  --color-purple-500: #4911c5;
+  --color-purple-600: #370d96;
+  --color-purple-700: #260967;
+  --color-purple-800: #150538;
+  --color-purple-900: #030109;
+
+  --color-system-red: #ff6149;
+  --color-system-blue: #546eff;
+  --color-system-yellow: #ffbd38;
+
+  --gradient-1: linear-gradient(to right, #6A4FF0 0%, #7388FB 100%);
+  --gradient-2: linear-gradient(to right, #7487FB 0%, #6B51F0 100%), rgba(255, 255, 255, 0.6);
+  --gradient-3: linear-gradient(to right, #A4DEF3 0%, #A07CF4 100%), rgba(255, 255, 255, 0.8);
+}
+
+@layer base {
+  html,
+  body {
+    height: 100%;
+  }
+  body {
+    font-family: var(--font-family-sans);
+  }
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+  }
+
+  input::-ms-reveal {
+    display: none;
+  }
+}
+
+@layer components {
+  .text-title {
+    @apply font-semibold;
+  }
+  .text-subtitle {
+    @apply font-medium;
+  }
+  .text-body {
+    @apply font-normal;
+  }
+  .text-display {
+    @apply font-bold;
+  }
+}
+
+/* 토스트 애니메이션 */
+@keyframes slideOutFadeOut {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+}
+
+.toast-slide-fade-out {
+  animation: slideOutFadeOut 0.4s ease-out forwards;
+}
+
+@keyframes slideInFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.toast-slide-fade-in {
+  animation: slideInFadeIn 0.4s ease-out forwards;
+}

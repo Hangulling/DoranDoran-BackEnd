@@ -12,6 +12,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.junit.jupiter.MockitoSettings;
+import org.mockito.quality.Strictness;
 
 import java.time.LocalDateTime;
 import java.util.UUID;
@@ -22,6 +24,7 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
+@MockitoSettings(strictness = Strictness.LENIENT)
 class GreetingServiceTest {
 
     @Mock
@@ -32,6 +35,9 @@ class GreetingServiceTest {
     
     @Mock
     private OpenAIClient openAIClient;
+    
+    @Mock
+    private PromptLoaderService promptLoaderService;
 
     @InjectMocks
     private GreetingService greetingService;
@@ -71,7 +77,8 @@ class GreetingServiceTest {
             """;
         
         when(chatService.getChatRoomById(chatroomId)).thenReturn(mockChatRoom);
-        when(openAIClient.simpleCompletion(anyString(), anyString())).thenReturn(mockAIResponse);
+        when(promptLoaderService.loadPrompt(anyString(), anyString(), anyInt(), anyString())).thenReturn(null);
+        when(openAIClient.simpleCompletion(anyString(), anyString(), any())).thenReturn(mockAIResponse);
         when(chatService.sendMessage(any(), any(), anyString(), anyString(), anyString()))
             .thenReturn(new com.dorandoran.chat.entity.Message());
 
@@ -95,7 +102,8 @@ class GreetingServiceTest {
         int intimacyLevel = 2;
         
         when(chatService.getChatRoomById(chatroomId)).thenReturn(mockChatRoom);
-        when(openAIClient.simpleCompletion(anyString(), anyString()))
+        when(promptLoaderService.loadPrompt(anyString(), anyString(), anyInt(), anyString())).thenReturn(null);
+        when(openAIClient.simpleCompletion(anyString(), anyString(), any()))
             .thenThrow(new RuntimeException("AI 서비스 오류"));
         when(chatService.sendMessage(any(), any(), anyString(), anyString(), anyString()))
             .thenReturn(new com.dorandoran.chat.entity.Message());
@@ -105,8 +113,8 @@ class GreetingServiceTest {
 
         // Then
         assertNotNull(result);
-        assertEquals("안녕하세요! 오늘 뭐 배우고 싶어요?", result.getBotMessage());
-        assertEquals("일상 대화나 관심 있는 주제에 대해 이야기해보세요!", result.getGuideMessage());
+        assertEquals("요즘 뭐하고 지내?ㅎㅎ", result.getBotMessage());
+        assertEquals("Let's continue the conversation about what fun or interesting things you're doing right now!", result.getGuideMessage());
         
         // verify that messages were still saved
         verify(chatService, times(2)).sendMessage(any(), any(), anyString(), anyString(), anyString());
@@ -119,7 +127,8 @@ class GreetingServiceTest {
         int intimacyLevel = 1;
         
         when(chatService.getChatRoomById(chatroomId)).thenReturn(mockChatRoom);
-        when(openAIClient.simpleCompletion(anyString(), anyString()))
+        when(promptLoaderService.loadPrompt(anyString(), anyString(), anyInt(), anyString())).thenReturn(null);
+        when(openAIClient.simpleCompletion(anyString(), anyString(), any()))
             .thenThrow(new RuntimeException("AI 서비스 오류"));
         when(chatService.sendMessage(any(), any(), anyString(), anyString(), anyString()))
             .thenReturn(new com.dorandoran.chat.entity.Message());
@@ -129,18 +138,19 @@ class GreetingServiceTest {
 
         // Then
         assertNotNull(result);
-        assertEquals("안녕하십니까. 오늘 함께 한국어를 공부하겠습니다.", result.getBotMessage());
-        assertEquals("한국어 문법이나 표현에 대해 질문해보세요!", result.getGuideMessage());
+        assertEquals("지금 뭐해?", result.getBotMessage());
+        assertEquals("Let's continue the conversation about what fun or interesting things you're doing right now!", result.getGuideMessage());
     }
 
     @Test
-    void testSendGreeting_LoverIntimacyLevel2_Fallback() {
+    void testSendGreeting_HoneyIntimacyLevel2_Fallback() {
         // Given
-        ChatRoomConcept concept = ChatRoomConcept.LOVER;
+        ChatRoomConcept concept = ChatRoomConcept.HONEY;
         int intimacyLevel = 2;
         
         when(chatService.getChatRoomById(chatroomId)).thenReturn(mockChatRoom);
-        when(openAIClient.simpleCompletion(anyString(), anyString()))
+        when(promptLoaderService.loadPrompt(anyString(), anyString(), anyInt(), anyString())).thenReturn(null);
+        when(openAIClient.simpleCompletion(anyString(), anyString(), any()))
             .thenThrow(new RuntimeException("AI 서비스 오류"));
         when(chatService.sendMessage(any(), any(), anyString(), anyString(), anyString()))
             .thenReturn(new com.dorandoran.chat.entity.Message());
@@ -150,8 +160,8 @@ class GreetingServiceTest {
 
         // Then
         assertNotNull(result);
-        assertEquals("안녕! 오늘은 무슨 얘기 나눠볼까요?", result.getBotMessage());
-        assertEquals("사랑과 감정에 관한 한국어 표현을 연습해보세요!", result.getGuideMessage());
+        assertEquals("너무 보고싶은데 오늘 만날까?ㅎㅎ", result.getBotMessage());
+        assertEquals("Let's continue the conversation about what you want to do when we meet today!", result.getGuideMessage());
     }
 
     @Test
@@ -161,7 +171,8 @@ class GreetingServiceTest {
         int intimacyLevel = 3;
         
         when(chatService.getChatRoomById(chatroomId)).thenReturn(mockChatRoom);
-        when(openAIClient.simpleCompletion(anyString(), anyString()))
+        when(promptLoaderService.loadPrompt(anyString(), anyString(), anyInt(), anyString())).thenReturn(null);
+        when(openAIClient.simpleCompletion(anyString(), anyString(), any()))
             .thenThrow(new RuntimeException("AI 서비스 오류"));
         when(chatService.sendMessage(any(), any(), anyString(), anyString(), anyString()))
             .thenReturn(new com.dorandoran.chat.entity.Message());
@@ -171,8 +182,8 @@ class GreetingServiceTest {
 
         // Then
         assertNotNull(result);
-        assertEquals("안녕! 오늘도 같이 공부해볼까?", result.getBotMessage());
-        assertEquals("동료들과 자연스럽게 소통할 수 있는 표현들을 연습해보자!", result.getGuideMessage());
+        assertEquals("안녕! 오늘 뭐 하고 있어?", result.getBotMessage());
+        assertEquals("Let's continue the conversation about what you're working on today!", result.getGuideMessage());
     }
 
     @Test
@@ -182,7 +193,8 @@ class GreetingServiceTest {
         int intimacyLevel = 1;
         
         when(chatService.getChatRoomById(chatroomId)).thenReturn(mockChatRoom);
-        when(openAIClient.simpleCompletion(anyString(), anyString()))
+        when(promptLoaderService.loadPrompt(anyString(), anyString(), anyInt(), anyString())).thenReturn(null);
+        when(openAIClient.simpleCompletion(anyString(), anyString(), any()))
             .thenThrow(new RuntimeException("AI 서비스 오류"));
         when(chatService.sendMessage(any(), any(), anyString(), anyString(), anyString()))
             .thenReturn(new com.dorandoran.chat.entity.Message());
@@ -192,7 +204,7 @@ class GreetingServiceTest {
 
         // Then
         assertNotNull(result);
-        assertEquals("안녕하십니까. 오늘 학습하실 내용을 말씀해 주시기 바랍니다.", result.getBotMessage());
-        assertEquals("상사와의 대화에서 필요한 격식 있는 한국어를 연습해보세요!", result.getGuideMessage());
+        assertEquals("안녕하십니까? 보고서는 잘 되고 있습니까?", result.getBotMessage());
+        assertEquals("Let's continue the conversation about your progress and timeline!", result.getGuideMessage());
     }
 }

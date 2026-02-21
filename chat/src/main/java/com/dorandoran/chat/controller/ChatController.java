@@ -177,6 +177,71 @@ public class ChatController {
         return ResponseEntity.ok(MessageResponse.from(saved));
     }
 
+    @Operation(summary = "메시지 전송 취소", description = "전송 중인 메시지를 취소합니다.")
+    @PostMapping("/messages/{messageId}/cancel")
+    public ResponseEntity<MessageResponse> cancelMessage(
+            @PathVariable UUID messageId,
+            @RequestHeader(value = "X-User-Id", required = false) String userIdHeader,
+            @RequestParam(required = false) UUID userId) {
+        UUID uid = extractUserIdFromSecurityContext();
+        if (uid == null && userId != null) uid = userId;
+        if (uid == null && userIdHeader != null && !userIdHeader.isBlank()) {
+            try { uid = UUID.fromString(userIdHeader); } catch (IllegalArgumentException ignored) {}
+        }
+        if (uid == null) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(null);
+        }
+        Message cancelled = chatService.cancelMessage(messageId, uid);
+        return ResponseEntity.ok(MessageResponse.from(cancelled));
+    }
+
+    @Operation(summary = "메시지 전송 취소(채팅방 경로)", description = "채팅방 경로로 메시지를 취소합니다.")
+    @PostMapping("/chatrooms/{chatroomId}/messages/{messageId}/cancel")
+    public ResponseEntity<MessageResponse> cancelMessageInRoom(
+            @PathVariable UUID chatroomId,
+            @PathVariable UUID messageId,
+            @RequestHeader(value = "X-User-Id", required = false) String userIdHeader,
+            @RequestParam(required = false) UUID userId) {
+        UUID uid = extractUserIdFromSecurityContext();
+        if (uid == null && userId != null) uid = userId;
+        if (uid == null && userIdHeader != null && !userIdHeader.isBlank()) {
+            try { uid = UUID.fromString(userIdHeader); } catch (IllegalArgumentException ignored) {}
+        }
+        if (uid == null) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(null);
+        }
+        var message = messageRepository.findById(messageId).orElse(null);
+        if (message == null || message.getChatRoom() == null || !chatroomId.equals(message.getChatRoom().getId())) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(null);
+        }
+        Message cancelled = chatService.cancelMessage(messageId, uid);
+        return ResponseEntity.ok(MessageResponse.from(cancelled));
+    }
+
+    @Operation(summary = "메시지 단건 조회", description = "메시지 ID로 단건을 조회합니다.")
+    @GetMapping("/messages/{messageId}")
+    public ResponseEntity<MessageResponse> getMessage(
+            @PathVariable UUID messageId,
+            @RequestHeader(value = "X-User-Id", required = false) String userIdHeader,
+            @RequestParam(required = false) UUID userId) {
+        UUID uid = extractUserIdFromSecurityContext();
+        if (uid == null && userId != null) uid = userId;
+        if (uid == null && userIdHeader != null && !userIdHeader.isBlank()) {
+            try { uid = UUID.fromString(userIdHeader); } catch (IllegalArgumentException ignored) {}
+        }
+        if (uid == null) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
+        }
+        Message message = messageRepository.findById(messageId).orElse(null);
+        if (message == null || message.getChatRoom() == null) {
+            return ResponseEntity.notFound().build();
+        }
+        if (!chatRoomRepository.existsByUser_IdAndIdAndIsDeletedFalse(uid, message.getChatRoom().getId())) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+        return ResponseEntity.ok(MessageResponse.from(message));
+    }
+
     @Operation(summary = "이메일로 사용자 조회", description = "이메일로 사용자 정보를 조회합니다.")
     @ApiResponses(value = {
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "사용자 조회 성공"),

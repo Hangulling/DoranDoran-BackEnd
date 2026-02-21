@@ -278,6 +278,20 @@ public class UserController {
     }
 
     /**
+     * 사용자 이메일 조회 (회신용)
+     */
+    @GetMapping("/{userId}/email")
+    public ResponseEntity<ApiResponse<String>> getUserEmail(@PathVariable String userId) {
+        try {
+            UserDto user = userService.findById(UUID.fromString(userId));
+            return ResponseEntity.ok(ApiResponse.success(user.email(), "사용자 이메일 조회 성공"));
+        } catch (Exception e) {
+            log.error("사용자 이메일 조회 실패: userId={}, error={}", userId, e.getMessage());
+            return ResponseEntity.badRequest().body(ApiResponse.error("사용자 이메일 조회에 실패했습니다."));
+        }
+    }
+
+    /**
      * 헬스체크
      */
     @GetMapping("/health")

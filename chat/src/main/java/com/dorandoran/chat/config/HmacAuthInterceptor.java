@@ -80,6 +80,7 @@ public class HmacAuthInterceptor implements HandlerInterceptor {
                path.startsWith("/swagger-ui") || 
                path.startsWith("/v3/api-docs") || 
                path.startsWith("/api-docs") || 
-               path.startsWith("/api/chat/health");
+               path.startsWith("/api/chat/health") ||
+               path.startsWith("/api/admin/prompts/sync");  // 내부 서비스 간 통신용
     }
 }

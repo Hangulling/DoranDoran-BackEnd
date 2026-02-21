@@ -88,4 +88,10 @@ public class Message {
 
     @Column(name = "deleted_at")
     private LocalDateTime deletedAt;
+
+    @Column(name = "is_cancelled")
+    private Boolean isCancelled;
+
+    @Column(name = "cancelled_at")
+    private LocalDateTime cancelledAt;
 }

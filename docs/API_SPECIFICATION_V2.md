@@ -1002,7 +1002,162 @@ GET /api/chat/chatbots/{chatbotId}/directives
 
 ---
 
-## 5. 🔧 공통 응답 형식
+## 5. 🏠 Home/Support/Notification 추가 API
+
+### 5.1 메인홈 게시글 목록
+```http
+GET /api/home/posts
+```
+
+**응답 예시:**
+```json
+[
+  {
+    "externalId": "178437...",
+    "title": "게시글 제목",
+    "imageUrl": "https://...",
+    "description": "게시글 설명",
+    "permalink": "https://instagram.com/p/...",
+    "publishedAt": "2026-01-19T10:00:00"
+  }
+]
+```
+
+### 5.2 메인홈 게시글 상세
+```http
+GET /api/home/posts/{externalId}
+```
+
+### 5.3 문의/신고 등록
+```http
+POST /api/support
+```
+
+**요청 본문:**
+```json
+{
+  "type": "INQUIRY",
+  "category": "APP",
+  "content": "문의 내용",
+  "replyRequested": true,
+  "replyEmail": "reply@example.com",
+  "chatroomId": "uuid",
+  "messageId": "uuid",
+  "messageContent": "신고 대상 메시지",
+  "aiResponseSnapshot": { "content": "AI 응답 요약" }
+}
+```
+
+**비고:**
+- `type=REPORT`인 경우 `messageId`, `messageContent` 필수
+- 로그인 토큰의 이메일을 서버가 저장 (Gateway가 `X-User-Email` 전달)
+
+### 5.4 FCM 토큰 등록
+```http
+POST /api/notifications/register
+```
+
+**요청 본문:**
+```json
+{
+  "token": "fcm-token",
+  "platform": "ios"
+}
+```
+
+### 5.5 푸시 발송(내부용)
+```http
+POST /api/notifications/send
+```
+
+**요청 본문:**
+```json
+{
+  "userId": "uuid",
+  "title": "채팅방",
+  "body": "메시지",
+  "chatroomId": "uuid",
+  "messageId": "uuid"
+}
+```
+
+**FCM data payload (서버 전송):**
+```json
+{
+  "deeplink": "dorandoran://chat?roomId=...&messageId=...",
+  "universalLink": "https://www.doran-chat.com/chat?roomId=...&messageId=...",
+  "chatroomId": "...",
+  "messageId": "...",
+  "sentAt": "2026-01-19T10:00:00+09:00"
+}
+```
+
+**발송 정책:**
+- 사용자 알림 설정 ON
+- 하루에 **채팅방당 1회**
+
+### 5.6 푸시 발송 로그 조회
+```http
+GET /api/notifications/logs?userId={userId}&chatroomId={chatroomId}&sentDate=YYYY-MM-DD&limit=100
+```
+
+---
+
+## 6. 👤 User 설정/통계 추가 API
+
+### 6.1 관심 주제 조회/변경
+```http
+GET /api/users/{userId}/interests
+PUT /api/users/{userId}/interests
+```
+
+**변경 요청 본문:**
+```json
+{
+  "topicKeys": ["friendship", "travel"]
+}
+```
+
+### 6.2 알림 설정 조회/변경
+```http
+GET /api/users/{userId}/notifications
+PUT /api/users/{userId}/notifications
+```
+
+**변경 요청 본문:**
+```json
+{
+  "pushEnabled": true
+}
+```
+
+### 6.3 사용자 통계 조회/퍼펙트 증가
+```http
+GET /api/users/{userId}/stats
+POST /api/users/{userId}/stats/perfect
+```
+
+### 6.4 사용자 이메일 조회
+```http
+GET /api/users/{userId}/email
+```
+
+---
+
+## 7. 💬 Chat 추가 API
+
+### 7.1 메시지 전송 취소
+```http
+POST /api/chat/messages/{messageId}/cancel
+POST /api/chat/chatrooms/{chatroomId}/messages/{messageId}/cancel
+```
+
+**비고:**
+- SSE 연결이 끊긴 경우 서버가 처리 중단
+
+---
+
+## 8. 🔧 공통 응답 형식
 
 ### Auth Service 응답 형식 (ApiResponse<T>)
 ```json
@@ -1044,7 +1199,7 @@ GET /api/chat/chatbots/{chatbotId}/directives
 
 ---
 
-## 6. 📊 HTTP 상태 코드
+## 9. 📊 HTTP 상태 코드
 
 | 코드 | 의미 | 설명 |
 |------|------|------|
@@ -1059,7 +1214,7 @@ GET /api/chat/chatbots/{chatbotId}/directives
 
 ---
 
-## 7. 🔒 보안 고려사항
+## 10. 🔒 보안 고려사항
 
 ### MSA 인증 구조
 - **Auth Service (8081)**: JWT 토큰 발급/검증 전담

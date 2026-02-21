@@ -8,6 +8,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -47,6 +48,33 @@ public interface ChatRoomRepository extends JpaRepository<ChatRoom, UUID> {
     Page<ChatRoom> findByUser_IdAndIsDeletedFalseAndTestModelOrderByLastMessageAtDesc(
         @Param("userId") UUID userId, 
         @Param("testModel") String testModel, 
+        Pageable pageable
+    );
+
+    @Query(value = "SELECT cr.* FROM chat_schema.chatrooms cr " +
+           "JOIN chat_schema.chatbots cb ON cr.chatbot_id = cb.id " +
+           "WHERE cr.is_deleted = false " +
+           "AND (:userId IS NULL OR cr.user_id = :userId::uuid) " +
+           "AND (:from IS NULL OR cr.last_message_at >= :from) " +
+           "AND (:to IS NULL OR cr.last_message_at <= :to) " +
+           "AND (:roomKey IS NULL OR (cr.settings->>'concept') = :roomKey) " +
+           "AND (:intimacyLevel IS NULL OR cb.intimacy_level = :intimacyLevel) " +
+           "ORDER BY cr.last_message_at DESC NULLS LAST",
+           countQuery = "SELECT COUNT(*) FROM chat_schema.chatrooms cr " +
+                       "JOIN chat_schema.chatbots cb ON cr.chatbot_id = cb.id " +
+                       "WHERE cr.is_deleted = false " +
+                       "AND (:userId IS NULL OR cr.user_id = :userId::uuid) " +
+                       "AND (:from IS NULL OR cr.last_message_at >= :from) " +
+                       "AND (:to IS NULL OR cr.last_message_at <= :to) " +
+                       "AND (:roomKey IS NULL OR (cr.settings->>'concept') = :roomKey) " +
+                       "AND (:intimacyLevel IS NULL OR cb.intimacy_level = :intimacyLevel)",
+           nativeQuery = true)
+    Page<ChatRoom> findAdminConversations(
+        @Param("userId") UUID userId,
+        @Param("from") LocalDateTime from,
+        @Param("to") LocalDateTime to,
+        @Param("roomKey") String roomKey,
+        @Param("intimacyLevel") Integer intimacyLevel,
         Pageable pageable
     );
 }
