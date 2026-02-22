@@ -59,9 +59,9 @@ public class ChatLogService {
   // 친밀도 레벨 옵션 조회
   public List<IntimacyLevelOptionResponse> getIntimacyLevelOptions() {
     return List.of(
-        new IntimacyLevelOptionResponse(1, "Level 1 - 격식체 / 첫 만남"),
-        new IntimacyLevelOptionResponse(2, "Level 2 - 표준 존댓말 / 편한 관계"),
-        new IntimacyLevelOptionResponse(3, "Level 3 - 친근한 반말 / 아주 친한 사이")
+        new IntimacyLevelOptionResponse(1, "Level 1"),
+//        new IntimacyLevelOptionResponse(2, "Level 2 - 표준 존댓말 / 편한 관계"),
+        new IntimacyLevelOptionResponse(3, "Level 3")
     );
   }
 
@@ -80,7 +80,7 @@ public class ChatLogService {
 
     // Repository 쿼리 실행
     return archChatroomRepository.searchChatLogs(
-        request.getChatroomId(),
+        request.getConcept(),
         request.getIntimacyLevel(),
         startDateTime,
         endDateTime,

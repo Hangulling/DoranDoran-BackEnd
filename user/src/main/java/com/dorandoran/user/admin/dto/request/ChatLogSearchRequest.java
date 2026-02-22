@@ -25,8 +25,11 @@ public class ChatLogSearchRequest {
   @DateTimeFormat(pattern = "yyyy-MM-dd")
   private LocalDate endDate;
 
-  // 채팅방 ID
-  private UUID chatroomId;
+  // 채팅방 ID - 특정 채팅방을 검색하는 기능이 없어서 삭제
+  //  private UUID chatroomId;
+
+  // 채팅봇 컨셉
+  private String concept;
 
   // 친밀도 레벨
   private Integer intimacyLevel;
