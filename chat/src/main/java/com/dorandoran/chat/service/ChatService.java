@@ -503,13 +503,13 @@ public class ChatService {
         if (settings != null && settings.has("concept")) {
             return settings.get("concept").asText();
         }
-        return "FRIEND"; // 기본값
+        return "friend"; // 기본값
     }
     
     public Integer getIntimacyLevel(UUID chatroomId) {
         return intimacyProgressRepository.findByChatRoomId(chatroomId)
             .map(IntimacyProgress::getIntimacyLevel)
-            .orElse(2); // 기본값
+            .orElse(1); // 기본값
     }
     
     /**
