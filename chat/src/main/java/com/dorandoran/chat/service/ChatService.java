@@ -51,7 +51,7 @@ public class ChatService {
      */
     @Transactional
     public ChatRoom getOrCreateRoom(UUID userId, UUID chatbotId, String name) {
-        return getOrCreateRoom(userId, chatbotId, name, "FRIEND", 2);
+        return getOrCreateRoom(userId, chatbotId, name, "fried", 1);
     }
     
     /**
