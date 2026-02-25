@@ -51,7 +51,7 @@ public class ChatService {
      */
     @Transactional
     public ChatRoom getOrCreateRoom(UUID userId, UUID chatbotId, String name) {
-        return getOrCreateRoom(userId, chatbotId, name, "fried", 1);
+        return getOrCreateRoom(userId, chatbotId, name, "FRIEND", 1);
     }
     
     /**
@@ -503,7 +503,7 @@ public class ChatService {
         if (settings != null && settings.has("concept")) {
             return settings.get("concept").asText();
         }
-        return "friend"; // 기본값
+        return "FRIEND"; // 기본값
     }
     
     public Integer getIntimacyLevel(UUID chatroomId) {
