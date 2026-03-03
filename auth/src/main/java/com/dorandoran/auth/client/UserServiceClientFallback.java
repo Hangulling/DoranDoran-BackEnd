@@ -83,7 +83,7 @@ public class UserServiceClientFallback implements UserServiceClient {
     }
     
     @Override
-    public UserDto createOAuthUser(String email, String firstName, String lastName, String name, String picture, String provider, String oauthId) {
+    public UserDto createOAuthUser(String email, String firstName, String lastName, String name, String picture, String provider, String oauthId, String birthDate) {
         log.warn("User Service 호출 실패 - createOAuthUser: email={}, provider={}, oauthId={}", email, provider, oauthId);
         // Fallback 로직: OAuth 사용자 생성 실패 처리
         return null;

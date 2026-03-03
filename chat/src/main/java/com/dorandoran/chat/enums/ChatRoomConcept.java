@@ -6,9 +6,9 @@ package com.dorandoran.chat.enums;
  */
 public enum ChatRoomConcept {
     FRIEND("친구", 3, 1, 3),    // 기본 3, 범위 1-3
-    HONEY("연인", 2, 1, 3),     // 기본 2, 범위 1-3
-    COWORKER("직장 동료", 2, 1, 3),  // 기본 2, 범위 1-3 (Level 3은 절제된 반말)
-    SENIOR("학교 선배", 2, 1, 3),  // 기본 2, 범위 1-3 (Level 3은 절제된 반말)
+    HONEY("연인", 1, 1, 3),     // 기본 1, 범위 1-3
+    COWORKER("직장 동료", 1, 1, 3),  // 기본 1, 범위 1-3 (Level 3은 절제된 반말)
+    SENIOR("학교 선배", 1, 1, 3),  // 기본 1, 범위 1-3 (Level 3은 절제된 반말)
     BOSS("직장 상사", 1, 1, 2);  // 기본 1, 범위 1-2 (반말 불가)
     
     private final String displayName;

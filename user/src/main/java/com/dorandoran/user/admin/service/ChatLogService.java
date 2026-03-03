@@ -67,18 +67,13 @@ public class ChatLogService {
 
   // 채팅 로그 리스트 검색 (검색 조건 + 페이징)
   public Page<ChatLogListResponse> searchChatLogs(ChatLogSearchRequest request) {
-    // Pageable 객체 생성
     Pageable pageable = PageRequest.of(request.getPage(), request.getSize());
 
-    // LocalDate를 LocalDateTime으로 변환
     LocalDateTime startDateTime = request.getStartDate().atStartOfDay();
-
-    // endDate가 null이면 현재 날짜의 23:59:59 사용
     LocalDateTime endDateTime = request.getEndDate() != null
         ? request.getEndDate().atTime(23, 59, 59)
         : LocalDate.now().atTime(23, 59, 59);
 
-    // Repository 쿼리 실행
     return archChatroomRepository.searchChatLogs(
         request.getChatroomId(),
         request.getIntimacyLevel(),

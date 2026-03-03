@@ -10,7 +10,7 @@ export const chatRooms = [
   {
     roomRouteId: 2,
     roomName: 'honey',
-    avatar: '/chat/lover.svg',
+    avatar: '/chat/honey.svg',
     message: '반가워요! 우리 대화를 시작해 볼까요?',
     intimacy: 1,
   },

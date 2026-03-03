@@ -36,10 +36,8 @@ public class VocabularyAgent {
         // 실제로는 MultiAgentOrchestrator에서 chatroomId를 전달받아야 하지만,
         // 하위 호환성을 위해 기본값으로 처리
         String concept = "FRIEND";
-        int intimacyLevel = 2;
-        
-        log.warn("VocabularyAgent: chatroomId 없이 호출됨 - 기본값 사용 (concept={}, intimacyLevel={})", 
-            concept, intimacyLevel);
+        int intimacyLevel = 1;
+        log.info("intimacyLevel fallback: using default 1 (VocabularyAgent.extractDifficultWords, chatroomId 없이 호출됨 - concept={}, intimacyLevel={})", concept, intimacyLevel);
         
         return extractDifficultWords(botResponse, concept, intimacyLevel);
     }

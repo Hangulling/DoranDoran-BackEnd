@@ -3,9 +3,11 @@ import { Routes } from './router/routes'
 import LoadingSpinner from './components/common/LoadingSpinner'
 import AppLayout from './layouts/AppLayout'
 import { Toaster } from 'react-hot-toast'
+import { useEmailVerifiedDeepLink } from './hooks/useEmailVerifiedDeepLink'
 // import { useIsOpenKeyboard } from './hooks/useIsOpenKeyboard'
 
 function App() {
+  useEmailVerifiedDeepLink()
   // const { isOpen, viewportHeight } = useIsOpenKeyboard()
 
   // useEffect(() => {

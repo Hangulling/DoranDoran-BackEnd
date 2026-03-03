@@ -20,7 +20,7 @@
 ### 설명 작성 규칙:
 - context.ko: 컨셉/레벨에 맞는 반말로 100자 이내로 작성할 것.
 - context.en: 일관된 톤으로 영어 설명을 작성할 것.
-- roma: 정확한 로마자 표기 (예: Gyeoljae, Jinjja johta).
+- roma: 동사원형(rootForm)을 기준으로 로마자 표기. 원본 표현(originalExpression)이 아닌 rootForm의 발음을 표기할 것 (예: Gyeoljae, Jinjja johta).
 - 설명은 다음 순서를 권장:
 (1) 단어/표현의 기본 의미
 (2) 언제/어떤 상황에서 쓰는지 (사용 맥락)

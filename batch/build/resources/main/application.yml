@@ -5,6 +5,13 @@ spring:
   application:
     name: batch-service
   
+  # Flyway 설정
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: true
+    schemas: archive_schema, batch_schema
+  
   # Batch 서비스 공유 데이터베이스 설정
   datasource:
     url: jdbc:postgresql://localhost:5432/dorandoran
@@ -37,7 +44,13 @@ management:
   endpoints:
     web:
       exposure:
-        include: health,info,metrics
+        include: health,info,metrics,prometheus
   endpoint:
     health:
       show-details: always
+    prometheus:
+      enabled: true
+  metrics:
+    export:
+      prometheus:
+        enabled: true

@@ -26,6 +26,7 @@ public class CorsResponseFilter implements GlobalFilter, Ordered {
             "http://127.0.0.1:3001",
             "https://localhost",
             "capacitor://localhost",
+            "ionic://localhost",
             "https://doran-chat.com",
             "https://www.doran-chat.com",
             "https://doran-chat.vercel.app"

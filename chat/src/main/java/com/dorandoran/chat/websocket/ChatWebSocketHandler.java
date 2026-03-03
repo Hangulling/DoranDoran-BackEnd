@@ -1,7 +1,8 @@
 package com.dorandoran.chat.websocket;
 
-import com.dorandoran.chat.service.ChatService;
 import com.dorandoran.chat.service.AIService;
+import com.dorandoran.chat.service.ChatService;
+import com.dorandoran.chat.service.ConnectionGreetingService;
 import com.dorandoran.chat.repository.ChatRoomRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -23,6 +24,8 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
 	private final ChatService chatService;
 	private final ChatRoomRepository chatRoomRepository;
 	private final AIService aiService;
+	private final WebSocketSessionRegistry sessionRegistry;
+	private final ConnectionGreetingService connectionGreetingService;
 
 	@Override
 	public void afterConnectionEstablished(WebSocketSession session) throws Exception {
@@ -42,6 +45,8 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
 			return;
 		}
 		
+		sessionRegistry.register(chatroomId, session);
+		connectionGreetingService.checkAndSendGreeting(chatroomId, userId);
 		log.info("WebSocket 연결 성공: userId={}, chatroomId={}", userId, chatroomId);
 	}
 
@@ -94,6 +99,9 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
 	public void afterConnectionClosed(WebSocketSession session, CloseStatus status) throws Exception {
 		UUID chatroomId = extractChatroomId(session.getUri());
 		UUID userId = extractUserIdFromSession(session);
+		if (chatroomId != null) {
+			sessionRegistry.unregister(chatroomId, session);
+		}
 		log.info("WebSocket 연결 종료: userId={}, chatroomId={}, status={}", userId, chatroomId, status);
 	}
 
@@ -111,12 +119,17 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
 	}
 	
 	private UUID extractUserIdFromSession(WebSocketSession session) {
-		// WebSocket 연결 시 쿼리 파라미터나 헤더에서 userId 추출
-		// 예: /ws/chat/{chatroomId}?userId={userId}
+		// 1. HandshakeInterceptor가 JWT 검증 후 X-User-Id를 attributes에 저장 (우선)
+		Object attr = session.getAttributes().get(WebSocketAuthHandshakeInterceptor.ATTR_USER_ID);
+		if (attr != null) {
+			try {
+				return UUID.fromString(attr.toString());
+			} catch (IllegalArgumentException ignored) {}
+		}
+		// 2. 폴백: 쿼리 파라미터 (Gateway를 거치지 않는 직접 연결 시)
 		URI uri = session.getUri();
 		if (uri != null && uri.getQuery() != null) {
-			String query = uri.getQuery();
-			String[] params = query.split("&");
+			String[] params = uri.getQuery().split("&");
 			for (String param : params) {
 				if (param.startsWith("userId=")) {
 					try {

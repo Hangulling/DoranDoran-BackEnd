@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import DistanceSlider from '../components/chat/DistanceSlider'
 import Button from '../components/common/Button'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
@@ -28,6 +28,7 @@ const ClosenessPage = () => {
 
   const [sliderValue, setSliderValue] = useState(closeness)
   const [isExiting, setIsExiting] = useState(false)
+  const submittingRef = useRef(false)
 
   const { mutate: createRoom, isPending } = useCreateChatRoom(id ?? '')
 
@@ -42,13 +43,13 @@ const ClosenessPage = () => {
     setSliderValue(val)
   }
 
-  // 확인 버튼
+  // 확인 버튼 (이중 클릭 시 createRoom 중복 호출 방지)
   const handleConfirm = async () => {
-    if (!id || isPending) return
+    if (!id || isPending || submittingRef.current) return
+    submittingRef.current = true
     try {
       const chatbotId = getChatBotIdByConcept(concept)
 
-      // 뮤테이션 실행
       createRoom(
         {
           userId,
@@ -58,15 +59,19 @@ const ClosenessPage = () => {
         },
         {
           onSuccess: () => {
-            setIsExiting(true) // 모션
+            setIsExiting(true)
             setTimeout(() => {
               navigate(`/chat/${id}`)
             }, 550)
+          },
+          onSettled: () => {
+            submittingRef.current = false
           },
         }
       )
     } catch (error) {
       console.error('알 수 없는 에러 발생:', error)
+      submittingRef.current = false
       navigate('/error', { state: { from: `/closeness/${id}` } })
     }
   }
