@@ -36,30 +36,45 @@ public class JwtService {
     private long refreshExpiration;
     
     /**
-     * 액세스 토큰 생성
+     * 액세스 토큰 생성 (role 클레임 포함, Gateway에서 /api/admin/* 권한 검증에 사용)
+     */
+    public String generateAccessToken(String userId, String email, String name, String role) {
+        return generateToken(new HashMap<>(), userId, email, name, role, jwtExpiration);
+    }
+
+    /**
+     * 하위 호환: role 없이 액세스 토큰 생성 (role은 ROLE_USER로 설정)
      */
     public String generateAccessToken(String userId, String email, String name) {
-        return generateToken(new HashMap<>(), userId, email, name, jwtExpiration);
+        return generateAccessToken(userId, email, name, "ROLE_USER");
     }
     
     /**
      * 리프레시 토큰 생성
      */
-    public String generateRefreshToken(String userId, String email, String name) {
+    public String generateRefreshToken(String userId, String email, String name, String role) {
         Map<String, Object> claims = new HashMap<>();
         claims.put("type", "refresh");
-        return generateToken(claims, userId, email, name, refreshExpiration);
+        return generateToken(claims, userId, email, name, role, refreshExpiration);
+    }
+
+    /**
+     * 하위 호환: role 없이 리프레시 토큰 생성
+     */
+    public String generateRefreshToken(String userId, String email, String name) {
+        return generateRefreshToken(userId, email, name, "ROLE_USER");
     }
     
     /**
      * 토큰 생성
      */
-    private String generateToken(Map<String, Object> extraClaims, String userId, String email, String name, long expiration) {
+    private String generateToken(Map<String, Object> extraClaims, String userId, String email, String name, String role, long expiration) {
         return Jwts.builder()
                 .setClaims(extraClaims)
                 .setSubject(userId)
                 .claim("email", email)
                 .claim("name", name)
+                .claim("role", role != null ? role : "ROLE_USER")
                 .setIssuedAt(new Date(System.currentTimeMillis()))
                 .setExpiration(new Date(System.currentTimeMillis() + expiration))
                 .signWith(getSignInKey(), SignatureAlgorithm.HS256)
@@ -85,6 +100,16 @@ public class JwtService {
      */
     public String extractName(String token) {
         return extractClaim(token, claims -> claims.get("name", String.class));
+    }
+
+    /**
+     * 토큰에서 역할 추출 (ROLE_USER, ROLE_ADMIN 등)
+     */
+    public String extractRole(String token) {
+        return extractClaim(token, claims -> {
+            String r = claims.get("role", String.class);
+            return r != null ? r : "ROLE_USER";
+        });
     }
     
     /**

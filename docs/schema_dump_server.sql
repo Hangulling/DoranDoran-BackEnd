@@ -1,8 +1,8 @@
---
+﻿--
 -- PostgreSQL database dump
 --
 
-\restrict fuzQfIMtI2oiVWC0PR7riVsd5Hp2fA71uO8FPQeFMtrO23jVvRcVqyArq2r0Oad
+\restrict qSlvnFp3zgZetbS9SXixjLCAy3vJz13MrlzJtjYjyGOMhsZj0Z6V0l0TBFc0Pvi
 
 -- Dumped from database version 17.6
 -- Dumped by pg_dump version 17.6
@@ -20,67 +20,53 @@ SET client_min_messages = warning;
 SET row_security = off;
 
 --
--- Name: archive_schema; Type: SCHEMA; Schema: -; Owner: doran
+-- Name: archive_schema; Type: SCHEMA; Schema: -; Owner: -
 --
 
 CREATE SCHEMA archive_schema;
 
 
-ALTER SCHEMA archive_schema OWNER TO doran;
-
 --
--- Name: auth_schema; Type: SCHEMA; Schema: -; Owner: doran
+-- Name: auth_schema; Type: SCHEMA; Schema: -; Owner: -
 --
 
 CREATE SCHEMA auth_schema;
 
 
-ALTER SCHEMA auth_schema OWNER TO doran;
-
 --
--- Name: batch_schema; Type: SCHEMA; Schema: -; Owner: doran
+-- Name: batch_schema; Type: SCHEMA; Schema: -; Owner: -
 --
 
 CREATE SCHEMA batch_schema;
 
 
-ALTER SCHEMA batch_schema OWNER TO doran;
-
 --
--- Name: billing; Type: SCHEMA; Schema: -; Owner: doran
+-- Name: billing; Type: SCHEMA; Schema: -; Owner: -
 --
 
 CREATE SCHEMA billing;
 
 
-ALTER SCHEMA billing OWNER TO doran;
-
 --
--- Name: chat_schema; Type: SCHEMA; Schema: -; Owner: doran
+-- Name: chat_schema; Type: SCHEMA; Schema: -; Owner: -
 --
 
 CREATE SCHEMA chat_schema;
 
 
-ALTER SCHEMA chat_schema OWNER TO doran;
-
 --
--- Name: store_schema; Type: SCHEMA; Schema: -; Owner: doran
+-- Name: store_schema; Type: SCHEMA; Schema: -; Owner: -
 --
 
 CREATE SCHEMA store_schema;
 
 
-ALTER SCHEMA store_schema OWNER TO doran;
-
 --
--- Name: user_schema; Type: SCHEMA; Schema: -; Owner: doran
+-- Name: user_schema; Type: SCHEMA; Schema: -; Owner: -
 --
 
 CREATE SCHEMA user_schema;
 
-
-ALTER SCHEMA user_schema OWNER TO doran;
 
 --
 -- Name: pgcrypto; Type: EXTENSION; Schema: -; Owner: -
@@ -90,14 +76,14 @@ CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA public;
 
 
 --
--- Name: EXTENSION pgcrypto; Type: COMMENT; Schema: -; Owner: 
+-- Name: EXTENSION pgcrypto; Type: COMMENT; Schema: -; Owner: -
 --
 
 COMMENT ON EXTENSION pgcrypto IS 'cryptographic functions';
 
 
 --
--- Name: build_arch_chatroom_meta(jsonb, jsonb, integer, text); Type: FUNCTION; Schema: archive_schema; Owner: doran
+-- Name: build_arch_chatroom_meta(jsonb, jsonb, integer, text); Type: FUNCTION; Schema: archive_schema; Owner: -
 --
 
 CREATE FUNCTION archive_schema.build_arch_chatroom_meta(settings_jsonb jsonb, context_data_jsonb jsonb, intimacy_level_value integer, test_model_value text) RETURNS jsonb
@@ -107,10 +93,10 @@ DECLARE
     meta jsonb;
     concept_value text;
 BEGIN
-    -- concept 추출
+    -- concept 異붿텧
     concept_value := archive_schema.extract_concept_from_settings(settings_jsonb);
     
-    -- meta 기본 구조 생성
+    -- meta 湲곕낯 援ъ“ ?앹꽦
     meta := jsonb_build_object(
         'concept', concept_value,
         'intimacyLevel', intimacy_level_value,
@@ -120,17 +106,17 @@ BEGIN
         )
     );
     
-    -- testModel 추가 (있으면)
+    -- testModel 異붽? (?덉쑝硫?
     IF test_model_value IS NOT NULL THEN
         meta := jsonb_set(meta, '{testModel}', to_jsonb(test_model_value));
     END IF;
     
-    -- settings 전체 추가
+    -- settings ?꾩껜 異붽?
     IF settings_jsonb IS NOT NULL THEN
         meta := jsonb_set(meta, '{settings}', settings_jsonb);
     END IF;
     
-    -- contextData 추가 (있으면)
+    -- contextData 異붽? (?덉쑝硫?
     IF context_data_jsonb IS NOT NULL THEN
         meta := jsonb_set(meta, '{contextData}', context_data_jsonb);
     END IF;
@@ -140,10 +126,8 @@ END;
 $$;
 
 
-ALTER FUNCTION archive_schema.build_arch_chatroom_meta(settings_jsonb jsonb, context_data_jsonb jsonb, intimacy_level_value integer, test_model_value text) OWNER TO doran;
-
 --
--- Name: build_arch_message_metadata_json(jsonb, uuid, text); Type: FUNCTION; Schema: archive_schema; Owner: doran
+-- Name: build_arch_message_metadata_json(jsonb, uuid, text); Type: FUNCTION; Schema: archive_schema; Owner: -
 --
 
 CREATE FUNCTION archive_schema.build_arch_message_metadata_json(original_metadata jsonb, store_id_value uuid, usage_request_id_value text) RETURNS jsonb
@@ -153,7 +137,7 @@ DECLARE
     metadata_json jsonb;
     link_obj jsonb;
 BEGIN
-    -- analysis 기본 구조
+    -- analysis 湲곕낯 援ъ“
     metadata_json := jsonb_build_object(
         'analysis', jsonb_build_object(
             'language', 'ko',
@@ -164,25 +148,25 @@ BEGIN
         )
     );
     
-    -- link 객체 생성
+    -- link 媛앹껜 ?앹꽦
     link_obj := jsonb_build_object();
     
-    -- storeId 추가 (있으면)
+    -- storeId 異붽? (?덉쑝硫?
     IF store_id_value IS NOT NULL THEN
         link_obj := jsonb_set(link_obj, '{storeId}', to_jsonb(store_id_value::text));
     END IF;
     
-    -- usageRequestId 추가 (있으면)
+    -- usageRequestId 異붽? (?덉쑝硫?
     IF usage_request_id_value IS NOT NULL THEN
         link_obj := jsonb_set(link_obj, '{usageRequestId}', to_jsonb(usage_request_id_value));
     END IF;
     
-    -- link 추가
+    -- link 異붽?
     IF link_obj != '{}'::jsonb THEN
         metadata_json := jsonb_set(metadata_json, '{link}', link_obj);
     END IF;
     
-    -- originalMetadata 추가 (있으면)
+    -- originalMetadata 異붽? (?덉쑝硫?
     IF original_metadata IS NOT NULL THEN
         metadata_json := jsonb_set(metadata_json, '{originalMetadata}', original_metadata);
     END IF;
@@ -192,10 +176,8 @@ END;
 $$;
 
 
-ALTER FUNCTION archive_schema.build_arch_message_metadata_json(original_metadata jsonb, store_id_value uuid, usage_request_id_value text) OWNER TO doran;
-
 --
--- Name: extract_concept_from_settings(jsonb); Type: FUNCTION; Schema: archive_schema; Owner: doran
+-- Name: extract_concept_from_settings(jsonb); Type: FUNCTION; Schema: archive_schema; Owner: -
 --
 
 CREATE FUNCTION archive_schema.extract_concept_from_settings(settings_jsonb jsonb) RETURNS text
@@ -210,7 +192,7 @@ BEGIN
     
     IF settings_jsonb ? 'concept' THEN
         concept_value := UPPER(settings_jsonb->>'concept');
-        -- 실제 서비스에서 사용하는 concept 값: FRIEND, HONEY, COWORKER, SENIOR, BOSS
+        -- ?ㅼ젣 ?쒕퉬?ㅼ뿉???ъ슜?섎뒗 concept 媛? FRIEND, HONEY, COWORKER, SENIOR, BOSS
         IF concept_value IN ('FRIEND', 'HONEY', 'COWORKER', 'SENIOR', 'BOSS') THEN
             RETURN concept_value;
         END IF;
@@ -221,10 +203,8 @@ END;
 $$;
 
 
-ALTER FUNCTION archive_schema.extract_concept_from_settings(settings_jsonb jsonb) OWNER TO doran;
-
 --
--- Name: extract_intimacy_agent_result(jsonb); Type: FUNCTION; Schema: archive_schema; Owner: doran
+-- Name: extract_intimacy_agent_result(jsonb); Type: FUNCTION; Schema: archive_schema; Owner: -
 --
 
 CREATE FUNCTION archive_schema.extract_intimacy_agent_result(metadata_jsonb jsonb) RETURNS jsonb
@@ -245,10 +225,8 @@ END;
 $$;
 
 
-ALTER FUNCTION archive_schema.extract_intimacy_agent_result(metadata_jsonb jsonb) OWNER TO doran;
-
 --
--- Name: extract_usage_info(jsonb); Type: FUNCTION; Schema: archive_schema; Owner: doran
+-- Name: extract_usage_info(jsonb); Type: FUNCTION; Schema: archive_schema; Owner: -
 --
 
 CREATE FUNCTION archive_schema.extract_usage_info(metadata_jsonb jsonb) RETURNS jsonb
@@ -264,10 +242,8 @@ END;
 $$;
 
 
-ALTER FUNCTION archive_schema.extract_usage_info(metadata_jsonb jsonb) OWNER TO doran;
-
 --
--- Name: extract_usage_request_id(jsonb); Type: FUNCTION; Schema: archive_schema; Owner: doran
+-- Name: extract_usage_request_id(jsonb); Type: FUNCTION; Schema: archive_schema; Owner: -
 --
 
 CREATE FUNCTION archive_schema.extract_usage_request_id(metadata_jsonb jsonb) RETURNS text
@@ -287,10 +263,8 @@ END;
 $$;
 
 
-ALTER FUNCTION archive_schema.extract_usage_request_id(metadata_jsonb jsonb) OWNER TO doran;
-
 --
--- Name: extract_vocabulary_agent_result(jsonb); Type: FUNCTION; Schema: archive_schema; Owner: doran
+-- Name: extract_vocabulary_agent_result(jsonb); Type: FUNCTION; Schema: archive_schema; Owner: -
 --
 
 CREATE FUNCTION archive_schema.extract_vocabulary_agent_result(metadata_jsonb jsonb) RETURNS jsonb
@@ -307,7 +281,7 @@ BEGIN
        metadata_jsonb->'botResponseAnalysis' ? 'vocabulary' THEN
         vocab_node := metadata_jsonb->'botResponseAnalysis'->'vocabulary';
         
-        -- words 배열만 추출하여 payload 구성
+        -- words 諛곗뿴留?異붿텧?섏뿬 payload 援ъ꽦
         IF vocab_node ? 'words' THEN
             RETURN jsonb_build_object('words', vocab_node->'words');
         END IF;
@@ -318,14 +292,12 @@ END;
 $$;
 
 
-ALTER FUNCTION archive_schema.extract_vocabulary_agent_result(metadata_jsonb jsonb) OWNER TO doran;
-
 SET default_tablespace = '';
 
 SET default_table_access_method = heap;
 
 --
--- Name: arch_agent_results; Type: TABLE; Schema: archive_schema; Owner: doran
+-- Name: arch_agent_results; Type: TABLE; Schema: archive_schema; Owner: -
 --
 
 CREATE TABLE archive_schema.arch_agent_results (
@@ -345,10 +317,8 @@ CREATE TABLE archive_schema.arch_agent_results (
 );
 
 
-ALTER TABLE archive_schema.arch_agent_results OWNER TO doran;
-
 --
--- Name: arch_chatrooms; Type: TABLE; Schema: archive_schema; Owner: doran
+-- Name: arch_chatrooms; Type: TABLE; Schema: archive_schema; Owner: -
 --
 
 CREATE TABLE archive_schema.arch_chatrooms (
@@ -375,10 +345,8 @@ CREATE TABLE archive_schema.arch_chatrooms (
 );
 
 
-ALTER TABLE archive_schema.arch_chatrooms OWNER TO doran;
-
 --
--- Name: arch_ingestion_state; Type: TABLE; Schema: archive_schema; Owner: doran
+-- Name: arch_ingestion_state; Type: TABLE; Schema: archive_schema; Owner: -
 --
 
 CREATE TABLE archive_schema.arch_ingestion_state (
@@ -393,10 +361,8 @@ CREATE TABLE archive_schema.arch_ingestion_state (
 );
 
 
-ALTER TABLE archive_schema.arch_ingestion_state OWNER TO doran;
-
 --
--- Name: arch_ingestion_state_id_seq; Type: SEQUENCE; Schema: archive_schema; Owner: doran
+-- Name: arch_ingestion_state_id_seq; Type: SEQUENCE; Schema: archive_schema; Owner: -
 --
 
 ALTER TABLE archive_schema.arch_ingestion_state ALTER COLUMN id ADD GENERATED BY DEFAULT AS IDENTITY (
@@ -410,7 +376,7 @@ ALTER TABLE archive_schema.arch_ingestion_state ALTER COLUMN id ADD GENERATED BY
 
 
 --
--- Name: arch_intimacy_progress; Type: TABLE; Schema: archive_schema; Owner: doran
+-- Name: arch_intimacy_progress; Type: TABLE; Schema: archive_schema; Owner: -
 --
 
 CREATE TABLE archive_schema.arch_intimacy_progress (
@@ -428,10 +394,8 @@ CREATE TABLE archive_schema.arch_intimacy_progress (
 );
 
 
-ALTER TABLE archive_schema.arch_intimacy_progress OWNER TO doran;
-
 --
--- Name: arch_messages; Type: TABLE; Schema: archive_schema; Owner: doran
+-- Name: arch_messages; Type: TABLE; Schema: archive_schema; Owner: -
 --
 
 CREATE TABLE archive_schema.arch_messages (
@@ -460,10 +424,8 @@ CREATE TABLE archive_schema.arch_messages (
 );
 
 
-ALTER TABLE archive_schema.arch_messages OWNER TO doran;
-
 --
--- Name: arch_stores; Type: TABLE; Schema: archive_schema; Owner: doran
+-- Name: arch_stores; Type: TABLE; Schema: archive_schema; Owner: -
 --
 
 CREATE TABLE archive_schema.arch_stores (
@@ -484,10 +446,8 @@ CREATE TABLE archive_schema.arch_stores (
 );
 
 
-ALTER TABLE archive_schema.arch_stores OWNER TO doran;
-
 --
--- Name: arch_usage_events; Type: TABLE; Schema: archive_schema; Owner: doran
+-- Name: arch_usage_events; Type: TABLE; Schema: archive_schema; Owner: -
 --
 
 CREATE TABLE archive_schema.arch_usage_events (
@@ -508,10 +468,8 @@ CREATE TABLE archive_schema.arch_usage_events (
 );
 
 
-ALTER TABLE archive_schema.arch_usage_events OWNER TO doran;
-
 --
--- Name: management_queue; Type: TABLE; Schema: archive_schema; Owner: doran
+-- Name: management_queue; Type: TABLE; Schema: archive_schema; Owner: -
 --
 
 CREATE TABLE archive_schema.management_queue (
@@ -529,10 +487,8 @@ CREATE TABLE archive_schema.management_queue (
 );
 
 
-ALTER TABLE archive_schema.management_queue OWNER TO doran;
-
 --
--- Name: auth_events; Type: TABLE; Schema: auth_schema; Owner: doran
+-- Name: auth_events; Type: TABLE; Schema: auth_schema; Owner: -
 --
 
 CREATE TABLE auth_schema.auth_events (
@@ -544,10 +500,8 @@ CREATE TABLE auth_schema.auth_events (
 );
 
 
-ALTER TABLE auth_schema.auth_events OWNER TO doran;
-
 --
--- Name: auth_events_id_seq; Type: SEQUENCE; Schema: auth_schema; Owner: doran
+-- Name: auth_events_id_seq; Type: SEQUENCE; Schema: auth_schema; Owner: -
 --
 
 ALTER TABLE auth_schema.auth_events ALTER COLUMN id ADD GENERATED BY DEFAULT AS IDENTITY (
@@ -561,7 +515,7 @@ ALTER TABLE auth_schema.auth_events ALTER COLUMN id ADD GENERATED BY DEFAULT AS 
 
 
 --
--- Name: email_verifications; Type: TABLE; Schema: auth_schema; Owner: doran
+-- Name: email_verifications; Type: TABLE; Schema: auth_schema; Owner: -
 --
 
 CREATE TABLE auth_schema.email_verifications (
@@ -574,10 +528,8 @@ CREATE TABLE auth_schema.email_verifications (
 );
 
 
-ALTER TABLE auth_schema.email_verifications OWNER TO doran;
-
 --
--- Name: email_verifications_id_seq; Type: SEQUENCE; Schema: auth_schema; Owner: doran
+-- Name: email_verifications_id_seq; Type: SEQUENCE; Schema: auth_schema; Owner: -
 --
 
 ALTER TABLE auth_schema.email_verifications ALTER COLUMN id ADD GENERATED BY DEFAULT AS IDENTITY (
@@ -591,7 +543,25 @@ ALTER TABLE auth_schema.email_verifications ALTER COLUMN id ADD GENERATED BY DEF
 
 
 --
--- Name: login_attempts; Type: TABLE; Schema: auth_schema; Owner: doran
+-- Name: flyway_schema_history; Type: TABLE; Schema: auth_schema; Owner: -
+--
+
+CREATE TABLE auth_schema.flyway_schema_history (
+    installed_rank integer NOT NULL,
+    version character varying(50),
+    description character varying(200) NOT NULL,
+    type character varying(20) NOT NULL,
+    script character varying(1000) NOT NULL,
+    checksum integer,
+    installed_by character varying(100) NOT NULL,
+    installed_on timestamp without time zone DEFAULT now() NOT NULL,
+    execution_time integer NOT NULL,
+    success boolean NOT NULL
+);
+
+
+--
+-- Name: login_attempts; Type: TABLE; Schema: auth_schema; Owner: -
 --
 
 CREATE TABLE auth_schema.login_attempts (
@@ -605,10 +575,8 @@ CREATE TABLE auth_schema.login_attempts (
 );
 
 
-ALTER TABLE auth_schema.login_attempts OWNER TO doran;
-
 --
--- Name: login_attempts_id_seq; Type: SEQUENCE; Schema: auth_schema; Owner: doran
+-- Name: login_attempts_id_seq; Type: SEQUENCE; Schema: auth_schema; Owner: -
 --
 
 ALTER TABLE auth_schema.login_attempts ALTER COLUMN id ADD GENERATED BY DEFAULT AS IDENTITY (
@@ -622,7 +590,7 @@ ALTER TABLE auth_schema.login_attempts ALTER COLUMN id ADD GENERATED BY DEFAULT 
 
 
 --
--- Name: password_reset_tokens; Type: TABLE; Schema: auth_schema; Owner: doran
+-- Name: password_reset_tokens; Type: TABLE; Schema: auth_schema; Owner: -
 --
 
 CREATE TABLE auth_schema.password_reset_tokens (
@@ -635,10 +603,8 @@ CREATE TABLE auth_schema.password_reset_tokens (
 );
 
 
-ALTER TABLE auth_schema.password_reset_tokens OWNER TO doran;
-
 --
--- Name: password_reset_tokens_id_seq; Type: SEQUENCE; Schema: auth_schema; Owner: doran
+-- Name: password_reset_tokens_id_seq; Type: SEQUENCE; Schema: auth_schema; Owner: -
 --
 
 ALTER TABLE auth_schema.password_reset_tokens ALTER COLUMN id ADD GENERATED BY DEFAULT AS IDENTITY (
@@ -652,7 +618,7 @@ ALTER TABLE auth_schema.password_reset_tokens ALTER COLUMN id ADD GENERATED BY D
 
 
 --
--- Name: refresh_tokens; Type: TABLE; Schema: auth_schema; Owner: doran
+-- Name: refresh_tokens; Type: TABLE; Schema: auth_schema; Owner: -
 --
 
 CREATE TABLE auth_schema.refresh_tokens (
@@ -669,10 +635,8 @@ CREATE TABLE auth_schema.refresh_tokens (
 );
 
 
-ALTER TABLE auth_schema.refresh_tokens OWNER TO doran;
-
 --
--- Name: refresh_tokens_id_seq; Type: SEQUENCE; Schema: auth_schema; Owner: doran
+-- Name: refresh_tokens_id_seq; Type: SEQUENCE; Schema: auth_schema; Owner: -
 --
 
 ALTER TABLE auth_schema.refresh_tokens ALTER COLUMN id ADD GENERATED BY DEFAULT AS IDENTITY (
@@ -686,7 +650,7 @@ ALTER TABLE auth_schema.refresh_tokens ALTER COLUMN id ADD GENERATED BY DEFAULT 
 
 
 --
--- Name: token_blacklist; Type: TABLE; Schema: auth_schema; Owner: doran
+-- Name: token_blacklist; Type: TABLE; Schema: auth_schema; Owner: -
 --
 
 CREATE TABLE auth_schema.token_blacklist (
@@ -699,10 +663,8 @@ CREATE TABLE auth_schema.token_blacklist (
 );
 
 
-ALTER TABLE auth_schema.token_blacklist OWNER TO doran;
-
 --
--- Name: token_blacklist_id_seq; Type: SEQUENCE; Schema: auth_schema; Owner: doran
+-- Name: token_blacklist_id_seq; Type: SEQUENCE; Schema: auth_schema; Owner: -
 --
 
 ALTER TABLE auth_schema.token_blacklist ALTER COLUMN id ADD GENERATED BY DEFAULT AS IDENTITY (
@@ -716,7 +678,7 @@ ALTER TABLE auth_schema.token_blacklist ALTER COLUMN id ADD GENERATED BY DEFAULT
 
 
 --
--- Name: ai_usage_events; Type: TABLE; Schema: billing; Owner: doran
+-- Name: ai_usage_events; Type: TABLE; Schema: billing; Owner: -
 --
 
 CREATE TABLE billing.ai_usage_events (
@@ -735,10 +697,8 @@ CREATE TABLE billing.ai_usage_events (
 );
 
 
-ALTER TABLE billing.ai_usage_events OWNER TO doran;
-
 --
--- Name: monthly_user_costs; Type: TABLE; Schema: billing; Owner: doran
+-- Name: monthly_user_costs; Type: TABLE; Schema: billing; Owner: -
 --
 
 CREATE TABLE billing.monthly_user_costs (
@@ -753,10 +713,8 @@ CREATE TABLE billing.monthly_user_costs (
 );
 
 
-ALTER TABLE billing.monthly_user_costs OWNER TO doran;
-
 --
--- Name: chatbots; Type: TABLE; Schema: chat_schema; Owner: doran
+-- Name: chatbots; Type: TABLE; Schema: chat_schema; Owner: -
 --
 
 CREATE TABLE chat_schema.chatbots (
@@ -787,129 +745,127 @@ CREATE TABLE chat_schema.chatbots (
 );
 
 
-ALTER TABLE chat_schema.chatbots OWNER TO doran;
-
 --
--- Name: TABLE chatbots; Type: COMMENT; Schema: chat_schema; Owner: doran
+-- Name: TABLE chatbots; Type: COMMENT; Schema: chat_schema; Owner: -
 --
 
-COMMENT ON TABLE chat_schema.chatbots IS 'AI 챗봇';
+COMMENT ON TABLE chat_schema.chatbots IS 'AI 梨쀫큸';
 
 
 --
--- Name: COLUMN chatbots.id; Type: COMMENT; Schema: chat_schema; Owner: doran
+-- Name: COLUMN chatbots.id; Type: COMMENT; Schema: chat_schema; Owner: -
 --
 
-COMMENT ON COLUMN chat_schema.chatbots.id IS '챗봇 아이디';
-
-
---
--- Name: COLUMN chatbots.name; Type: COMMENT; Schema: chat_schema; Owner: doran
---
-
-COMMENT ON COLUMN chat_schema.chatbots.name IS '챗봇 이름';
+COMMENT ON COLUMN chat_schema.chatbots.id IS '梨쀫큸 ?꾩씠??;
 
 
 --
--- Name: COLUMN chatbots.display_name; Type: COMMENT; Schema: chat_schema; Owner: doran
+-- Name: COLUMN chatbots.name; Type: COMMENT; Schema: chat_schema; Owner: -
 --
 
-COMMENT ON COLUMN chat_schema.chatbots.display_name IS '표시 이름';
-
-
---
--- Name: COLUMN chatbots.description; Type: COMMENT; Schema: chat_schema; Owner: doran
---
-
-COMMENT ON COLUMN chat_schema.chatbots.description IS '챗봇 설명';
+COMMENT ON COLUMN chat_schema.chatbots.name IS '梨쀫큸 ?대쫫';
 
 
 --
--- Name: COLUMN chatbots.bot_type; Type: COMMENT; Schema: chat_schema; Owner: doran
+-- Name: COLUMN chatbots.display_name; Type: COMMENT; Schema: chat_schema; Owner: -
 --
 
-COMMENT ON COLUMN chat_schema.chatbots.bot_type IS '챗봇 타입 (gpt, claude, custom)';
-
-
---
--- Name: COLUMN chatbots.model_name; Type: COMMENT; Schema: chat_schema; Owner: doran
---
-
-COMMENT ON COLUMN chat_schema.chatbots.model_name IS 'AI 모델명';
+COMMENT ON COLUMN chat_schema.chatbots.display_name IS '?쒖떆 ?대쫫';
 
 
 --
--- Name: COLUMN chatbots.personality; Type: COMMENT; Schema: chat_schema; Owner: doran
+-- Name: COLUMN chatbots.description; Type: COMMENT; Schema: chat_schema; Owner: -
 --
 
-COMMENT ON COLUMN chat_schema.chatbots.personality IS '챗봇 성격 설정 (JSONB)';
-
-
---
--- Name: COLUMN chatbots.system_prompt; Type: COMMENT; Schema: chat_schema; Owner: doran
---
-
-COMMENT ON COLUMN chat_schema.chatbots.system_prompt IS '시스템 프롬프트';
+COMMENT ON COLUMN chat_schema.chatbots.description IS '梨쀫큸 ?ㅻ챸';
 
 
 --
--- Name: COLUMN chatbots.capabilities; Type: COMMENT; Schema: chat_schema; Owner: doran
+-- Name: COLUMN chatbots.bot_type; Type: COMMENT; Schema: chat_schema; Owner: -
 --
 
-COMMENT ON COLUMN chat_schema.chatbots.capabilities IS '챗봇 기능 설정 (JSONB)';
-
-
---
--- Name: COLUMN chatbots.settings; Type: COMMENT; Schema: chat_schema; Owner: doran
---
-
-COMMENT ON COLUMN chat_schema.chatbots.settings IS '챗봇 설정 (JSONB)';
+COMMENT ON COLUMN chat_schema.chatbots.bot_type IS '梨쀫큸 ???(gpt, claude, custom)';
 
 
 --
--- Name: COLUMN chatbots.intimacy_level; Type: COMMENT; Schema: chat_schema; Owner: doran
+-- Name: COLUMN chatbots.model_name; Type: COMMENT; Schema: chat_schema; Owner: -
 --
 
-COMMENT ON COLUMN chat_schema.chatbots.intimacy_level IS '친밀도 레벨 (1=격식체, 2=부드러운 존댓말, 3=반말)';
-
-
---
--- Name: COLUMN chatbots.avatar_url; Type: COMMENT; Schema: chat_schema; Owner: doran
---
-
-COMMENT ON COLUMN chat_schema.chatbots.avatar_url IS '아바타 URL';
+COMMENT ON COLUMN chat_schema.chatbots.model_name IS 'AI 紐⑤뜽紐?;
 
 
 --
--- Name: COLUMN chatbots.is_active; Type: COMMENT; Schema: chat_schema; Owner: doran
+-- Name: COLUMN chatbots.personality; Type: COMMENT; Schema: chat_schema; Owner: -
 --
 
-COMMENT ON COLUMN chat_schema.chatbots.is_active IS '활성 상태';
-
-
---
--- Name: COLUMN chatbots.created_at; Type: COMMENT; Schema: chat_schema; Owner: doran
---
-
-COMMENT ON COLUMN chat_schema.chatbots.created_at IS '생성 시간';
+COMMENT ON COLUMN chat_schema.chatbots.personality IS '梨쀫큸 ?깃꺽 ?ㅼ젙 (JSONB)';
 
 
 --
--- Name: COLUMN chatbots.updated_at; Type: COMMENT; Schema: chat_schema; Owner: doran
+-- Name: COLUMN chatbots.system_prompt; Type: COMMENT; Schema: chat_schema; Owner: -
 --
 
-COMMENT ON COLUMN chat_schema.chatbots.updated_at IS '수정 시간';
-
-
---
--- Name: COLUMN chatbots.created_by; Type: COMMENT; Schema: chat_schema; Owner: doran
---
-
-COMMENT ON COLUMN chat_schema.chatbots.created_by IS '생성자';
+COMMENT ON COLUMN chat_schema.chatbots.system_prompt IS '?쒖뒪???꾨＼?꾪듃';
 
 
 --
--- Name: chatrooms; Type: TABLE; Schema: chat_schema; Owner: doran
+-- Name: COLUMN chatbots.capabilities; Type: COMMENT; Schema: chat_schema; Owner: -
+--
+
+COMMENT ON COLUMN chat_schema.chatbots.capabilities IS '梨쀫큸 湲곕뒫 ?ㅼ젙 (JSONB)';
+
+
+--
+-- Name: COLUMN chatbots.settings; Type: COMMENT; Schema: chat_schema; Owner: -
+--
+
+COMMENT ON COLUMN chat_schema.chatbots.settings IS '梨쀫큸 ?ㅼ젙 (JSONB)';
+
+
+--
+-- Name: COLUMN chatbots.intimacy_level; Type: COMMENT; Schema: chat_schema; Owner: -
+--
+
+COMMENT ON COLUMN chat_schema.chatbots.intimacy_level IS '移쒕????덈꺼 (1=寃⑹떇泥? 2=遺?쒕윭??議대뙎留? 3=諛섎쭚)';
+
+
+--
+-- Name: COLUMN chatbots.avatar_url; Type: COMMENT; Schema: chat_schema; Owner: -
+--
+
+COMMENT ON COLUMN chat_schema.chatbots.avatar_url IS '?꾨컮? URL';
+
+
+--
+-- Name: COLUMN chatbots.is_active; Type: COMMENT; Schema: chat_schema; Owner: -
+--
+
+COMMENT ON COLUMN chat_schema.chatbots.is_active IS '?쒖꽦 ?곹깭';
+
+
+--
+-- Name: COLUMN chatbots.created_at; Type: COMMENT; Schema: chat_schema; Owner: -
+--
+
+COMMENT ON COLUMN chat_schema.chatbots.created_at IS '?앹꽦 ?쒓컙';
+
+
+--
+-- Name: COLUMN chatbots.updated_at; Type: COMMENT; Schema: chat_schema; Owner: -
+--
+
+COMMENT ON COLUMN chat_schema.chatbots.updated_at IS '?섏젙 ?쒓컙';
+
+
+--
+-- Name: COLUMN chatbots.created_by; Type: COMMENT; Schema: chat_schema; Owner: -
+--
+
+COMMENT ON COLUMN chat_schema.chatbots.created_by IS '?앹꽦??;
+
+
+--
+-- Name: chatrooms; Type: TABLE; Schema: chat_schema; Owner: -
 --
 
 CREATE TABLE chat_schema.chatrooms (
@@ -929,108 +885,106 @@ CREATE TABLE chat_schema.chatrooms (
 );
 
 
-ALTER TABLE chat_schema.chatrooms OWNER TO doran;
-
 --
--- Name: TABLE chatrooms; Type: COMMENT; Schema: chat_schema; Owner: doran
+-- Name: TABLE chatrooms; Type: COMMENT; Schema: chat_schema; Owner: -
 --
 
-COMMENT ON TABLE chat_schema.chatrooms IS '채팅방';
+COMMENT ON TABLE chat_schema.chatrooms IS '梨꾪똿諛?;
 
 
 --
--- Name: COLUMN chatrooms.id; Type: COMMENT; Schema: chat_schema; Owner: doran
+-- Name: COLUMN chatrooms.id; Type: COMMENT; Schema: chat_schema; Owner: -
 --
 
-COMMENT ON COLUMN chat_schema.chatrooms.id IS '채팅방 아이디';
-
-
---
--- Name: COLUMN chatrooms.name; Type: COMMENT; Schema: chat_schema; Owner: doran
---
-
-COMMENT ON COLUMN chat_schema.chatrooms.name IS '채팅방 이름';
+COMMENT ON COLUMN chat_schema.chatrooms.id IS '梨꾪똿諛??꾩씠??;
 
 
 --
--- Name: COLUMN chatrooms.description; Type: COMMENT; Schema: chat_schema; Owner: doran
+-- Name: COLUMN chatrooms.name; Type: COMMENT; Schema: chat_schema; Owner: -
 --
 
-COMMENT ON COLUMN chat_schema.chatrooms.description IS '채팅방 설명';
-
-
---
--- Name: COLUMN chatrooms.chatbot_id; Type: COMMENT; Schema: chat_schema; Owner: doran
---
-
-COMMENT ON COLUMN chat_schema.chatrooms.chatbot_id IS '챗봇 아이디';
+COMMENT ON COLUMN chat_schema.chatrooms.name IS '梨꾪똿諛??대쫫';
 
 
 --
--- Name: COLUMN chatrooms.user_id; Type: COMMENT; Schema: chat_schema; Owner: doran
+-- Name: COLUMN chatrooms.description; Type: COMMENT; Schema: chat_schema; Owner: -
 --
 
-COMMENT ON COLUMN chat_schema.chatrooms.user_id IS '사용자 아이디';
-
-
---
--- Name: COLUMN chatrooms.settings; Type: COMMENT; Schema: chat_schema; Owner: doran
---
-
-COMMENT ON COLUMN chat_schema.chatrooms.settings IS '채팅방 설정 (JSONB)';
+COMMENT ON COLUMN chat_schema.chatrooms.description IS '梨꾪똿諛??ㅻ챸';
 
 
 --
--- Name: COLUMN chatrooms.context_data; Type: COMMENT; Schema: chat_schema; Owner: doran
+-- Name: COLUMN chatrooms.chatbot_id; Type: COMMENT; Schema: chat_schema; Owner: -
 --
 
-COMMENT ON COLUMN chat_schema.chatrooms.context_data IS '대화 컨텍스트 데이터 (JSONB)';
-
-
---
--- Name: COLUMN chatrooms.last_message_at; Type: COMMENT; Schema: chat_schema; Owner: doran
---
-
-COMMENT ON COLUMN chat_schema.chatrooms.last_message_at IS '마지막 메시지 시간';
+COMMENT ON COLUMN chat_schema.chatrooms.chatbot_id IS '梨쀫큸 ?꾩씠??;
 
 
 --
--- Name: COLUMN chatrooms.last_message_id; Type: COMMENT; Schema: chat_schema; Owner: doran
+-- Name: COLUMN chatrooms.user_id; Type: COMMENT; Schema: chat_schema; Owner: -
 --
 
-COMMENT ON COLUMN chat_schema.chatrooms.last_message_id IS '마지막 메시지 아이디';
-
-
---
--- Name: COLUMN chatrooms.is_archived; Type: COMMENT; Schema: chat_schema; Owner: doran
---
-
-COMMENT ON COLUMN chat_schema.chatrooms.is_archived IS '아카이브 여부';
+COMMENT ON COLUMN chat_schema.chatrooms.user_id IS '?ъ슜???꾩씠??;
 
 
 --
--- Name: COLUMN chatrooms.is_deleted; Type: COMMENT; Schema: chat_schema; Owner: doran
+-- Name: COLUMN chatrooms.settings; Type: COMMENT; Schema: chat_schema; Owner: -
 --
 
-COMMENT ON COLUMN chat_schema.chatrooms.is_deleted IS '삭제 여부';
-
-
---
--- Name: COLUMN chatrooms.created_at; Type: COMMENT; Schema: chat_schema; Owner: doran
---
-
-COMMENT ON COLUMN chat_schema.chatrooms.created_at IS '생성 시간';
+COMMENT ON COLUMN chat_schema.chatrooms.settings IS '梨꾪똿諛??ㅼ젙 (JSONB)';
 
 
 --
--- Name: COLUMN chatrooms.updated_at; Type: COMMENT; Schema: chat_schema; Owner: doran
+-- Name: COLUMN chatrooms.context_data; Type: COMMENT; Schema: chat_schema; Owner: -
 --
 
-COMMENT ON COLUMN chat_schema.chatrooms.updated_at IS '수정 시간';
+COMMENT ON COLUMN chat_schema.chatrooms.context_data IS '???而⑦뀓?ㅽ듃 ?곗씠??(JSONB)';
 
 
 --
--- Name: flyway_schema_history; Type: TABLE; Schema: chat_schema; Owner: doran
+-- Name: COLUMN chatrooms.last_message_at; Type: COMMENT; Schema: chat_schema; Owner: -
+--
+
+COMMENT ON COLUMN chat_schema.chatrooms.last_message_at IS '留덉?留?硫붿떆吏 ?쒓컙';
+
+
+--
+-- Name: COLUMN chatrooms.last_message_id; Type: COMMENT; Schema: chat_schema; Owner: -
+--
+
+COMMENT ON COLUMN chat_schema.chatrooms.last_message_id IS '留덉?留?硫붿떆吏 ?꾩씠??;
+
+
+--
+-- Name: COLUMN chatrooms.is_archived; Type: COMMENT; Schema: chat_schema; Owner: -
+--
+
+COMMENT ON COLUMN chat_schema.chatrooms.is_archived IS '?꾩뭅?대툕 ?щ?';
+
+
+--
+-- Name: COLUMN chatrooms.is_deleted; Type: COMMENT; Schema: chat_schema; Owner: -
+--
+
+COMMENT ON COLUMN chat_schema.chatrooms.is_deleted IS '??젣 ?щ?';
+
+
+--
+-- Name: COLUMN chatrooms.created_at; Type: COMMENT; Schema: chat_schema; Owner: -
+--
+
+COMMENT ON COLUMN chat_schema.chatrooms.created_at IS '?앹꽦 ?쒓컙';
+
+
+--
+-- Name: COLUMN chatrooms.updated_at; Type: COMMENT; Schema: chat_schema; Owner: -
+--
+
+COMMENT ON COLUMN chat_schema.chatrooms.updated_at IS '?섏젙 ?쒓컙';
+
+
+--
+-- Name: flyway_schema_history; Type: TABLE; Schema: chat_schema; Owner: -
 --
 
 CREATE TABLE chat_schema.flyway_schema_history (
@@ -1047,10 +1001,8 @@ CREATE TABLE chat_schema.flyway_schema_history (
 );
 
 
-ALTER TABLE chat_schema.flyway_schema_history OWNER TO doran;
-
 --
--- Name: intimacy_progress; Type: TABLE; Schema: chat_schema; Owner: doran
+-- Name: intimacy_progress; Type: TABLE; Schema: chat_schema; Owner: -
 --
 
 CREATE TABLE chat_schema.intimacy_progress (
@@ -1066,45 +1018,43 @@ CREATE TABLE chat_schema.intimacy_progress (
 );
 
 
-ALTER TABLE chat_schema.intimacy_progress OWNER TO doran;
-
 --
--- Name: TABLE intimacy_progress; Type: COMMENT; Schema: chat_schema; Owner: doran
+-- Name: TABLE intimacy_progress; Type: COMMENT; Schema: chat_schema; Owner: -
 --
 
-COMMENT ON TABLE chat_schema.intimacy_progress IS '채팅방별 친밀도 진척 추적';
+COMMENT ON TABLE chat_schema.intimacy_progress IS '梨꾪똿諛⑸퀎 移쒕???吏꾩쿃 異붿쟻';
 
 
 --
--- Name: COLUMN intimacy_progress.intimacy_level; Type: COMMENT; Schema: chat_schema; Owner: doran
+-- Name: COLUMN intimacy_progress.intimacy_level; Type: COMMENT; Schema: chat_schema; Owner: -
 --
 
-COMMENT ON COLUMN chat_schema.intimacy_progress.intimacy_level IS '현재 친밀도 레벨 (1=격식체, 2=부드러운 존댓말, 3=반말)';
-
-
---
--- Name: COLUMN intimacy_progress.total_corrections; Type: COMMENT; Schema: chat_schema; Owner: doran
---
-
-COMMENT ON COLUMN chat_schema.intimacy_progress.total_corrections IS '누적 교정 횟수';
+COMMENT ON COLUMN chat_schema.intimacy_progress.intimacy_level IS '?꾩옱 移쒕????덈꺼 (1=寃⑹떇泥? 2=遺?쒕윭??議대뙎留? 3=諛섎쭚)';
 
 
 --
--- Name: COLUMN intimacy_progress.last_feedback; Type: COMMENT; Schema: chat_schema; Owner: doran
+-- Name: COLUMN intimacy_progress.total_corrections; Type: COMMENT; Schema: chat_schema; Owner: -
 --
 
-COMMENT ON COLUMN chat_schema.intimacy_progress.last_feedback IS '마지막 피드백 메시지';
-
-
---
--- Name: COLUMN intimacy_progress.progress_data; Type: COMMENT; Schema: chat_schema; Owner: doran
---
-
-COMMENT ON COLUMN chat_schema.intimacy_progress.progress_data IS '세부 학습 통계 (JSONB)';
+COMMENT ON COLUMN chat_schema.intimacy_progress.total_corrections IS '?꾩쟻 援먯젙 ?잛닔';
 
 
 --
--- Name: messages; Type: TABLE; Schema: chat_schema; Owner: doran
+-- Name: COLUMN intimacy_progress.last_feedback; Type: COMMENT; Schema: chat_schema; Owner: -
+--
+
+COMMENT ON COLUMN chat_schema.intimacy_progress.last_feedback IS '留덉?留??쇰뱶諛?硫붿떆吏';
+
+
+--
+-- Name: COLUMN intimacy_progress.progress_data; Type: COMMENT; Schema: chat_schema; Owner: -
+--
+
+COMMENT ON COLUMN chat_schema.intimacy_progress.progress_data IS '?몃? ?숈뒿 ?듦퀎 (JSONB)';
+
+
+--
+-- Name: messages; Type: TABLE; Schema: chat_schema; Owner: -
 --
 
 CREATE TABLE chat_schema.messages (
@@ -1133,136 +1083,134 @@ CREATE TABLE chat_schema.messages (
 );
 
 
-ALTER TABLE chat_schema.messages OWNER TO doran;
-
 --
--- Name: TABLE messages; Type: COMMENT; Schema: chat_schema; Owner: doran
+-- Name: TABLE messages; Type: COMMENT; Schema: chat_schema; Owner: -
 --
 
-COMMENT ON TABLE chat_schema.messages IS '메시지';
+COMMENT ON TABLE chat_schema.messages IS '硫붿떆吏';
 
 
 --
--- Name: COLUMN messages.id; Type: COMMENT; Schema: chat_schema; Owner: doran
+-- Name: COLUMN messages.id; Type: COMMENT; Schema: chat_schema; Owner: -
 --
 
-COMMENT ON COLUMN chat_schema.messages.id IS '메시지 아이디';
-
-
---
--- Name: COLUMN messages.chatroom_id; Type: COMMENT; Schema: chat_schema; Owner: doran
---
-
-COMMENT ON COLUMN chat_schema.messages.chatroom_id IS '채팅방 아이디';
+COMMENT ON COLUMN chat_schema.messages.id IS '硫붿떆吏 ?꾩씠??;
 
 
 --
--- Name: COLUMN messages.sender_type; Type: COMMENT; Schema: chat_schema; Owner: doran
+-- Name: COLUMN messages.chatroom_id; Type: COMMENT; Schema: chat_schema; Owner: -
 --
 
-COMMENT ON COLUMN chat_schema.messages.sender_type IS '발신자 타입 (user, bot, system)';
-
-
---
--- Name: COLUMN messages.sender_id; Type: COMMENT; Schema: chat_schema; Owner: doran
---
-
-COMMENT ON COLUMN chat_schema.messages.sender_id IS '발신자 아이디';
+COMMENT ON COLUMN chat_schema.messages.chatroom_id IS '梨꾪똿諛??꾩씠??;
 
 
 --
--- Name: COLUMN messages.content; Type: COMMENT; Schema: chat_schema; Owner: doran
+-- Name: COLUMN messages.sender_type; Type: COMMENT; Schema: chat_schema; Owner: -
 --
 
-COMMENT ON COLUMN chat_schema.messages.content IS '메시지 내용';
-
-
---
--- Name: COLUMN messages.content_type; Type: COMMENT; Schema: chat_schema; Owner: doran
---
-
-COMMENT ON COLUMN chat_schema.messages.content_type IS '콘텐츠 타입 (text, code, system)';
+COMMENT ON COLUMN chat_schema.messages.sender_type IS '諛쒖떊?????(user, bot, system)';
 
 
 --
--- Name: COLUMN messages.metadata; Type: COMMENT; Schema: chat_schema; Owner: doran
+-- Name: COLUMN messages.sender_id; Type: COMMENT; Schema: chat_schema; Owner: -
 --
 
-COMMENT ON COLUMN chat_schema.messages.metadata IS '메타데이터 (JSONB)';
-
-
---
--- Name: COLUMN messages.sequence_number; Type: COMMENT; Schema: chat_schema; Owner: doran
---
-
-COMMENT ON COLUMN chat_schema.messages.sequence_number IS '대화 순서 번호';
+COMMENT ON COLUMN chat_schema.messages.sender_id IS '諛쒖떊???꾩씠??;
 
 
 --
--- Name: COLUMN messages.token_count; Type: COMMENT; Schema: chat_schema; Owner: doran
+-- Name: COLUMN messages.content; Type: COMMENT; Schema: chat_schema; Owner: -
 --
 
-COMMENT ON COLUMN chat_schema.messages.token_count IS '토큰 수';
-
-
---
--- Name: COLUMN messages.processing_time_ms; Type: COMMENT; Schema: chat_schema; Owner: doran
---
-
-COMMENT ON COLUMN chat_schema.messages.processing_time_ms IS '처리 시간 (밀리초)';
+COMMENT ON COLUMN chat_schema.messages.content IS '硫붿떆吏 ?댁슜';
 
 
 --
--- Name: COLUMN messages.is_edited; Type: COMMENT; Schema: chat_schema; Owner: doran
+-- Name: COLUMN messages.content_type; Type: COMMENT; Schema: chat_schema; Owner: -
 --
 
-COMMENT ON COLUMN chat_schema.messages.is_edited IS '수정 여부';
-
-
---
--- Name: COLUMN messages.edited_at; Type: COMMENT; Schema: chat_schema; Owner: doran
---
-
-COMMENT ON COLUMN chat_schema.messages.edited_at IS '수정 시간';
+COMMENT ON COLUMN chat_schema.messages.content_type IS '肄섑뀗痢????(text, code, system)';
 
 
 --
--- Name: COLUMN messages.is_deleted; Type: COMMENT; Schema: chat_schema; Owner: doran
+-- Name: COLUMN messages.metadata; Type: COMMENT; Schema: chat_schema; Owner: -
 --
 
-COMMENT ON COLUMN chat_schema.messages.is_deleted IS '삭제 여부';
-
-
---
--- Name: COLUMN messages.deleted_at; Type: COMMENT; Schema: chat_schema; Owner: doran
---
-
-COMMENT ON COLUMN chat_schema.messages.deleted_at IS '삭제 시간';
+COMMENT ON COLUMN chat_schema.messages.metadata IS '硫뷀??곗씠??(JSONB)';
 
 
 --
--- Name: COLUMN messages.created_at; Type: COMMENT; Schema: chat_schema; Owner: doran
+-- Name: COLUMN messages.sequence_number; Type: COMMENT; Schema: chat_schema; Owner: -
 --
 
-COMMENT ON COLUMN chat_schema.messages.created_at IS '생성 시간';
-
-
---
--- Name: COLUMN messages.updated_at; Type: COMMENT; Schema: chat_schema; Owner: doran
---
-
-COMMENT ON COLUMN chat_schema.messages.updated_at IS '수정 시간';
+COMMENT ON COLUMN chat_schema.messages.sequence_number IS '????쒖꽌 踰덊샇';
 
 
 --
--- Name: COLUMN messages.turn_number; Type: COMMENT; Schema: chat_schema; Owner: doran
+-- Name: COLUMN messages.token_count; Type: COMMENT; Schema: chat_schema; Owner: -
 --
 
-COMMENT ON COLUMN chat_schema.messages.turn_number IS '대화 턴 번호 (Bot 응답부터 User 응답까지 하나의 턴, 미완료 턴은 0)';
+COMMENT ON COLUMN chat_schema.messages.token_count IS '?좏겙 ??;
 
 
 --
--- Name: user_chatbot_last_interaction; Type: TABLE; Schema: chat_schema; Owner: doran
+-- Name: COLUMN messages.processing_time_ms; Type: COMMENT; Schema: chat_schema; Owner: -
+--
+
+COMMENT ON COLUMN chat_schema.messages.processing_time_ms IS '泥섎━ ?쒓컙 (諛由ъ큹)';
+
+
+--
+-- Name: COLUMN messages.is_edited; Type: COMMENT; Schema: chat_schema; Owner: -
+--
+
+COMMENT ON COLUMN chat_schema.messages.is_edited IS '?섏젙 ?щ?';
+
+
+--
+-- Name: COLUMN messages.edited_at; Type: COMMENT; Schema: chat_schema; Owner: -
+--
+
+COMMENT ON COLUMN chat_schema.messages.edited_at IS '?섏젙 ?쒓컙';
+
+
+--
+-- Name: COLUMN messages.is_deleted; Type: COMMENT; Schema: chat_schema; Owner: -
+--
+
+COMMENT ON COLUMN chat_schema.messages.is_deleted IS '??젣 ?щ?';
+
+
+--
+-- Name: COLUMN messages.deleted_at; Type: COMMENT; Schema: chat_schema; Owner: -
+--
+
+COMMENT ON COLUMN chat_schema.messages.deleted_at IS '??젣 ?쒓컙';
+
+
+--
+-- Name: COLUMN messages.created_at; Type: COMMENT; Schema: chat_schema; Owner: -
+--
+
+COMMENT ON COLUMN chat_schema.messages.created_at IS '?앹꽦 ?쒓컙';
+
+
+--
+-- Name: COLUMN messages.updated_at; Type: COMMENT; Schema: chat_schema; Owner: -
+--
+
+COMMENT ON COLUMN chat_schema.messages.updated_at IS '?섏젙 ?쒓컙';
+
+
+--
+-- Name: COLUMN messages.turn_number; Type: COMMENT; Schema: chat_schema; Owner: -
+--
+
+COMMENT ON COLUMN chat_schema.messages.turn_number IS '?????踰덊샇 (Bot ?묐떟遺??User ?묐떟源뚯? ?섎굹???? 誘몄셿猷??댁? 0)';
+
+
+--
+-- Name: user_chatbot_last_interaction; Type: TABLE; Schema: chat_schema; Owner: -
 --
 
 CREATE TABLE chat_schema.user_chatbot_last_interaction (
@@ -1275,10 +1223,8 @@ CREATE TABLE chat_schema.user_chatbot_last_interaction (
 );
 
 
-ALTER TABLE chat_schema.user_chatbot_last_interaction OWNER TO doran;
-
 --
--- Name: stores; Type: TABLE; Schema: store_schema; Owner: doran
+-- Name: stores; Type: TABLE; Schema: store_schema; Owner: -
 --
 
 CREATE TABLE store_schema.stores (
@@ -1297,45 +1243,43 @@ CREATE TABLE store_schema.stores (
 );
 
 
-ALTER TABLE store_schema.stores OWNER TO doran;
-
 --
--- Name: TABLE stores; Type: COMMENT; Schema: store_schema; Owner: doran
+-- Name: TABLE stores; Type: COMMENT; Schema: store_schema; Owner: -
 --
 
-COMMENT ON TABLE store_schema.stores IS '보관함 - 사용자가 저장한 표현과 AI 응답';
+COMMENT ON TABLE store_schema.stores IS '蹂닿???- ?ъ슜?먭? ??ν븳 ?쒗쁽怨?AI ?묐떟';
 
 
 --
--- Name: COLUMN stores.content; Type: COMMENT; Schema: store_schema; Owner: doran
+-- Name: COLUMN stores.content; Type: COMMENT; Schema: store_schema; Owner: -
 --
 
-COMMENT ON COLUMN store_schema.stores.content IS '표현 원본';
-
-
---
--- Name: COLUMN stores.corrected_content; Type: COMMENT; Schema: store_schema; Owner: doran
---
-
-COMMENT ON COLUMN store_schema.stores.corrected_content IS '친밀도 Agent가 교정한 문장 (교정 없으면 NULL)';
+COMMENT ON COLUMN store_schema.stores.content IS '?쒗쁽 ?먮낯';
 
 
 --
--- Name: COLUMN stores.ai_response; Type: COMMENT; Schema: store_schema; Owner: doran
+-- Name: COLUMN stores.corrected_content; Type: COMMENT; Schema: store_schema; Owner: -
 --
 
-COMMENT ON COLUMN store_schema.stores.ai_response IS 'Multi-Agent AI 응답 (JSONB)';
-
-
---
--- Name: COLUMN stores.bot_type; Type: COMMENT; Schema: store_schema; Owner: doran
---
-
-COMMENT ON COLUMN store_schema.stores.bot_type IS '챗봇 역할 (Honey, Coworker, Senior, Client)';
+COMMENT ON COLUMN store_schema.stores.corrected_content IS '移쒕???Agent媛 援먯젙??臾몄옣 (援먯젙 ?놁쑝硫?NULL)';
 
 
 --
--- Name: admin_audit_logs; Type: TABLE; Schema: user_schema; Owner: doran
+-- Name: COLUMN stores.ai_response; Type: COMMENT; Schema: store_schema; Owner: -
+--
+
+COMMENT ON COLUMN store_schema.stores.ai_response IS 'Multi-Agent AI ?묐떟 (JSONB)';
+
+
+--
+-- Name: COLUMN stores.bot_type; Type: COMMENT; Schema: store_schema; Owner: -
+--
+
+COMMENT ON COLUMN store_schema.stores.bot_type IS '梨쀫큸 ??븷 (Honey, Coworker, Senior, Client)';
+
+
+--
+-- Name: admin_audit_logs; Type: TABLE; Schema: user_schema; Owner: -
 --
 
 CREATE TABLE user_schema.admin_audit_logs (
@@ -1353,10 +1297,8 @@ CREATE TABLE user_schema.admin_audit_logs (
 );
 
 
-ALTER TABLE user_schema.admin_audit_logs OWNER TO doran;
-
 --
--- Name: admin_audit_logs_id_seq; Type: SEQUENCE; Schema: user_schema; Owner: doran
+-- Name: admin_audit_logs_id_seq; Type: SEQUENCE; Schema: user_schema; Owner: -
 --
 
 CREATE SEQUENCE user_schema.admin_audit_logs_id_seq
@@ -1367,17 +1309,15 @@ CREATE SEQUENCE user_schema.admin_audit_logs_id_seq
     CACHE 1;
 
 
-ALTER SEQUENCE user_schema.admin_audit_logs_id_seq OWNER TO doran;
-
 --
--- Name: admin_audit_logs_id_seq; Type: SEQUENCE OWNED BY; Schema: user_schema; Owner: doran
+-- Name: admin_audit_logs_id_seq; Type: SEQUENCE OWNED BY; Schema: user_schema; Owner: -
 --
 
 ALTER SEQUENCE user_schema.admin_audit_logs_id_seq OWNED BY user_schema.admin_audit_logs.id;
 
 
 --
--- Name: admin_roles; Type: TABLE; Schema: user_schema; Owner: doran
+-- Name: admin_roles; Type: TABLE; Schema: user_schema; Owner: -
 --
 
 CREATE TABLE user_schema.admin_roles (
@@ -1388,10 +1328,8 @@ CREATE TABLE user_schema.admin_roles (
 );
 
 
-ALTER TABLE user_schema.admin_roles OWNER TO doran;
-
 --
--- Name: admin_roles_id_seq; Type: SEQUENCE; Schema: user_schema; Owner: doran
+-- Name: admin_roles_id_seq; Type: SEQUENCE; Schema: user_schema; Owner: -
 --
 
 CREATE SEQUENCE user_schema.admin_roles_id_seq
@@ -1402,17 +1340,15 @@ CREATE SEQUENCE user_schema.admin_roles_id_seq
     CACHE 1;
 
 
-ALTER SEQUENCE user_schema.admin_roles_id_seq OWNER TO doran;
-
 --
--- Name: admin_roles_id_seq; Type: SEQUENCE OWNED BY; Schema: user_schema; Owner: doran
+-- Name: admin_roles_id_seq; Type: SEQUENCE OWNED BY; Schema: user_schema; Owner: -
 --
 
 ALTER SEQUENCE user_schema.admin_roles_id_seq OWNED BY user_schema.admin_roles.id;
 
 
 --
--- Name: admin_user_roles; Type: TABLE; Schema: user_schema; Owner: doran
+-- Name: admin_user_roles; Type: TABLE; Schema: user_schema; Owner: -
 --
 
 CREATE TABLE user_schema.admin_user_roles (
@@ -1422,10 +1358,8 @@ CREATE TABLE user_schema.admin_user_roles (
 );
 
 
-ALTER TABLE user_schema.admin_user_roles OWNER TO doran;
-
 --
--- Name: admin_users; Type: TABLE; Schema: user_schema; Owner: doran
+-- Name: admin_users; Type: TABLE; Schema: user_schema; Owner: -
 --
 
 CREATE TABLE user_schema.admin_users (
@@ -1439,10 +1373,8 @@ CREATE TABLE user_schema.admin_users (
 );
 
 
-ALTER TABLE user_schema.admin_users OWNER TO doran;
-
 --
--- Name: admin_users_id_seq; Type: SEQUENCE; Schema: user_schema; Owner: doran
+-- Name: admin_users_id_seq; Type: SEQUENCE; Schema: user_schema; Owner: -
 --
 
 CREATE SEQUENCE user_schema.admin_users_id_seq
@@ -1453,17 +1385,15 @@ CREATE SEQUENCE user_schema.admin_users_id_seq
     CACHE 1;
 
 
-ALTER SEQUENCE user_schema.admin_users_id_seq OWNER TO doran;
-
 --
--- Name: admin_users_id_seq; Type: SEQUENCE OWNED BY; Schema: user_schema; Owner: doran
+-- Name: admin_users_id_seq; Type: SEQUENCE OWNED BY; Schema: user_schema; Owner: -
 --
 
 ALTER SEQUENCE user_schema.admin_users_id_seq OWNED BY user_schema.admin_users.id;
 
 
 --
--- Name: app_user; Type: TABLE; Schema: user_schema; Owner: doran
+-- Name: app_user; Type: TABLE; Schema: user_schema; Owner: -
 --
 
 CREATE TABLE user_schema.app_user (
@@ -1486,123 +1416,125 @@ CREATE TABLE user_schema.app_user (
     oauth_provider character varying(20),
     is_onboard boolean DEFAULT false NOT NULL,
     birth_date date DEFAULT '1900-01-01'::date NOT NULL,
-    signup_question character varying(255) DEFAULT '질문이 설정되지 않았습니다.'::character varying NOT NULL,
-    signup_answer character varying(30) DEFAULT '답변이 설정되지 않았습니다.'::character varying NOT NULL,
-    CONSTRAINT app_user_oauth_provider_check CHECK (((oauth_provider)::text = ANY ((ARRAY['GOOGLE'::character varying, 'FACEBOOK'::character varying, 'KAKAO'::character varying, 'NAVER'::character varying])::text[]))),
+    signup_question character varying(255) DEFAULT '吏덈Ц???ㅼ젙?섏? ?딆븯?듬땲??'::character varying NOT NULL,
+    signup_answer character varying(30) DEFAULT '?듬????ㅼ젙?섏? ?딆븯?듬땲??'::character varying NOT NULL,
+    marketing_consent boolean DEFAULT false NOT NULL,
+    marketing_consent_at timestamp without time zone,
+    inactive_at timestamp without time zone,
+    marketing_opt_in boolean DEFAULT false NOT NULL,
+    CONSTRAINT app_user_oauth_provider_check CHECK (((oauth_provider)::text = ANY (ARRAY[('GOOGLE'::character varying)::text, ('FACEBOOK'::character varying)::text, ('KAKAO'::character varying)::text, ('NAVER'::character varying)::text, ('APPLE'::character varying)::text]))),
     CONSTRAINT chk_app_user_role CHECK (((role)::text = ANY (ARRAY[('ROLE_USER'::character varying)::text, ('ROLE_ADMIN'::character varying)::text]))),
     CONSTRAINT chk_app_user_status CHECK (((status)::text = ANY (ARRAY[('ACTIVE'::character varying)::text, ('INACTIVE'::character varying)::text, ('SUSPENDED'::character varying)::text])))
 );
 
 
-ALTER TABLE user_schema.app_user OWNER TO doran;
-
 --
--- Name: TABLE app_user; Type: COMMENT; Schema: user_schema; Owner: doran
+-- Name: TABLE app_user; Type: COMMENT; Schema: user_schema; Owner: -
 --
 
-COMMENT ON TABLE user_schema.app_user IS '사용자 정보';
+COMMENT ON TABLE user_schema.app_user IS '?ъ슜???뺣낫';
 
 
 --
--- Name: COLUMN app_user.id; Type: COMMENT; Schema: user_schema; Owner: doran
+-- Name: COLUMN app_user.id; Type: COMMENT; Schema: user_schema; Owner: -
 --
 
-COMMENT ON COLUMN user_schema.app_user.id IS '사용자 아이디';
-
-
---
--- Name: COLUMN app_user.email; Type: COMMENT; Schema: user_schema; Owner: doran
---
-
-COMMENT ON COLUMN user_schema.app_user.email IS '사용자 이메일';
+COMMENT ON COLUMN user_schema.app_user.id IS '?ъ슜???꾩씠??;
 
 
 --
--- Name: COLUMN app_user.first_name; Type: COMMENT; Schema: user_schema; Owner: doran
+-- Name: COLUMN app_user.email; Type: COMMENT; Schema: user_schema; Owner: -
 --
 
-COMMENT ON COLUMN user_schema.app_user.first_name IS '이름';
-
-
---
--- Name: COLUMN app_user.last_name; Type: COMMENT; Schema: user_schema; Owner: doran
---
-
-COMMENT ON COLUMN user_schema.app_user.last_name IS '성';
+COMMENT ON COLUMN user_schema.app_user.email IS '?ъ슜???대찓??;
 
 
 --
--- Name: COLUMN app_user.name; Type: COMMENT; Schema: user_schema; Owner: doran
+-- Name: COLUMN app_user.first_name; Type: COMMENT; Schema: user_schema; Owner: -
 --
 
-COMMENT ON COLUMN user_schema.app_user.name IS '전체 이름';
-
-
---
--- Name: COLUMN app_user.password_hash; Type: COMMENT; Schema: user_schema; Owner: doran
---
-
-COMMENT ON COLUMN user_schema.app_user.password_hash IS '비밀번호 해시';
+COMMENT ON COLUMN user_schema.app_user.first_name IS '?대쫫';
 
 
 --
--- Name: COLUMN app_user.picture; Type: COMMENT; Schema: user_schema; Owner: doran
+-- Name: COLUMN app_user.last_name; Type: COMMENT; Schema: user_schema; Owner: -
 --
 
-COMMENT ON COLUMN user_schema.app_user.picture IS '프로필 사진';
-
-
---
--- Name: COLUMN app_user.info; Type: COMMENT; Schema: user_schema; Owner: doran
---
-
-COMMENT ON COLUMN user_schema.app_user.info IS '사용자 정보';
+COMMENT ON COLUMN user_schema.app_user.last_name IS '??;
 
 
 --
--- Name: COLUMN app_user.last_conn_time; Type: COMMENT; Schema: user_schema; Owner: doran
+-- Name: COLUMN app_user.name; Type: COMMENT; Schema: user_schema; Owner: -
 --
 
-COMMENT ON COLUMN user_schema.app_user.last_conn_time IS '마지막 연결 시간';
-
-
---
--- Name: COLUMN app_user.status; Type: COMMENT; Schema: user_schema; Owner: doran
---
-
-COMMENT ON COLUMN user_schema.app_user.status IS '사용자 상태 (ACTIVE, INACTIVE, SUSPENDED)';
+COMMENT ON COLUMN user_schema.app_user.name IS '?꾩껜 ?대쫫';
 
 
 --
--- Name: COLUMN app_user.role; Type: COMMENT; Schema: user_schema; Owner: doran
+-- Name: COLUMN app_user.password_hash; Type: COMMENT; Schema: user_schema; Owner: -
 --
 
-COMMENT ON COLUMN user_schema.app_user.role IS '사용자 역할 (ROLE_USER, ROLE_ADMIN)';
-
-
---
--- Name: COLUMN app_user.coach_check; Type: COMMENT; Schema: user_schema; Owner: doran
---
-
-COMMENT ON COLUMN user_schema.app_user.coach_check IS '코치 체크 여부';
+COMMENT ON COLUMN user_schema.app_user.password_hash IS '鍮꾨?踰덊샇 ?댁떆';
 
 
 --
--- Name: COLUMN app_user.created_at; Type: COMMENT; Schema: user_schema; Owner: doran
+-- Name: COLUMN app_user.picture; Type: COMMENT; Schema: user_schema; Owner: -
 --
 
-COMMENT ON COLUMN user_schema.app_user.created_at IS '생성 시간';
-
-
---
--- Name: COLUMN app_user.updated_at; Type: COMMENT; Schema: user_schema; Owner: doran
---
-
-COMMENT ON COLUMN user_schema.app_user.updated_at IS '수정 시간';
+COMMENT ON COLUMN user_schema.app_user.picture IS '?꾨줈???ъ쭊';
 
 
 --
--- Name: fcm_tokens; Type: TABLE; Schema: user_schema; Owner: doran
+-- Name: COLUMN app_user.info; Type: COMMENT; Schema: user_schema; Owner: -
+--
+
+COMMENT ON COLUMN user_schema.app_user.info IS '?ъ슜???뺣낫';
+
+
+--
+-- Name: COLUMN app_user.last_conn_time; Type: COMMENT; Schema: user_schema; Owner: -
+--
+
+COMMENT ON COLUMN user_schema.app_user.last_conn_time IS '留덉?留??곌껐 ?쒓컙';
+
+
+--
+-- Name: COLUMN app_user.status; Type: COMMENT; Schema: user_schema; Owner: -
+--
+
+COMMENT ON COLUMN user_schema.app_user.status IS '?ъ슜???곹깭 (ACTIVE, INACTIVE, SUSPENDED)';
+
+
+--
+-- Name: COLUMN app_user.role; Type: COMMENT; Schema: user_schema; Owner: -
+--
+
+COMMENT ON COLUMN user_schema.app_user.role IS '?ъ슜????븷 (ROLE_USER, ROLE_ADMIN)';
+
+
+--
+-- Name: COLUMN app_user.coach_check; Type: COMMENT; Schema: user_schema; Owner: -
+--
+
+COMMENT ON COLUMN user_schema.app_user.coach_check IS '肄붿튂 泥댄겕 ?щ?';
+
+
+--
+-- Name: COLUMN app_user.created_at; Type: COMMENT; Schema: user_schema; Owner: -
+--
+
+COMMENT ON COLUMN user_schema.app_user.created_at IS '?앹꽦 ?쒓컙';
+
+
+--
+-- Name: COLUMN app_user.updated_at; Type: COMMENT; Schema: user_schema; Owner: -
+--
+
+COMMENT ON COLUMN user_schema.app_user.updated_at IS '?섏젙 ?쒓컙';
+
+
+--
+-- Name: fcm_tokens; Type: TABLE; Schema: user_schema; Owner: -
 --
 
 CREATE TABLE user_schema.fcm_tokens (
@@ -1615,10 +1547,8 @@ CREATE TABLE user_schema.fcm_tokens (
 );
 
 
-ALTER TABLE user_schema.fcm_tokens OWNER TO doran;
-
 --
--- Name: interest_topics; Type: TABLE; Schema: user_schema; Owner: doran
+-- Name: interest_topics; Type: TABLE; Schema: user_schema; Owner: -
 --
 
 CREATE TABLE user_schema.interest_topics (
@@ -1629,10 +1559,31 @@ CREATE TABLE user_schema.interest_topics (
 );
 
 
-ALTER TABLE user_schema.interest_topics OWNER TO doran;
+--
+-- Name: onboarding_survey; Type: TABLE; Schema: user_schema; Owner: -
+--
+
+CREATE TABLE user_schema.onboarding_survey (
+    user_id uuid NOT NULL,
+    referral_source character varying(50),
+    referral_other character varying(80),
+    korean_level integer,
+    purpose_key character varying(50),
+    purpose_other character varying(80),
+    created_at timestamp without time zone DEFAULT now() NOT NULL,
+    updated_at timestamp without time zone DEFAULT now() NOT NULL
+);
+
 
 --
--- Name: posts_cache; Type: TABLE; Schema: user_schema; Owner: doran
+-- Name: TABLE onboarding_survey; Type: COMMENT; Schema: user_schema; Owner: -
+--
+
+COMMENT ON TABLE user_schema.onboarding_survey IS '?⑤낫???ㅻЦ ?듬? (?좎엯 寃쎈줈, ?쒓뎅???섏?, ?숈뒿 紐⑹쟻) - ?ъ슜?먮떦 1??;
+
+
+--
+-- Name: posts_cache; Type: TABLE; Schema: user_schema; Owner: -
 --
 
 CREATE TABLE user_schema.posts_cache (
@@ -1642,14 +1593,36 @@ CREATE TABLE user_schema.posts_cache (
     description text,
     permalink text,
     published_at timestamp without time zone,
-    fetched_at timestamp without time zone DEFAULT now() NOT NULL
+    fetched_at timestamp without time zone DEFAULT now() NOT NULL,
+    media_type character varying(20),
+    cover_image_url text,
+    assets jsonb
 );
 
 
-ALTER TABLE user_schema.posts_cache OWNER TO doran;
+--
+-- Name: COLUMN posts_cache.media_type; Type: COMMENT; Schema: user_schema; Owner: -
+--
+
+COMMENT ON COLUMN user_schema.posts_cache.media_type IS 'IMAGE, VIDEO, CAROUSEL_ALBUM';
+
 
 --
--- Name: profiles; Type: TABLE; Schema: user_schema; Owner: doran
+-- Name: COLUMN posts_cache.cover_image_url; Type: COMMENT; Schema: user_schema; Owner: -
+--
+
+COMMENT ON COLUMN user_schema.posts_cache.cover_image_url IS '由ъ뒪???몃꽕??????대?吏 URL';
+
+
+--
+-- Name: COLUMN posts_cache.assets; Type: COMMENT; Schema: user_schema; Owner: -
+--
+
+COMMENT ON COLUMN user_schema.posts_cache.assets IS '[{ "type": "IMAGE"|"VIDEO", "url": "...", "thumbnailUrl": "..." }]';
+
+
+--
+-- Name: profiles; Type: TABLE; Schema: user_schema; Owner: -
 --
 
 CREATE TABLE user_schema.profiles (
@@ -1663,10 +1636,8 @@ CREATE TABLE user_schema.profiles (
 );
 
 
-ALTER TABLE user_schema.profiles OWNER TO doran;
-
 --
--- Name: profiles_id_seq; Type: SEQUENCE; Schema: user_schema; Owner: doran
+-- Name: profiles_id_seq; Type: SEQUENCE; Schema: user_schema; Owner: -
 --
 
 ALTER TABLE user_schema.profiles ALTER COLUMN id ADD GENERATED BY DEFAULT AS IDENTITY (
@@ -1680,7 +1651,7 @@ ALTER TABLE user_schema.profiles ALTER COLUMN id ADD GENERATED BY DEFAULT AS IDE
 
 
 --
--- Name: prompt_actives; Type: TABLE; Schema: user_schema; Owner: doran
+-- Name: prompt_actives; Type: TABLE; Schema: user_schema; Owner: -
 --
 
 CREATE TABLE user_schema.prompt_actives (
@@ -1695,10 +1666,8 @@ CREATE TABLE user_schema.prompt_actives (
 );
 
 
-ALTER TABLE user_schema.prompt_actives OWNER TO doran;
-
 --
--- Name: prompt_versions; Type: TABLE; Schema: user_schema; Owner: doran
+-- Name: prompt_versions; Type: TABLE; Schema: user_schema; Owner: -
 --
 
 CREATE TABLE user_schema.prompt_versions (
@@ -1717,10 +1686,8 @@ CREATE TABLE user_schema.prompt_versions (
 );
 
 
-ALTER TABLE user_schema.prompt_versions OWNER TO doran;
-
 --
--- Name: prompt_versions_id_seq; Type: SEQUENCE; Schema: user_schema; Owner: doran
+-- Name: prompt_versions_id_seq; Type: SEQUENCE; Schema: user_schema; Owner: -
 --
 
 CREATE SEQUENCE user_schema.prompt_versions_id_seq
@@ -1731,17 +1698,15 @@ CREATE SEQUENCE user_schema.prompt_versions_id_seq
     CACHE 1;
 
 
-ALTER SEQUENCE user_schema.prompt_versions_id_seq OWNER TO doran;
-
 --
--- Name: prompt_versions_id_seq; Type: SEQUENCE OWNED BY; Schema: user_schema; Owner: doran
+-- Name: prompt_versions_id_seq; Type: SEQUENCE OWNED BY; Schema: user_schema; Owner: -
 --
 
 ALTER SEQUENCE user_schema.prompt_versions_id_seq OWNED BY user_schema.prompt_versions.id;
 
 
 --
--- Name: push_delivery_logs; Type: TABLE; Schema: user_schema; Owner: doran
+-- Name: push_delivery_logs; Type: TABLE; Schema: user_schema; Owner: -
 --
 
 CREATE TABLE user_schema.push_delivery_logs (
@@ -1753,10 +1718,8 @@ CREATE TABLE user_schema.push_delivery_logs (
 );
 
 
-ALTER TABLE user_schema.push_delivery_logs OWNER TO doran;
-
 --
--- Name: push_delivery_logs_id_seq; Type: SEQUENCE; Schema: user_schema; Owner: doran
+-- Name: push_delivery_logs_id_seq; Type: SEQUENCE; Schema: user_schema; Owner: -
 --
 
 CREATE SEQUENCE user_schema.push_delivery_logs_id_seq
@@ -1767,17 +1730,15 @@ CREATE SEQUENCE user_schema.push_delivery_logs_id_seq
     CACHE 1;
 
 
-ALTER SEQUENCE user_schema.push_delivery_logs_id_seq OWNER TO doran;
-
 --
--- Name: push_delivery_logs_id_seq; Type: SEQUENCE OWNED BY; Schema: user_schema; Owner: doran
+-- Name: push_delivery_logs_id_seq; Type: SEQUENCE OWNED BY; Schema: user_schema; Owner: -
 --
 
 ALTER SEQUENCE user_schema.push_delivery_logs_id_seq OWNED BY user_schema.push_delivery_logs.id;
 
 
 --
--- Name: review_ticket_items; Type: TABLE; Schema: user_schema; Owner: doran
+-- Name: review_ticket_items; Type: TABLE; Schema: user_schema; Owner: -
 --
 
 CREATE TABLE user_schema.review_ticket_items (
@@ -1790,10 +1751,8 @@ CREATE TABLE user_schema.review_ticket_items (
 );
 
 
-ALTER TABLE user_schema.review_ticket_items OWNER TO doran;
-
 --
--- Name: review_ticket_items_id_seq; Type: SEQUENCE; Schema: user_schema; Owner: doran
+-- Name: review_ticket_items_id_seq; Type: SEQUENCE; Schema: user_schema; Owner: -
 --
 
 CREATE SEQUENCE user_schema.review_ticket_items_id_seq
@@ -1804,17 +1763,15 @@ CREATE SEQUENCE user_schema.review_ticket_items_id_seq
     CACHE 1;
 
 
-ALTER SEQUENCE user_schema.review_ticket_items_id_seq OWNER TO doran;
-
 --
--- Name: review_ticket_items_id_seq; Type: SEQUENCE OWNED BY; Schema: user_schema; Owner: doran
+-- Name: review_ticket_items_id_seq; Type: SEQUENCE OWNED BY; Schema: user_schema; Owner: -
 --
 
 ALTER SEQUENCE user_schema.review_ticket_items_id_seq OWNED BY user_schema.review_ticket_items.id;
 
 
 --
--- Name: review_tickets; Type: TABLE; Schema: user_schema; Owner: doran
+-- Name: review_tickets; Type: TABLE; Schema: user_schema; Owner: -
 --
 
 CREATE TABLE user_schema.review_tickets (
@@ -1831,10 +1788,8 @@ CREATE TABLE user_schema.review_tickets (
 );
 
 
-ALTER TABLE user_schema.review_tickets OWNER TO doran;
-
 --
--- Name: review_tickets_id_seq; Type: SEQUENCE; Schema: user_schema; Owner: doran
+-- Name: review_tickets_id_seq; Type: SEQUENCE; Schema: user_schema; Owner: -
 --
 
 CREATE SEQUENCE user_schema.review_tickets_id_seq
@@ -1845,17 +1800,15 @@ CREATE SEQUENCE user_schema.review_tickets_id_seq
     CACHE 1;
 
 
-ALTER SEQUENCE user_schema.review_tickets_id_seq OWNER TO doran;
-
 --
--- Name: review_tickets_id_seq; Type: SEQUENCE OWNED BY; Schema: user_schema; Owner: doran
+-- Name: review_tickets_id_seq; Type: SEQUENCE OWNED BY; Schema: user_schema; Owner: -
 --
 
 ALTER SEQUENCE user_schema.review_tickets_id_seq OWNED BY user_schema.review_tickets.id;
 
 
 --
--- Name: settings; Type: TABLE; Schema: user_schema; Owner: doran
+-- Name: settings; Type: TABLE; Schema: user_schema; Owner: -
 --
 
 CREATE TABLE user_schema.settings (
@@ -1868,10 +1821,8 @@ CREATE TABLE user_schema.settings (
 );
 
 
-ALTER TABLE user_schema.settings OWNER TO doran;
-
 --
--- Name: settings_id_seq; Type: SEQUENCE; Schema: user_schema; Owner: doran
+-- Name: settings_id_seq; Type: SEQUENCE; Schema: user_schema; Owner: -
 --
 
 ALTER TABLE user_schema.settings ALTER COLUMN id ADD GENERATED BY DEFAULT AS IDENTITY (
@@ -1885,7 +1836,7 @@ ALTER TABLE user_schema.settings ALTER COLUMN id ADD GENERATED BY DEFAULT AS IDE
 
 
 --
--- Name: support_requests; Type: TABLE; Schema: user_schema; Owner: doran
+-- Name: support_requests; Type: TABLE; Schema: user_schema; Owner: -
 --
 
 CREATE TABLE user_schema.support_requests (
@@ -1908,10 +1859,8 @@ CREATE TABLE user_schema.support_requests (
 );
 
 
-ALTER TABLE user_schema.support_requests OWNER TO doran;
-
 --
--- Name: support_requests_id_seq; Type: SEQUENCE; Schema: user_schema; Owner: doran
+-- Name: support_requests_id_seq; Type: SEQUENCE; Schema: user_schema; Owner: -
 --
 
 CREATE SEQUENCE user_schema.support_requests_id_seq
@@ -1922,17 +1871,15 @@ CREATE SEQUENCE user_schema.support_requests_id_seq
     CACHE 1;
 
 
-ALTER SEQUENCE user_schema.support_requests_id_seq OWNER TO doran;
-
 --
--- Name: support_requests_id_seq; Type: SEQUENCE OWNED BY; Schema: user_schema; Owner: doran
+-- Name: support_requests_id_seq; Type: SEQUENCE OWNED BY; Schema: user_schema; Owner: -
 --
 
 ALTER SEQUENCE user_schema.support_requests_id_seq OWNED BY user_schema.support_requests.id;
 
 
 --
--- Name: user_interest_topics; Type: TABLE; Schema: user_schema; Owner: doran
+-- Name: user_interest_topics; Type: TABLE; Schema: user_schema; Owner: -
 --
 
 CREATE TABLE user_schema.user_interest_topics (
@@ -1942,10 +1889,8 @@ CREATE TABLE user_schema.user_interest_topics (
 );
 
 
-ALTER TABLE user_schema.user_interest_topics OWNER TO doran;
-
 --
--- Name: user_notification_settings; Type: TABLE; Schema: user_schema; Owner: doran
+-- Name: user_notification_settings; Type: TABLE; Schema: user_schema; Owner: -
 --
 
 CREATE TABLE user_schema.user_notification_settings (
@@ -1956,10 +1901,8 @@ CREATE TABLE user_schema.user_notification_settings (
 );
 
 
-ALTER TABLE user_schema.user_notification_settings OWNER TO doran;
-
 --
--- Name: user_stats; Type: TABLE; Schema: user_schema; Owner: doran
+-- Name: user_stats; Type: TABLE; Schema: user_schema; Owner: -
 --
 
 CREATE TABLE user_schema.user_stats (
@@ -1971,66 +1914,64 @@ CREATE TABLE user_schema.user_stats (
 );
 
 
-ALTER TABLE user_schema.user_stats OWNER TO doran;
-
 --
--- Name: admin_audit_logs id; Type: DEFAULT; Schema: user_schema; Owner: doran
+-- Name: admin_audit_logs id; Type: DEFAULT; Schema: user_schema; Owner: -
 --
 
 ALTER TABLE ONLY user_schema.admin_audit_logs ALTER COLUMN id SET DEFAULT nextval('user_schema.admin_audit_logs_id_seq'::regclass);
 
 
 --
--- Name: admin_roles id; Type: DEFAULT; Schema: user_schema; Owner: doran
+-- Name: admin_roles id; Type: DEFAULT; Schema: user_schema; Owner: -
 --
 
 ALTER TABLE ONLY user_schema.admin_roles ALTER COLUMN id SET DEFAULT nextval('user_schema.admin_roles_id_seq'::regclass);
 
 
 --
--- Name: admin_users id; Type: DEFAULT; Schema: user_schema; Owner: doran
+-- Name: admin_users id; Type: DEFAULT; Schema: user_schema; Owner: -
 --
 
 ALTER TABLE ONLY user_schema.admin_users ALTER COLUMN id SET DEFAULT nextval('user_schema.admin_users_id_seq'::regclass);
 
 
 --
--- Name: prompt_versions id; Type: DEFAULT; Schema: user_schema; Owner: doran
+-- Name: prompt_versions id; Type: DEFAULT; Schema: user_schema; Owner: -
 --
 
 ALTER TABLE ONLY user_schema.prompt_versions ALTER COLUMN id SET DEFAULT nextval('user_schema.prompt_versions_id_seq'::regclass);
 
 
 --
--- Name: push_delivery_logs id; Type: DEFAULT; Schema: user_schema; Owner: doran
+-- Name: push_delivery_logs id; Type: DEFAULT; Schema: user_schema; Owner: -
 --
 
 ALTER TABLE ONLY user_schema.push_delivery_logs ALTER COLUMN id SET DEFAULT nextval('user_schema.push_delivery_logs_id_seq'::regclass);
 
 
 --
--- Name: review_ticket_items id; Type: DEFAULT; Schema: user_schema; Owner: doran
+-- Name: review_ticket_items id; Type: DEFAULT; Schema: user_schema; Owner: -
 --
 
 ALTER TABLE ONLY user_schema.review_ticket_items ALTER COLUMN id SET DEFAULT nextval('user_schema.review_ticket_items_id_seq'::regclass);
 
 
 --
--- Name: review_tickets id; Type: DEFAULT; Schema: user_schema; Owner: doran
+-- Name: review_tickets id; Type: DEFAULT; Schema: user_schema; Owner: -
 --
 
 ALTER TABLE ONLY user_schema.review_tickets ALTER COLUMN id SET DEFAULT nextval('user_schema.review_tickets_id_seq'::regclass);
 
 
 --
--- Name: support_requests id; Type: DEFAULT; Schema: user_schema; Owner: doran
+-- Name: support_requests id; Type: DEFAULT; Schema: user_schema; Owner: -
 --
 
 ALTER TABLE ONLY user_schema.support_requests ALTER COLUMN id SET DEFAULT nextval('user_schema.support_requests_id_seq'::regclass);
 
 
 --
--- Name: arch_agent_results arch_agent_results_pkey; Type: CONSTRAINT; Schema: archive_schema; Owner: doran
+-- Name: arch_agent_results arch_agent_results_pkey; Type: CONSTRAINT; Schema: archive_schema; Owner: -
 --
 
 ALTER TABLE ONLY archive_schema.arch_agent_results
@@ -2038,7 +1979,7 @@ ALTER TABLE ONLY archive_schema.arch_agent_results
 
 
 --
--- Name: arch_chatrooms arch_chatrooms_pkey; Type: CONSTRAINT; Schema: archive_schema; Owner: doran
+-- Name: arch_chatrooms arch_chatrooms_pkey; Type: CONSTRAINT; Schema: archive_schema; Owner: -
 --
 
 ALTER TABLE ONLY archive_schema.arch_chatrooms
@@ -2046,7 +1987,7 @@ ALTER TABLE ONLY archive_schema.arch_chatrooms
 
 
 --
--- Name: arch_chatrooms arch_chatrooms_source_chatroom_id_key; Type: CONSTRAINT; Schema: archive_schema; Owner: doran
+-- Name: arch_chatrooms arch_chatrooms_source_chatroom_id_key; Type: CONSTRAINT; Schema: archive_schema; Owner: -
 --
 
 ALTER TABLE ONLY archive_schema.arch_chatrooms
@@ -2054,7 +1995,7 @@ ALTER TABLE ONLY archive_schema.arch_chatrooms
 
 
 --
--- Name: arch_ingestion_state arch_ingestion_state_job_name_key; Type: CONSTRAINT; Schema: archive_schema; Owner: doran
+-- Name: arch_ingestion_state arch_ingestion_state_job_name_key; Type: CONSTRAINT; Schema: archive_schema; Owner: -
 --
 
 ALTER TABLE ONLY archive_schema.arch_ingestion_state
@@ -2062,7 +2003,7 @@ ALTER TABLE ONLY archive_schema.arch_ingestion_state
 
 
 --
--- Name: arch_ingestion_state arch_ingestion_state_pkey; Type: CONSTRAINT; Schema: archive_schema; Owner: doran
+-- Name: arch_ingestion_state arch_ingestion_state_pkey; Type: CONSTRAINT; Schema: archive_schema; Owner: -
 --
 
 ALTER TABLE ONLY archive_schema.arch_ingestion_state
@@ -2070,7 +2011,7 @@ ALTER TABLE ONLY archive_schema.arch_ingestion_state
 
 
 --
--- Name: arch_intimacy_progress arch_intimacy_progress_pkey; Type: CONSTRAINT; Schema: archive_schema; Owner: doran
+-- Name: arch_intimacy_progress arch_intimacy_progress_pkey; Type: CONSTRAINT; Schema: archive_schema; Owner: -
 --
 
 ALTER TABLE ONLY archive_schema.arch_intimacy_progress
@@ -2078,7 +2019,7 @@ ALTER TABLE ONLY archive_schema.arch_intimacy_progress
 
 
 --
--- Name: arch_intimacy_progress arch_intimacy_progress_source_intimacy_progress_id_key; Type: CONSTRAINT; Schema: archive_schema; Owner: doran
+-- Name: arch_intimacy_progress arch_intimacy_progress_source_intimacy_progress_id_key; Type: CONSTRAINT; Schema: archive_schema; Owner: -
 --
 
 ALTER TABLE ONLY archive_schema.arch_intimacy_progress
@@ -2086,7 +2027,7 @@ ALTER TABLE ONLY archive_schema.arch_intimacy_progress
 
 
 --
--- Name: arch_messages arch_messages_pkey; Type: CONSTRAINT; Schema: archive_schema; Owner: doran
+-- Name: arch_messages arch_messages_pkey; Type: CONSTRAINT; Schema: archive_schema; Owner: -
 --
 
 ALTER TABLE ONLY archive_schema.arch_messages
@@ -2094,7 +2035,7 @@ ALTER TABLE ONLY archive_schema.arch_messages
 
 
 --
--- Name: arch_messages arch_messages_source_message_id_key; Type: CONSTRAINT; Schema: archive_schema; Owner: doran
+-- Name: arch_messages arch_messages_source_message_id_key; Type: CONSTRAINT; Schema: archive_schema; Owner: -
 --
 
 ALTER TABLE ONLY archive_schema.arch_messages
@@ -2102,7 +2043,7 @@ ALTER TABLE ONLY archive_schema.arch_messages
 
 
 --
--- Name: arch_stores arch_stores_pkey; Type: CONSTRAINT; Schema: archive_schema; Owner: doran
+-- Name: arch_stores arch_stores_pkey; Type: CONSTRAINT; Schema: archive_schema; Owner: -
 --
 
 ALTER TABLE ONLY archive_schema.arch_stores
@@ -2110,7 +2051,7 @@ ALTER TABLE ONLY archive_schema.arch_stores
 
 
 --
--- Name: arch_stores arch_stores_source_store_id_key; Type: CONSTRAINT; Schema: archive_schema; Owner: doran
+-- Name: arch_stores arch_stores_source_store_id_key; Type: CONSTRAINT; Schema: archive_schema; Owner: -
 --
 
 ALTER TABLE ONLY archive_schema.arch_stores
@@ -2118,7 +2059,7 @@ ALTER TABLE ONLY archive_schema.arch_stores
 
 
 --
--- Name: arch_usage_events arch_usage_events_pkey; Type: CONSTRAINT; Schema: archive_schema; Owner: doran
+-- Name: arch_usage_events arch_usage_events_pkey; Type: CONSTRAINT; Schema: archive_schema; Owner: -
 --
 
 ALTER TABLE ONLY archive_schema.arch_usage_events
@@ -2126,7 +2067,7 @@ ALTER TABLE ONLY archive_schema.arch_usage_events
 
 
 --
--- Name: arch_usage_events arch_usage_events_source_usage_event_id_key; Type: CONSTRAINT; Schema: archive_schema; Owner: doran
+-- Name: arch_usage_events arch_usage_events_source_usage_event_id_key; Type: CONSTRAINT; Schema: archive_schema; Owner: -
 --
 
 ALTER TABLE ONLY archive_schema.arch_usage_events
@@ -2134,7 +2075,7 @@ ALTER TABLE ONLY archive_schema.arch_usage_events
 
 
 --
--- Name: management_queue management_queue_pkey; Type: CONSTRAINT; Schema: archive_schema; Owner: doran
+-- Name: management_queue management_queue_pkey; Type: CONSTRAINT; Schema: archive_schema; Owner: -
 --
 
 ALTER TABLE ONLY archive_schema.management_queue
@@ -2142,7 +2083,7 @@ ALTER TABLE ONLY archive_schema.management_queue
 
 
 --
--- Name: auth_events auth_events_pkey; Type: CONSTRAINT; Schema: auth_schema; Owner: doran
+-- Name: auth_events auth_events_pkey; Type: CONSTRAINT; Schema: auth_schema; Owner: -
 --
 
 ALTER TABLE ONLY auth_schema.auth_events
@@ -2150,7 +2091,7 @@ ALTER TABLE ONLY auth_schema.auth_events
 
 
 --
--- Name: email_verifications email_verifications_pkey; Type: CONSTRAINT; Schema: auth_schema; Owner: doran
+-- Name: email_verifications email_verifications_pkey; Type: CONSTRAINT; Schema: auth_schema; Owner: -
 --
 
 ALTER TABLE ONLY auth_schema.email_verifications
@@ -2158,7 +2099,15 @@ ALTER TABLE ONLY auth_schema.email_verifications
 
 
 --
--- Name: login_attempts login_attempts_pkey; Type: CONSTRAINT; Schema: auth_schema; Owner: doran
+-- Name: flyway_schema_history flyway_schema_history_pk; Type: CONSTRAINT; Schema: auth_schema; Owner: -
+--
+
+ALTER TABLE ONLY auth_schema.flyway_schema_history
+    ADD CONSTRAINT flyway_schema_history_pk PRIMARY KEY (installed_rank);
+
+
+--
+-- Name: login_attempts login_attempts_pkey; Type: CONSTRAINT; Schema: auth_schema; Owner: -
 --
 
 ALTER TABLE ONLY auth_schema.login_attempts
@@ -2166,7 +2115,7 @@ ALTER TABLE ONLY auth_schema.login_attempts
 
 
 --
--- Name: password_reset_tokens password_reset_tokens_pkey; Type: CONSTRAINT; Schema: auth_schema; Owner: doran
+-- Name: password_reset_tokens password_reset_tokens_pkey; Type: CONSTRAINT; Schema: auth_schema; Owner: -
 --
 
 ALTER TABLE ONLY auth_schema.password_reset_tokens
@@ -2174,7 +2123,7 @@ ALTER TABLE ONLY auth_schema.password_reset_tokens
 
 
 --
--- Name: refresh_tokens refresh_tokens_pkey; Type: CONSTRAINT; Schema: auth_schema; Owner: doran
+-- Name: refresh_tokens refresh_tokens_pkey; Type: CONSTRAINT; Schema: auth_schema; Owner: -
 --
 
 ALTER TABLE ONLY auth_schema.refresh_tokens
@@ -2182,7 +2131,7 @@ ALTER TABLE ONLY auth_schema.refresh_tokens
 
 
 --
--- Name: token_blacklist token_blacklist_pkey; Type: CONSTRAINT; Schema: auth_schema; Owner: doran
+-- Name: token_blacklist token_blacklist_pkey; Type: CONSTRAINT; Schema: auth_schema; Owner: -
 --
 
 ALTER TABLE ONLY auth_schema.token_blacklist
@@ -2190,7 +2139,7 @@ ALTER TABLE ONLY auth_schema.token_blacklist
 
 
 --
--- Name: token_blacklist uk85fjfavynxyo748kpsj9o6if1; Type: CONSTRAINT; Schema: auth_schema; Owner: doran
+-- Name: token_blacklist uk85fjfavynxyo748kpsj9o6if1; Type: CONSTRAINT; Schema: auth_schema; Owner: -
 --
 
 ALTER TABLE ONLY auth_schema.token_blacklist
@@ -2198,7 +2147,7 @@ ALTER TABLE ONLY auth_schema.token_blacklist
 
 
 --
--- Name: ai_usage_events ai_usage_events_pkey; Type: CONSTRAINT; Schema: billing; Owner: doran
+-- Name: ai_usage_events ai_usage_events_pkey; Type: CONSTRAINT; Schema: billing; Owner: -
 --
 
 ALTER TABLE ONLY billing.ai_usage_events
@@ -2206,7 +2155,7 @@ ALTER TABLE ONLY billing.ai_usage_events
 
 
 --
--- Name: ai_usage_events ai_usage_events_request_id_key; Type: CONSTRAINT; Schema: billing; Owner: doran
+-- Name: ai_usage_events ai_usage_events_request_id_key; Type: CONSTRAINT; Schema: billing; Owner: -
 --
 
 ALTER TABLE ONLY billing.ai_usage_events
@@ -2214,7 +2163,7 @@ ALTER TABLE ONLY billing.ai_usage_events
 
 
 --
--- Name: monthly_user_costs monthly_user_costs_pk; Type: CONSTRAINT; Schema: billing; Owner: doran
+-- Name: monthly_user_costs monthly_user_costs_pk; Type: CONSTRAINT; Schema: billing; Owner: -
 --
 
 ALTER TABLE ONLY billing.monthly_user_costs
@@ -2222,7 +2171,7 @@ ALTER TABLE ONLY billing.monthly_user_costs
 
 
 --
--- Name: chatbots chatbots_pk; Type: CONSTRAINT; Schema: chat_schema; Owner: doran
+-- Name: chatbots chatbots_pk; Type: CONSTRAINT; Schema: chat_schema; Owner: -
 --
 
 ALTER TABLE ONLY chat_schema.chatbots
@@ -2230,7 +2179,7 @@ ALTER TABLE ONLY chat_schema.chatbots
 
 
 --
--- Name: chatrooms chatrooms_pk; Type: CONSTRAINT; Schema: chat_schema; Owner: doran
+-- Name: chatrooms chatrooms_pk; Type: CONSTRAINT; Schema: chat_schema; Owner: -
 --
 
 ALTER TABLE ONLY chat_schema.chatrooms
@@ -2238,7 +2187,7 @@ ALTER TABLE ONLY chat_schema.chatrooms
 
 
 --
--- Name: flyway_schema_history flyway_schema_history_pk; Type: CONSTRAINT; Schema: chat_schema; Owner: doran
+-- Name: flyway_schema_history flyway_schema_history_pk; Type: CONSTRAINT; Schema: chat_schema; Owner: -
 --
 
 ALTER TABLE ONLY chat_schema.flyway_schema_history
@@ -2246,7 +2195,7 @@ ALTER TABLE ONLY chat_schema.flyway_schema_history
 
 
 --
--- Name: intimacy_progress intimacy_progress_pkey; Type: CONSTRAINT; Schema: chat_schema; Owner: doran
+-- Name: intimacy_progress intimacy_progress_pkey; Type: CONSTRAINT; Schema: chat_schema; Owner: -
 --
 
 ALTER TABLE ONLY chat_schema.intimacy_progress
@@ -2254,7 +2203,7 @@ ALTER TABLE ONLY chat_schema.intimacy_progress
 
 
 --
--- Name: messages messages_pk; Type: CONSTRAINT; Schema: chat_schema; Owner: doran
+-- Name: messages messages_pk; Type: CONSTRAINT; Schema: chat_schema; Owner: -
 --
 
 ALTER TABLE ONLY chat_schema.messages
@@ -2262,7 +2211,7 @@ ALTER TABLE ONLY chat_schema.messages
 
 
 --
--- Name: intimacy_progress uq_intimacy_chatroom; Type: CONSTRAINT; Schema: chat_schema; Owner: doran
+-- Name: intimacy_progress uq_intimacy_chatroom; Type: CONSTRAINT; Schema: chat_schema; Owner: -
 --
 
 ALTER TABLE ONLY chat_schema.intimacy_progress
@@ -2270,7 +2219,7 @@ ALTER TABLE ONLY chat_schema.intimacy_progress
 
 
 --
--- Name: messages uq_messages_room_seq; Type: CONSTRAINT; Schema: chat_schema; Owner: doran
+-- Name: messages uq_messages_room_seq; Type: CONSTRAINT; Schema: chat_schema; Owner: -
 --
 
 ALTER TABLE ONLY chat_schema.messages
@@ -2278,7 +2227,7 @@ ALTER TABLE ONLY chat_schema.messages
 
 
 --
--- Name: user_chatbot_last_interaction user_chatbot_last_interaction_pk; Type: CONSTRAINT; Schema: chat_schema; Owner: doran
+-- Name: user_chatbot_last_interaction user_chatbot_last_interaction_pk; Type: CONSTRAINT; Schema: chat_schema; Owner: -
 --
 
 ALTER TABLE ONLY chat_schema.user_chatbot_last_interaction
@@ -2286,7 +2235,7 @@ ALTER TABLE ONLY chat_schema.user_chatbot_last_interaction
 
 
 --
--- Name: stores stores_pkey; Type: CONSTRAINT; Schema: store_schema; Owner: doran
+-- Name: stores stores_pkey; Type: CONSTRAINT; Schema: store_schema; Owner: -
 --
 
 ALTER TABLE ONLY store_schema.stores
@@ -2294,7 +2243,7 @@ ALTER TABLE ONLY store_schema.stores
 
 
 --
--- Name: admin_audit_logs admin_audit_logs_pkey; Type: CONSTRAINT; Schema: user_schema; Owner: doran
+-- Name: admin_audit_logs admin_audit_logs_pkey; Type: CONSTRAINT; Schema: user_schema; Owner: -
 --
 
 ALTER TABLE ONLY user_schema.admin_audit_logs
@@ -2302,7 +2251,7 @@ ALTER TABLE ONLY user_schema.admin_audit_logs
 
 
 --
--- Name: admin_roles admin_roles_pkey; Type: CONSTRAINT; Schema: user_schema; Owner: doran
+-- Name: admin_roles admin_roles_pkey; Type: CONSTRAINT; Schema: user_schema; Owner: -
 --
 
 ALTER TABLE ONLY user_schema.admin_roles
@@ -2310,7 +2259,7 @@ ALTER TABLE ONLY user_schema.admin_roles
 
 
 --
--- Name: admin_roles admin_roles_role_name_key; Type: CONSTRAINT; Schema: user_schema; Owner: doran
+-- Name: admin_roles admin_roles_role_name_key; Type: CONSTRAINT; Schema: user_schema; Owner: -
 --
 
 ALTER TABLE ONLY user_schema.admin_roles
@@ -2318,7 +2267,7 @@ ALTER TABLE ONLY user_schema.admin_roles
 
 
 --
--- Name: admin_user_roles admin_user_roles_pkey; Type: CONSTRAINT; Schema: user_schema; Owner: doran
+-- Name: admin_user_roles admin_user_roles_pkey; Type: CONSTRAINT; Schema: user_schema; Owner: -
 --
 
 ALTER TABLE ONLY user_schema.admin_user_roles
@@ -2326,7 +2275,7 @@ ALTER TABLE ONLY user_schema.admin_user_roles
 
 
 --
--- Name: admin_users admin_users_pkey; Type: CONSTRAINT; Schema: user_schema; Owner: doran
+-- Name: admin_users admin_users_pkey; Type: CONSTRAINT; Schema: user_schema; Owner: -
 --
 
 ALTER TABLE ONLY user_schema.admin_users
@@ -2334,7 +2283,7 @@ ALTER TABLE ONLY user_schema.admin_users
 
 
 --
--- Name: admin_users admin_users_username_key; Type: CONSTRAINT; Schema: user_schema; Owner: doran
+-- Name: admin_users admin_users_username_key; Type: CONSTRAINT; Schema: user_schema; Owner: -
 --
 
 ALTER TABLE ONLY user_schema.admin_users
@@ -2342,7 +2291,7 @@ ALTER TABLE ONLY user_schema.admin_users
 
 
 --
--- Name: app_user app_user_pk; Type: CONSTRAINT; Schema: user_schema; Owner: doran
+-- Name: app_user app_user_pk; Type: CONSTRAINT; Schema: user_schema; Owner: -
 --
 
 ALTER TABLE ONLY user_schema.app_user
@@ -2350,7 +2299,7 @@ ALTER TABLE ONLY user_schema.app_user
 
 
 --
--- Name: fcm_tokens fcm_tokens_pkey; Type: CONSTRAINT; Schema: user_schema; Owner: doran
+-- Name: fcm_tokens fcm_tokens_pkey; Type: CONSTRAINT; Schema: user_schema; Owner: -
 --
 
 ALTER TABLE ONLY user_schema.fcm_tokens
@@ -2358,7 +2307,7 @@ ALTER TABLE ONLY user_schema.fcm_tokens
 
 
 --
--- Name: interest_topics interest_topics_pkey; Type: CONSTRAINT; Schema: user_schema; Owner: doran
+-- Name: interest_topics interest_topics_pkey; Type: CONSTRAINT; Schema: user_schema; Owner: -
 --
 
 ALTER TABLE ONLY user_schema.interest_topics
@@ -2366,7 +2315,15 @@ ALTER TABLE ONLY user_schema.interest_topics
 
 
 --
--- Name: posts_cache posts_cache_pkey; Type: CONSTRAINT; Schema: user_schema; Owner: doran
+-- Name: onboarding_survey onboarding_survey_pkey; Type: CONSTRAINT; Schema: user_schema; Owner: -
+--
+
+ALTER TABLE ONLY user_schema.onboarding_survey
+    ADD CONSTRAINT onboarding_survey_pkey PRIMARY KEY (user_id);
+
+
+--
+-- Name: posts_cache posts_cache_pkey; Type: CONSTRAINT; Schema: user_schema; Owner: -
 --
 
 ALTER TABLE ONLY user_schema.posts_cache
@@ -2374,7 +2331,7 @@ ALTER TABLE ONLY user_schema.posts_cache
 
 
 --
--- Name: profiles profiles_pkey; Type: CONSTRAINT; Schema: user_schema; Owner: doran
+-- Name: profiles profiles_pkey; Type: CONSTRAINT; Schema: user_schema; Owner: -
 --
 
 ALTER TABLE ONLY user_schema.profiles
@@ -2382,7 +2339,7 @@ ALTER TABLE ONLY user_schema.profiles
 
 
 --
--- Name: prompt_actives prompt_actives_pkey; Type: CONSTRAINT; Schema: user_schema; Owner: doran
+-- Name: prompt_actives prompt_actives_pkey; Type: CONSTRAINT; Schema: user_schema; Owner: -
 --
 
 ALTER TABLE ONLY user_schema.prompt_actives
@@ -2390,7 +2347,7 @@ ALTER TABLE ONLY user_schema.prompt_actives
 
 
 --
--- Name: prompt_versions prompt_versions_pkey; Type: CONSTRAINT; Schema: user_schema; Owner: doran
+-- Name: prompt_versions prompt_versions_pkey; Type: CONSTRAINT; Schema: user_schema; Owner: -
 --
 
 ALTER TABLE ONLY user_schema.prompt_versions
@@ -2398,7 +2355,7 @@ ALTER TABLE ONLY user_schema.prompt_versions
 
 
 --
--- Name: push_delivery_logs push_delivery_logs_pkey; Type: CONSTRAINT; Schema: user_schema; Owner: doran
+-- Name: push_delivery_logs push_delivery_logs_pkey; Type: CONSTRAINT; Schema: user_schema; Owner: -
 --
 
 ALTER TABLE ONLY user_schema.push_delivery_logs
@@ -2406,7 +2363,7 @@ ALTER TABLE ONLY user_schema.push_delivery_logs
 
 
 --
--- Name: review_ticket_items review_ticket_items_pkey; Type: CONSTRAINT; Schema: user_schema; Owner: doran
+-- Name: review_ticket_items review_ticket_items_pkey; Type: CONSTRAINT; Schema: user_schema; Owner: -
 --
 
 ALTER TABLE ONLY user_schema.review_ticket_items
@@ -2414,7 +2371,7 @@ ALTER TABLE ONLY user_schema.review_ticket_items
 
 
 --
--- Name: review_tickets review_tickets_pkey; Type: CONSTRAINT; Schema: user_schema; Owner: doran
+-- Name: review_tickets review_tickets_pkey; Type: CONSTRAINT; Schema: user_schema; Owner: -
 --
 
 ALTER TABLE ONLY user_schema.review_tickets
@@ -2422,7 +2379,7 @@ ALTER TABLE ONLY user_schema.review_tickets
 
 
 --
--- Name: settings settings_pkey; Type: CONSTRAINT; Schema: user_schema; Owner: doran
+-- Name: settings settings_pkey; Type: CONSTRAINT; Schema: user_schema; Owner: -
 --
 
 ALTER TABLE ONLY user_schema.settings
@@ -2430,7 +2387,7 @@ ALTER TABLE ONLY user_schema.settings
 
 
 --
--- Name: support_requests support_requests_pkey; Type: CONSTRAINT; Schema: user_schema; Owner: doran
+-- Name: support_requests support_requests_pkey; Type: CONSTRAINT; Schema: user_schema; Owner: -
 --
 
 ALTER TABLE ONLY user_schema.support_requests
@@ -2438,7 +2395,7 @@ ALTER TABLE ONLY user_schema.support_requests
 
 
 --
--- Name: profiles uk4ixsj6aqve5pxrbw2u0oyk8bb; Type: CONSTRAINT; Schema: user_schema; Owner: doran
+-- Name: profiles uk4ixsj6aqve5pxrbw2u0oyk8bb; Type: CONSTRAINT; Schema: user_schema; Owner: -
 --
 
 ALTER TABLE ONLY user_schema.profiles
@@ -2446,7 +2403,7 @@ ALTER TABLE ONLY user_schema.profiles
 
 
 --
--- Name: prompt_versions uk_prompt_agent_concept_level_version; Type: CONSTRAINT; Schema: user_schema; Owner: doran
+-- Name: prompt_versions uk_prompt_agent_concept_level_version; Type: CONSTRAINT; Schema: user_schema; Owner: -
 --
 
 ALTER TABLE ONLY user_schema.prompt_versions
@@ -2454,7 +2411,7 @@ ALTER TABLE ONLY user_schema.prompt_versions
 
 
 --
--- Name: fcm_tokens uq_fcm_user_token; Type: CONSTRAINT; Schema: user_schema; Owner: doran
+-- Name: fcm_tokens uq_fcm_user_token; Type: CONSTRAINT; Schema: user_schema; Owner: -
 --
 
 ALTER TABLE ONLY user_schema.fcm_tokens
@@ -2462,7 +2419,7 @@ ALTER TABLE ONLY user_schema.fcm_tokens
 
 
 --
--- Name: push_delivery_logs uq_push_delivery; Type: CONSTRAINT; Schema: user_schema; Owner: doran
+-- Name: push_delivery_logs uq_push_delivery; Type: CONSTRAINT; Schema: user_schema; Owner: -
 --
 
 ALTER TABLE ONLY user_schema.push_delivery_logs
@@ -2470,7 +2427,7 @@ ALTER TABLE ONLY user_schema.push_delivery_logs
 
 
 --
--- Name: user_interest_topics user_interest_topics_pkey; Type: CONSTRAINT; Schema: user_schema; Owner: doran
+-- Name: user_interest_topics user_interest_topics_pkey; Type: CONSTRAINT; Schema: user_schema; Owner: -
 --
 
 ALTER TABLE ONLY user_schema.user_interest_topics
@@ -2478,7 +2435,7 @@ ALTER TABLE ONLY user_schema.user_interest_topics
 
 
 --
--- Name: user_notification_settings user_notification_settings_pkey; Type: CONSTRAINT; Schema: user_schema; Owner: doran
+-- Name: user_notification_settings user_notification_settings_pkey; Type: CONSTRAINT; Schema: user_schema; Owner: -
 --
 
 ALTER TABLE ONLY user_schema.user_notification_settings
@@ -2486,7 +2443,7 @@ ALTER TABLE ONLY user_schema.user_notification_settings
 
 
 --
--- Name: user_stats user_stats_pkey; Type: CONSTRAINT; Schema: user_schema; Owner: doran
+-- Name: user_stats user_stats_pkey; Type: CONSTRAINT; Schema: user_schema; Owner: -
 --
 
 ALTER TABLE ONLY user_schema.user_stats
@@ -2494,560 +2451,574 @@ ALTER TABLE ONLY user_schema.user_stats
 
 
 --
--- Name: idx_arch_agent_results_archived; Type: INDEX; Schema: archive_schema; Owner: doran
+-- Name: idx_arch_agent_results_archived; Type: INDEX; Schema: archive_schema; Owner: -
 --
 
 CREATE INDEX idx_arch_agent_results_archived ON archive_schema.arch_agent_results USING btree (archived_at);
 
 
 --
--- Name: idx_arch_agent_results_payload_gin; Type: INDEX; Schema: archive_schema; Owner: doran
+-- Name: idx_arch_agent_results_payload_gin; Type: INDEX; Schema: archive_schema; Owner: -
 --
 
 CREATE INDEX idx_arch_agent_results_payload_gin ON archive_schema.arch_agent_results USING gin (payload_json);
 
 
 --
--- Name: idx_arch_agent_results_request_id; Type: INDEX; Schema: archive_schema; Owner: doran
+-- Name: idx_arch_agent_results_request_id; Type: INDEX; Schema: archive_schema; Owner: -
 --
 
 CREATE INDEX idx_arch_agent_results_request_id ON archive_schema.arch_agent_results USING btree (request_id);
 
 
 --
--- Name: idx_arch_chatrooms_archived; Type: INDEX; Schema: archive_schema; Owner: doran
+-- Name: idx_arch_chatrooms_archived; Type: INDEX; Schema: archive_schema; Owner: -
 --
 
 CREATE INDEX idx_arch_chatrooms_archived ON archive_schema.arch_chatrooms USING btree (archived_at DESC);
 
 
 --
--- Name: idx_arch_chatrooms_concept; Type: INDEX; Schema: archive_schema; Owner: doran
+-- Name: idx_arch_chatrooms_concept; Type: INDEX; Schema: archive_schema; Owner: -
 --
 
 CREATE INDEX idx_arch_chatrooms_concept ON archive_schema.arch_chatrooms USING btree (concept);
 
 
 --
--- Name: idx_arch_chatrooms_created; Type: INDEX; Schema: archive_schema; Owner: doran
+-- Name: idx_arch_chatrooms_created; Type: INDEX; Schema: archive_schema; Owner: -
 --
 
 CREATE INDEX idx_arch_chatrooms_created ON archive_schema.arch_chatrooms USING btree (source_created_at DESC);
 
 
 --
--- Name: idx_arch_chatrooms_meta_gin; Type: INDEX; Schema: archive_schema; Owner: doran
+-- Name: idx_arch_chatrooms_meta_gin; Type: INDEX; Schema: archive_schema; Owner: -
 --
 
 CREATE INDEX idx_arch_chatrooms_meta_gin ON archive_schema.arch_chatrooms USING gin (meta);
 
 
 --
--- Name: idx_arch_chatrooms_user_created; Type: INDEX; Schema: archive_schema; Owner: doran
+-- Name: idx_arch_chatrooms_user_created; Type: INDEX; Schema: archive_schema; Owner: -
 --
 
 CREATE INDEX idx_arch_chatrooms_user_created ON archive_schema.arch_chatrooms USING btree (user_id, source_created_at DESC);
 
 
 --
--- Name: idx_arch_intimacy_progress_archived; Type: INDEX; Schema: archive_schema; Owner: doran
+-- Name: idx_arch_intimacy_progress_archived; Type: INDEX; Schema: archive_schema; Owner: -
 --
 
 CREATE INDEX idx_arch_intimacy_progress_archived ON archive_schema.arch_intimacy_progress USING btree (archived_at);
 
 
 --
--- Name: idx_arch_intimacy_progress_chatroom; Type: INDEX; Schema: archive_schema; Owner: doran
+-- Name: idx_arch_intimacy_progress_chatroom; Type: INDEX; Schema: archive_schema; Owner: -
 --
 
 CREATE INDEX idx_arch_intimacy_progress_chatroom ON archive_schema.arch_intimacy_progress USING btree (arch_chatroom_id);
 
 
 --
--- Name: idx_arch_intimacy_progress_data_gin; Type: INDEX; Schema: archive_schema; Owner: doran
+-- Name: idx_arch_intimacy_progress_data_gin; Type: INDEX; Schema: archive_schema; Owner: -
 --
 
 CREATE INDEX idx_arch_intimacy_progress_data_gin ON archive_schema.arch_intimacy_progress USING gin (progress_data);
 
 
 --
--- Name: idx_arch_intimacy_progress_user; Type: INDEX; Schema: archive_schema; Owner: doran
+-- Name: idx_arch_intimacy_progress_user; Type: INDEX; Schema: archive_schema; Owner: -
 --
 
 CREATE INDEX idx_arch_intimacy_progress_user ON archive_schema.arch_intimacy_progress USING btree (user_id);
 
 
 --
--- Name: idx_arch_messages_archived; Type: INDEX; Schema: archive_schema; Owner: doran
+-- Name: idx_arch_messages_archived; Type: INDEX; Schema: archive_schema; Owner: -
 --
 
 CREATE INDEX idx_arch_messages_archived ON archive_schema.arch_messages USING btree (archived_at);
 
 
 --
--- Name: idx_arch_messages_created; Type: INDEX; Schema: archive_schema; Owner: doran
+-- Name: idx_arch_messages_created; Type: INDEX; Schema: archive_schema; Owner: -
 --
 
 CREATE INDEX idx_arch_messages_created ON archive_schema.arch_messages USING btree (source_created_at);
 
 
 --
--- Name: idx_arch_messages_metadata_gin; Type: INDEX; Schema: archive_schema; Owner: doran
+-- Name: idx_arch_messages_metadata_gin; Type: INDEX; Schema: archive_schema; Owner: -
 --
 
 CREATE INDEX idx_arch_messages_metadata_gin ON archive_schema.arch_messages USING gin (metadata_json);
 
 
 --
--- Name: idx_arch_messages_room_sequence; Type: INDEX; Schema: archive_schema; Owner: doran
+-- Name: idx_arch_messages_room_sequence; Type: INDEX; Schema: archive_schema; Owner: -
 --
 
 CREATE INDEX idx_arch_messages_room_sequence ON archive_schema.arch_messages USING btree (arch_chatroom_id, sequence_number);
 
 
 --
--- Name: idx_arch_messages_room_turn; Type: INDEX; Schema: archive_schema; Owner: doran
+-- Name: idx_arch_messages_room_turn; Type: INDEX; Schema: archive_schema; Owner: -
 --
 
 CREATE INDEX idx_arch_messages_room_turn ON archive_schema.arch_messages USING btree (arch_chatroom_id, turn_number);
 
 
 --
--- Name: idx_arch_stores_ai_response_gin; Type: INDEX; Schema: archive_schema; Owner: doran
+-- Name: idx_arch_stores_ai_response_gin; Type: INDEX; Schema: archive_schema; Owner: -
 --
 
 CREATE INDEX idx_arch_stores_ai_response_gin ON archive_schema.arch_stores USING gin (ai_response);
 
 
 --
--- Name: idx_arch_stores_archived; Type: INDEX; Schema: archive_schema; Owner: doran
+-- Name: idx_arch_stores_archived; Type: INDEX; Schema: archive_schema; Owner: -
 --
 
 CREATE INDEX idx_arch_stores_archived ON archive_schema.arch_stores USING btree (archived_at);
 
 
 --
--- Name: idx_arch_stores_chatroom; Type: INDEX; Schema: archive_schema; Owner: doran
+-- Name: idx_arch_stores_chatroom; Type: INDEX; Schema: archive_schema; Owner: -
 --
 
 CREATE INDEX idx_arch_stores_chatroom ON archive_schema.arch_stores USING btree (arch_chatroom_id);
 
 
 --
--- Name: idx_arch_stores_message; Type: INDEX; Schema: archive_schema; Owner: doran
+-- Name: idx_arch_stores_message; Type: INDEX; Schema: archive_schema; Owner: -
 --
 
 CREATE INDEX idx_arch_stores_message ON archive_schema.arch_stores USING btree (source_message_id);
 
 
 --
--- Name: idx_arch_stores_user; Type: INDEX; Schema: archive_schema; Owner: doran
+-- Name: idx_arch_stores_user; Type: INDEX; Schema: archive_schema; Owner: -
 --
 
 CREATE INDEX idx_arch_stores_user ON archive_schema.arch_stores USING btree (user_id);
 
 
 --
--- Name: idx_arch_usage_events_archived; Type: INDEX; Schema: archive_schema; Owner: doran
+-- Name: idx_arch_usage_events_archived; Type: INDEX; Schema: archive_schema; Owner: -
 --
 
 CREATE INDEX idx_arch_usage_events_archived ON archive_schema.arch_usage_events USING btree (archived_at);
 
 
 --
--- Name: idx_arch_usage_events_chatroom; Type: INDEX; Schema: archive_schema; Owner: doran
+-- Name: idx_arch_usage_events_chatroom; Type: INDEX; Schema: archive_schema; Owner: -
 --
 
 CREATE INDEX idx_arch_usage_events_chatroom ON archive_schema.arch_usage_events USING btree (arch_chatroom_id);
 
 
 --
--- Name: idx_arch_usage_events_event_time; Type: INDEX; Schema: archive_schema; Owner: doran
+-- Name: idx_arch_usage_events_event_time; Type: INDEX; Schema: archive_schema; Owner: -
 --
 
 CREATE INDEX idx_arch_usage_events_event_time ON archive_schema.arch_usage_events USING btree (event_time);
 
 
 --
--- Name: idx_arch_usage_events_meta_gin; Type: INDEX; Schema: archive_schema; Owner: doran
+-- Name: idx_arch_usage_events_meta_gin; Type: INDEX; Schema: archive_schema; Owner: -
 --
 
 CREATE INDEX idx_arch_usage_events_meta_gin ON archive_schema.arch_usage_events USING gin (meta);
 
 
 --
--- Name: idx_arch_usage_events_request_id; Type: INDEX; Schema: archive_schema; Owner: doran
+-- Name: idx_arch_usage_events_request_id; Type: INDEX; Schema: archive_schema; Owner: -
 --
 
 CREATE INDEX idx_arch_usage_events_request_id ON archive_schema.arch_usage_events USING btree (request_id);
 
 
 --
--- Name: idx_arch_usage_events_user; Type: INDEX; Schema: archive_schema; Owner: doran
+-- Name: idx_arch_usage_events_user; Type: INDEX; Schema: archive_schema; Owner: -
 --
 
 CREATE INDEX idx_arch_usage_events_user ON archive_schema.arch_usage_events USING btree (user_id);
 
 
 --
--- Name: idx_management_queue_admin; Type: INDEX; Schema: archive_schema; Owner: doran
+-- Name: idx_management_queue_admin; Type: INDEX; Schema: archive_schema; Owner: -
 --
 
 CREATE INDEX idx_management_queue_admin ON archive_schema.management_queue USING btree (admin_name);
 
 
 --
--- Name: idx_management_queue_created_at; Type: INDEX; Schema: archive_schema; Owner: doran
+-- Name: idx_management_queue_created_at; Type: INDEX; Schema: archive_schema; Owner: -
 --
 
 CREATE INDEX idx_management_queue_created_at ON archive_schema.management_queue USING btree (created_at DESC);
 
 
 --
--- Name: idx_management_queue_request_data_gin; Type: INDEX; Schema: archive_schema; Owner: doran
+-- Name: idx_management_queue_request_data_gin; Type: INDEX; Schema: archive_schema; Owner: -
 --
 
 CREATE INDEX idx_management_queue_request_data_gin ON archive_schema.management_queue USING gin (request_data);
 
 
 --
--- Name: idx_management_queue_status; Type: INDEX; Schema: archive_schema; Owner: doran
+-- Name: idx_management_queue_status; Type: INDEX; Schema: archive_schema; Owner: -
 --
 
 CREATE INDEX idx_management_queue_status ON archive_schema.management_queue USING btree (status);
 
 
 --
--- Name: idx_management_queue_type; Type: INDEX; Schema: archive_schema; Owner: doran
+-- Name: idx_management_queue_type; Type: INDEX; Schema: archive_schema; Owner: -
 --
 
 CREATE INDEX idx_management_queue_type ON archive_schema.management_queue USING btree (queue_type);
 
 
 --
--- Name: uq_arch_agent_results_msg_agent; Type: INDEX; Schema: archive_schema; Owner: doran
+-- Name: uq_arch_agent_results_msg_agent; Type: INDEX; Schema: archive_schema; Owner: -
 --
 
 CREATE UNIQUE INDEX uq_arch_agent_results_msg_agent ON archive_schema.arch_agent_results USING btree (arch_message_id, agent_type);
 
 
 --
--- Name: uq_arch_messages_room_seq; Type: INDEX; Schema: archive_schema; Owner: doran
+-- Name: uq_arch_messages_room_seq; Type: INDEX; Schema: archive_schema; Owner: -
 --
 
 CREATE UNIQUE INDEX uq_arch_messages_room_seq ON archive_schema.arch_messages USING btree (arch_chatroom_id, sequence_number);
 
 
 --
--- Name: idx_ai_usage_events_time; Type: INDEX; Schema: billing; Owner: doran
+-- Name: flyway_schema_history_s_idx; Type: INDEX; Schema: auth_schema; Owner: -
+--
+
+CREATE INDEX flyway_schema_history_s_idx ON auth_schema.flyway_schema_history USING btree (success);
+
+
+--
+-- Name: idx_ai_usage_events_time; Type: INDEX; Schema: billing; Owner: -
 --
 
 CREATE INDEX idx_ai_usage_events_time ON billing.ai_usage_events USING btree (event_time);
 
 
 --
--- Name: idx_ai_usage_events_user_time; Type: INDEX; Schema: billing; Owner: doran
+-- Name: idx_ai_usage_events_user_time; Type: INDEX; Schema: billing; Owner: -
 --
 
 CREATE INDEX idx_ai_usage_events_user_time ON billing.ai_usage_events USING btree (user_id, event_time);
 
 
 --
--- Name: idx_monthly_user_costs_month; Type: INDEX; Schema: billing; Owner: doran
+-- Name: idx_monthly_user_costs_month; Type: INDEX; Schema: billing; Owner: -
 --
 
 CREATE INDEX idx_monthly_user_costs_month ON billing.monthly_user_costs USING btree (billing_month);
 
 
 --
--- Name: flyway_schema_history_s_idx; Type: INDEX; Schema: chat_schema; Owner: doran
+-- Name: flyway_schema_history_s_idx; Type: INDEX; Schema: chat_schema; Owner: -
 --
 
 CREATE INDEX flyway_schema_history_s_idx ON chat_schema.flyway_schema_history USING btree (success);
 
 
 --
--- Name: idx_chatbots_active; Type: INDEX; Schema: chat_schema; Owner: doran
+-- Name: idx_chatbots_active; Type: INDEX; Schema: chat_schema; Owner: -
 --
 
 CREATE INDEX idx_chatbots_active ON chat_schema.chatbots USING btree (is_active);
 
 
 --
--- Name: idx_chatbots_created_by; Type: INDEX; Schema: chat_schema; Owner: doran
+-- Name: idx_chatbots_created_by; Type: INDEX; Schema: chat_schema; Owner: -
 --
 
 CREATE INDEX idx_chatbots_created_by ON chat_schema.chatbots USING btree (created_by);
 
 
 --
--- Name: idx_chatbots_type; Type: INDEX; Schema: chat_schema; Owner: doran
+-- Name: idx_chatbots_type; Type: INDEX; Schema: chat_schema; Owner: -
 --
 
 CREATE INDEX idx_chatbots_type ON chat_schema.chatbots USING btree (bot_type);
 
 
 --
--- Name: idx_chatrooms_chatbot; Type: INDEX; Schema: chat_schema; Owner: doran
+-- Name: idx_chatrooms_chatbot; Type: INDEX; Schema: chat_schema; Owner: -
 --
 
 CREATE INDEX idx_chatrooms_chatbot ON chat_schema.chatrooms USING btree (chatbot_id);
 
 
 --
--- Name: idx_chatrooms_last_message; Type: INDEX; Schema: chat_schema; Owner: doran
+-- Name: idx_chatrooms_last_message; Type: INDEX; Schema: chat_schema; Owner: -
 --
 
 CREATE INDEX idx_chatrooms_last_message ON chat_schema.chatrooms USING btree (last_message_at DESC);
 
 
 --
--- Name: idx_chatrooms_user; Type: INDEX; Schema: chat_schema; Owner: doran
+-- Name: idx_chatrooms_user; Type: INDEX; Schema: chat_schema; Owner: -
 --
 
 CREATE INDEX idx_chatrooms_user ON chat_schema.chatrooms USING btree (user_id);
 
 
 --
--- Name: idx_chatrooms_user_chatbot; Type: INDEX; Schema: chat_schema; Owner: doran
+-- Name: idx_chatrooms_user_chatbot; Type: INDEX; Schema: chat_schema; Owner: -
 --
 
 CREATE UNIQUE INDEX idx_chatrooms_user_chatbot ON chat_schema.chatrooms USING btree (user_id, chatbot_id) WHERE (NOT is_deleted);
 
 
 --
--- Name: idx_intimacy_progress_chatroom; Type: INDEX; Schema: chat_schema; Owner: doran
+-- Name: idx_intimacy_progress_chatroom; Type: INDEX; Schema: chat_schema; Owner: -
 --
 
 CREATE INDEX idx_intimacy_progress_chatroom ON chat_schema.intimacy_progress USING btree (chatroom_id);
 
 
 --
--- Name: idx_intimacy_progress_user; Type: INDEX; Schema: chat_schema; Owner: doran
+-- Name: idx_intimacy_progress_user; Type: INDEX; Schema: chat_schema; Owner: -
 --
 
 CREATE INDEX idx_intimacy_progress_user ON chat_schema.intimacy_progress USING btree (user_id);
 
 
 --
--- Name: idx_messages_chatroom; Type: INDEX; Schema: chat_schema; Owner: doran
+-- Name: idx_messages_chatroom; Type: INDEX; Schema: chat_schema; Owner: -
 --
 
 CREATE INDEX idx_messages_chatroom ON chat_schema.messages USING btree (chatroom_id, sequence_number);
 
 
 --
--- Name: idx_messages_created_at; Type: INDEX; Schema: chat_schema; Owner: doran
+-- Name: idx_messages_created_at; Type: INDEX; Schema: chat_schema; Owner: -
 --
 
 CREATE INDEX idx_messages_created_at ON chat_schema.messages USING btree (created_at);
 
 
 --
--- Name: idx_messages_room_turn; Type: INDEX; Schema: chat_schema; Owner: doran
+-- Name: idx_messages_room_turn; Type: INDEX; Schema: chat_schema; Owner: -
 --
 
 CREATE INDEX idx_messages_room_turn ON chat_schema.messages USING btree (chatroom_id, turn_number);
 
 
 --
--- Name: idx_messages_sender; Type: INDEX; Schema: chat_schema; Owner: doran
+-- Name: idx_messages_sender; Type: INDEX; Schema: chat_schema; Owner: -
 --
 
 CREATE INDEX idx_messages_sender ON chat_schema.messages USING btree (sender_id);
 
 
 --
--- Name: idx_ucli_user_last_ts; Type: INDEX; Schema: chat_schema; Owner: doran
+-- Name: idx_ucli_user_last_ts; Type: INDEX; Schema: chat_schema; Owner: -
 --
 
 CREATE INDEX idx_ucli_user_last_ts ON chat_schema.user_chatbot_last_interaction USING btree (user_id, last_interaction_at DESC);
 
 
 --
--- Name: idx_store_ai_response_gin; Type: INDEX; Schema: store_schema; Owner: doran
+-- Name: idx_store_ai_response_gin; Type: INDEX; Schema: store_schema; Owner: -
 --
 
 CREATE INDEX idx_store_ai_response_gin ON store_schema.stores USING gin (ai_response);
 
 
 --
--- Name: idx_store_chatroom; Type: INDEX; Schema: store_schema; Owner: doran
+-- Name: idx_store_chatroom; Type: INDEX; Schema: store_schema; Owner: -
 --
 
 CREATE INDEX idx_store_chatroom ON store_schema.stores USING btree (chatroom_id, created_at DESC) WHERE (is_deleted = false);
 
 
 --
--- Name: idx_store_user_created; Type: INDEX; Schema: store_schema; Owner: doran
+-- Name: idx_store_user_created; Type: INDEX; Schema: store_schema; Owner: -
 --
 
 CREATE INDEX idx_store_user_created ON store_schema.stores USING btree (user_id, created_at DESC) WHERE (is_deleted = false);
 
 
 --
--- Name: idx_store_user_message; Type: INDEX; Schema: store_schema; Owner: doran
+-- Name: idx_store_user_message; Type: INDEX; Schema: store_schema; Owner: -
 --
 
 CREATE UNIQUE INDEX idx_store_user_message ON store_schema.stores USING btree (user_id, message_id) WHERE (is_deleted = false);
 
 
 --
--- Name: app_user_email_idx; Type: INDEX; Schema: user_schema; Owner: doran
+-- Name: app_user_email_idx; Type: INDEX; Schema: user_schema; Owner: -
 --
 
 CREATE UNIQUE INDEX app_user_email_idx ON user_schema.app_user USING btree (email);
 
 
 --
--- Name: idx_admin_audit_logs_action; Type: INDEX; Schema: user_schema; Owner: doran
+-- Name: idx_admin_audit_logs_action; Type: INDEX; Schema: user_schema; Owner: -
 --
 
 CREATE INDEX idx_admin_audit_logs_action ON user_schema.admin_audit_logs USING btree (action_type);
 
 
 --
--- Name: idx_admin_audit_logs_admin; Type: INDEX; Schema: user_schema; Owner: doran
+-- Name: idx_admin_audit_logs_admin; Type: INDEX; Schema: user_schema; Owner: -
 --
 
 CREATE INDEX idx_admin_audit_logs_admin ON user_schema.admin_audit_logs USING btree (admin_user_id);
 
 
 --
--- Name: idx_admin_audit_logs_created; Type: INDEX; Schema: user_schema; Owner: doran
+-- Name: idx_admin_audit_logs_created; Type: INDEX; Schema: user_schema; Owner: -
 --
 
 CREATE INDEX idx_admin_audit_logs_created ON user_schema.admin_audit_logs USING btree (created_at DESC);
 
 
 --
--- Name: idx_admin_user_roles_role; Type: INDEX; Schema: user_schema; Owner: doran
+-- Name: idx_admin_user_roles_role; Type: INDEX; Schema: user_schema; Owner: -
 --
 
 CREATE INDEX idx_admin_user_roles_role ON user_schema.admin_user_roles USING btree (admin_role_id);
 
 
 --
--- Name: idx_admin_user_roles_user; Type: INDEX; Schema: user_schema; Owner: doran
+-- Name: idx_admin_user_roles_user; Type: INDEX; Schema: user_schema; Owner: -
 --
 
 CREATE INDEX idx_admin_user_roles_user ON user_schema.admin_user_roles USING btree (admin_user_id);
 
 
 --
--- Name: idx_admin_users_is_active; Type: INDEX; Schema: user_schema; Owner: doran
+-- Name: idx_admin_users_is_active; Type: INDEX; Schema: user_schema; Owner: -
 --
 
 CREATE INDEX idx_admin_users_is_active ON user_schema.admin_users USING btree (is_active);
 
 
 --
--- Name: idx_fcm_user; Type: INDEX; Schema: user_schema; Owner: doran
+-- Name: idx_fcm_user; Type: INDEX; Schema: user_schema; Owner: -
 --
 
 CREATE INDEX idx_fcm_user ON user_schema.fcm_tokens USING btree (user_id);
 
 
 --
--- Name: idx_posts_cache_fetched; Type: INDEX; Schema: user_schema; Owner: doran
+-- Name: idx_onboarding_survey_user_id; Type: INDEX; Schema: user_schema; Owner: -
+--
+
+CREATE INDEX idx_onboarding_survey_user_id ON user_schema.onboarding_survey USING btree (user_id);
+
+
+--
+-- Name: idx_posts_cache_fetched; Type: INDEX; Schema: user_schema; Owner: -
 --
 
 CREATE INDEX idx_posts_cache_fetched ON user_schema.posts_cache USING btree (fetched_at DESC);
 
 
 --
--- Name: idx_prompt_active_env_agent; Type: INDEX; Schema: user_schema; Owner: doran
+-- Name: idx_prompt_active_env_agent; Type: INDEX; Schema: user_schema; Owner: -
 --
 
 CREATE INDEX idx_prompt_active_env_agent ON user_schema.prompt_actives USING btree (env, agent_type);
 
 
 --
--- Name: idx_prompt_agent_concept_level; Type: INDEX; Schema: user_schema; Owner: doran
+-- Name: idx_prompt_agent_concept_level; Type: INDEX; Schema: user_schema; Owner: -
 --
 
 CREATE INDEX idx_prompt_agent_concept_level ON user_schema.prompt_versions USING btree (agent_type, concept, intimacy_level, created_at DESC);
 
 
 --
--- Name: idx_prompt_parent_version; Type: INDEX; Schema: user_schema; Owner: doran
+-- Name: idx_prompt_parent_version; Type: INDEX; Schema: user_schema; Owner: -
 --
 
 CREATE INDEX idx_prompt_parent_version ON user_schema.prompt_versions USING btree (parent_version_id);
 
 
 --
--- Name: idx_review_ticket_items_agent; Type: INDEX; Schema: user_schema; Owner: doran
+-- Name: idx_review_ticket_items_agent; Type: INDEX; Schema: user_schema; Owner: -
 --
 
 CREATE INDEX idx_review_ticket_items_agent ON user_schema.review_ticket_items USING btree (agent_type);
 
 
 --
--- Name: idx_review_ticket_items_message; Type: INDEX; Schema: user_schema; Owner: doran
+-- Name: idx_review_ticket_items_message; Type: INDEX; Schema: user_schema; Owner: -
 --
 
 CREATE INDEX idx_review_ticket_items_message ON user_schema.review_ticket_items USING btree (message_id);
 
 
 --
--- Name: idx_review_ticket_items_ticket; Type: INDEX; Schema: user_schema; Owner: doran
+-- Name: idx_review_ticket_items_ticket; Type: INDEX; Schema: user_schema; Owner: -
 --
 
 CREATE INDEX idx_review_ticket_items_ticket ON user_schema.review_ticket_items USING btree (ticket_id);
 
 
 --
--- Name: idx_review_tickets_agent; Type: INDEX; Schema: user_schema; Owner: doran
+-- Name: idx_review_tickets_agent; Type: INDEX; Schema: user_schema; Owner: -
 --
 
 CREATE INDEX idx_review_tickets_agent ON user_schema.review_tickets USING btree (agent_type);
 
 
 --
--- Name: idx_review_tickets_conversation; Type: INDEX; Schema: user_schema; Owner: doran
+-- Name: idx_review_tickets_conversation; Type: INDEX; Schema: user_schema; Owner: -
 --
 
 CREATE INDEX idx_review_tickets_conversation ON user_schema.review_tickets USING btree (conversation_id);
 
 
 --
--- Name: idx_review_tickets_status; Type: INDEX; Schema: user_schema; Owner: doran
+-- Name: idx_review_tickets_status; Type: INDEX; Schema: user_schema; Owner: -
 --
 
 CREATE INDEX idx_review_tickets_status ON user_schema.review_tickets USING btree (status);
 
 
 --
--- Name: idx_support_message_id; Type: INDEX; Schema: user_schema; Owner: doran
+-- Name: idx_support_message_id; Type: INDEX; Schema: user_schema; Owner: -
 --
 
 CREATE INDEX idx_support_message_id ON user_schema.support_requests USING btree (message_id);
 
 
 --
--- Name: idx_support_type_created; Type: INDEX; Schema: user_schema; Owner: doran
+-- Name: idx_support_type_created; Type: INDEX; Schema: user_schema; Owner: -
 --
 
 CREATE INDEX idx_support_type_created ON user_schema.support_requests USING btree (type, created_at DESC);
 
 
 --
--- Name: idx_support_user_created; Type: INDEX; Schema: user_schema; Owner: doran
+-- Name: idx_support_user_created; Type: INDEX; Schema: user_schema; Owner: -
 --
 
 CREATE INDEX idx_support_user_created ON user_schema.support_requests USING btree (user_id, created_at DESC);
 
 
 --
--- Name: idx_user_interest_topic_user; Type: INDEX; Schema: user_schema; Owner: doran
+-- Name: idx_user_interest_topic_user; Type: INDEX; Schema: user_schema; Owner: -
 --
 
 CREATE INDEX idx_user_interest_topic_user ON user_schema.user_interest_topics USING btree (user_id);
 
 
 --
--- Name: arch_agent_results fk_arch_agent_results_message; Type: FK CONSTRAINT; Schema: archive_schema; Owner: doran
+-- Name: arch_agent_results fk_arch_agent_results_message; Type: FK CONSTRAINT; Schema: archive_schema; Owner: -
 --
 
 ALTER TABLE ONLY archive_schema.arch_agent_results
@@ -3055,7 +3026,7 @@ ALTER TABLE ONLY archive_schema.arch_agent_results
 
 
 --
--- Name: arch_intimacy_progress fk_arch_intimacy_progress_chatroom; Type: FK CONSTRAINT; Schema: archive_schema; Owner: doran
+-- Name: arch_intimacy_progress fk_arch_intimacy_progress_chatroom; Type: FK CONSTRAINT; Schema: archive_schema; Owner: -
 --
 
 ALTER TABLE ONLY archive_schema.arch_intimacy_progress
@@ -3063,7 +3034,7 @@ ALTER TABLE ONLY archive_schema.arch_intimacy_progress
 
 
 --
--- Name: arch_messages fk_arch_messages_room; Type: FK CONSTRAINT; Schema: archive_schema; Owner: doran
+-- Name: arch_messages fk_arch_messages_room; Type: FK CONSTRAINT; Schema: archive_schema; Owner: -
 --
 
 ALTER TABLE ONLY archive_schema.arch_messages
@@ -3071,7 +3042,7 @@ ALTER TABLE ONLY archive_schema.arch_messages
 
 
 --
--- Name: arch_stores fk_arch_stores_chatroom; Type: FK CONSTRAINT; Schema: archive_schema; Owner: doran
+-- Name: arch_stores fk_arch_stores_chatroom; Type: FK CONSTRAINT; Schema: archive_schema; Owner: -
 --
 
 ALTER TABLE ONLY archive_schema.arch_stores
@@ -3079,7 +3050,7 @@ ALTER TABLE ONLY archive_schema.arch_stores
 
 
 --
--- Name: arch_usage_events fk_arch_usage_events_chatroom; Type: FK CONSTRAINT; Schema: archive_schema; Owner: doran
+-- Name: arch_usage_events fk_arch_usage_events_chatroom; Type: FK CONSTRAINT; Schema: archive_schema; Owner: -
 --
 
 ALTER TABLE ONLY archive_schema.arch_usage_events
@@ -3087,47 +3058,47 @@ ALTER TABLE ONLY archive_schema.arch_usage_events
 
 
 --
--- Name: refresh_tokens fk5a9ypl7oycxycfscqnsepj5t8; Type: FK CONSTRAINT; Schema: auth_schema; Owner: doran
---
-
-ALTER TABLE ONLY auth_schema.refresh_tokens
-    ADD CONSTRAINT fk5a9ypl7oycxycfscqnsepj5t8 FOREIGN KEY (user_id) REFERENCES user_schema.app_user(id);
-
-
---
--- Name: email_verifications fk5vri8t8tr81le36apgppy94ch; Type: FK CONSTRAINT; Schema: auth_schema; Owner: doran
---
-
-ALTER TABLE ONLY auth_schema.email_verifications
-    ADD CONSTRAINT fk5vri8t8tr81le36apgppy94ch FOREIGN KEY (user_id) REFERENCES user_schema.app_user(id);
-
-
---
--- Name: login_attempts fkeix6yqtdy2p9t2vj8hs6ji8of; Type: FK CONSTRAINT; Schema: auth_schema; Owner: doran
---
-
-ALTER TABLE ONLY auth_schema.login_attempts
-    ADD CONSTRAINT fkeix6yqtdy2p9t2vj8hs6ji8of FOREIGN KEY (user_id) REFERENCES user_schema.app_user(id);
-
-
---
--- Name: password_reset_tokens fkj9so57i2ys7gbwiljqyrivrnb; Type: FK CONSTRAINT; Schema: auth_schema; Owner: doran
---
-
-ALTER TABLE ONLY auth_schema.password_reset_tokens
-    ADD CONSTRAINT fkj9so57i2ys7gbwiljqyrivrnb FOREIGN KEY (user_id) REFERENCES user_schema.app_user(id);
-
-
---
--- Name: auth_events fkq2wxphtsj555bl7w9yvcr08q8; Type: FK CONSTRAINT; Schema: auth_schema; Owner: doran
+-- Name: auth_events fk_auth_events_user; Type: FK CONSTRAINT; Schema: auth_schema; Owner: -
 --
 
 ALTER TABLE ONLY auth_schema.auth_events
-    ADD CONSTRAINT fkq2wxphtsj555bl7w9yvcr08q8 FOREIGN KEY (user_id) REFERENCES user_schema.app_user(id);
+    ADD CONSTRAINT fk_auth_events_user FOREIGN KEY (user_id) REFERENCES user_schema.app_user(id) ON DELETE SET NULL;
 
 
 --
--- Name: ai_usage_events fk_ai_usage_events_chatroom; Type: FK CONSTRAINT; Schema: billing; Owner: doran
+-- Name: email_verifications fk_email_verifications_user; Type: FK CONSTRAINT; Schema: auth_schema; Owner: -
+--
+
+ALTER TABLE ONLY auth_schema.email_verifications
+    ADD CONSTRAINT fk_email_verifications_user FOREIGN KEY (user_id) REFERENCES user_schema.app_user(id) ON DELETE CASCADE;
+
+
+--
+-- Name: login_attempts fk_login_attempts_user; Type: FK CONSTRAINT; Schema: auth_schema; Owner: -
+--
+
+ALTER TABLE ONLY auth_schema.login_attempts
+    ADD CONSTRAINT fk_login_attempts_user FOREIGN KEY (user_id) REFERENCES user_schema.app_user(id) ON DELETE CASCADE;
+
+
+--
+-- Name: password_reset_tokens fk_password_reset_tokens_user; Type: FK CONSTRAINT; Schema: auth_schema; Owner: -
+--
+
+ALTER TABLE ONLY auth_schema.password_reset_tokens
+    ADD CONSTRAINT fk_password_reset_tokens_user FOREIGN KEY (user_id) REFERENCES user_schema.app_user(id) ON DELETE CASCADE;
+
+
+--
+-- Name: refresh_tokens fk_refresh_tokens_user; Type: FK CONSTRAINT; Schema: auth_schema; Owner: -
+--
+
+ALTER TABLE ONLY auth_schema.refresh_tokens
+    ADD CONSTRAINT fk_refresh_tokens_user FOREIGN KEY (user_id) REFERENCES user_schema.app_user(id) ON DELETE CASCADE;
+
+
+--
+-- Name: ai_usage_events fk_ai_usage_events_chatroom; Type: FK CONSTRAINT; Schema: billing; Owner: -
 --
 
 ALTER TABLE ONLY billing.ai_usage_events
@@ -3135,7 +3106,7 @@ ALTER TABLE ONLY billing.ai_usage_events
 
 
 --
--- Name: ai_usage_events fk_ai_usage_events_user; Type: FK CONSTRAINT; Schema: billing; Owner: doran
+-- Name: ai_usage_events fk_ai_usage_events_user; Type: FK CONSTRAINT; Schema: billing; Owner: -
 --
 
 ALTER TABLE ONLY billing.ai_usage_events
@@ -3143,7 +3114,7 @@ ALTER TABLE ONLY billing.ai_usage_events
 
 
 --
--- Name: chatbots chatbots_created_by_fkey; Type: FK CONSTRAINT; Schema: chat_schema; Owner: doran
+-- Name: chatbots chatbots_created_by_fkey; Type: FK CONSTRAINT; Schema: chat_schema; Owner: -
 --
 
 ALTER TABLE ONLY chat_schema.chatbots
@@ -3151,7 +3122,7 @@ ALTER TABLE ONLY chat_schema.chatbots
 
 
 --
--- Name: chatrooms chatrooms_chatbot_id_fkey; Type: FK CONSTRAINT; Schema: chat_schema; Owner: doran
+-- Name: chatrooms chatrooms_chatbot_id_fkey; Type: FK CONSTRAINT; Schema: chat_schema; Owner: -
 --
 
 ALTER TABLE ONLY chat_schema.chatrooms
@@ -3159,7 +3130,7 @@ ALTER TABLE ONLY chat_schema.chatrooms
 
 
 --
--- Name: chatrooms chatrooms_user_id_fkey; Type: FK CONSTRAINT; Schema: chat_schema; Owner: doran
+-- Name: chatrooms chatrooms_user_id_fkey; Type: FK CONSTRAINT; Schema: chat_schema; Owner: -
 --
 
 ALTER TABLE ONLY chat_schema.chatrooms
@@ -3167,7 +3138,7 @@ ALTER TABLE ONLY chat_schema.chatrooms
 
 
 --
--- Name: chatrooms fk_chatrooms_last_message; Type: FK CONSTRAINT; Schema: chat_schema; Owner: doran
+-- Name: chatrooms fk_chatrooms_last_message; Type: FK CONSTRAINT; Schema: chat_schema; Owner: -
 --
 
 ALTER TABLE ONLY chat_schema.chatrooms
@@ -3175,7 +3146,7 @@ ALTER TABLE ONLY chat_schema.chatrooms
 
 
 --
--- Name: intimacy_progress intimacy_progress_chatroom_id_fkey; Type: FK CONSTRAINT; Schema: chat_schema; Owner: doran
+-- Name: intimacy_progress intimacy_progress_chatroom_id_fkey; Type: FK CONSTRAINT; Schema: chat_schema; Owner: -
 --
 
 ALTER TABLE ONLY chat_schema.intimacy_progress
@@ -3183,7 +3154,7 @@ ALTER TABLE ONLY chat_schema.intimacy_progress
 
 
 --
--- Name: intimacy_progress intimacy_progress_user_id_fkey; Type: FK CONSTRAINT; Schema: chat_schema; Owner: doran
+-- Name: intimacy_progress intimacy_progress_user_id_fkey; Type: FK CONSTRAINT; Schema: chat_schema; Owner: -
 --
 
 ALTER TABLE ONLY chat_schema.intimacy_progress
@@ -3191,7 +3162,7 @@ ALTER TABLE ONLY chat_schema.intimacy_progress
 
 
 --
--- Name: messages messages_chatroom_id_fkey; Type: FK CONSTRAINT; Schema: chat_schema; Owner: doran
+-- Name: messages messages_chatroom_id_fkey; Type: FK CONSTRAINT; Schema: chat_schema; Owner: -
 --
 
 ALTER TABLE ONLY chat_schema.messages
@@ -3199,7 +3170,7 @@ ALTER TABLE ONLY chat_schema.messages
 
 
 --
--- Name: messages messages_parent_message_id_fkey; Type: FK CONSTRAINT; Schema: chat_schema; Owner: doran
+-- Name: messages messages_parent_message_id_fkey; Type: FK CONSTRAINT; Schema: chat_schema; Owner: -
 --
 
 ALTER TABLE ONLY chat_schema.messages
@@ -3207,15 +3178,15 @@ ALTER TABLE ONLY chat_schema.messages
 
 
 --
--- Name: settings fk5w7p1w60kfsalo61akkmfirv3; Type: FK CONSTRAINT; Schema: user_schema; Owner: doran
+-- Name: user_stats fk57s3nsil2nhyj54m2qd00rj3k; Type: FK CONSTRAINT; Schema: user_schema; Owner: -
 --
 
-ALTER TABLE ONLY user_schema.settings
-    ADD CONSTRAINT fk5w7p1w60kfsalo61akkmfirv3 FOREIGN KEY (user_id) REFERENCES user_schema.app_user(id);
+ALTER TABLE ONLY user_schema.user_stats
+    ADD CONSTRAINT fk57s3nsil2nhyj54m2qd00rj3k FOREIGN KEY (user_id) REFERENCES user_schema.app_user(id);
 
 
 --
--- Name: admin_user_roles fk_admin_user_roles_role; Type: FK CONSTRAINT; Schema: user_schema; Owner: doran
+-- Name: admin_user_roles fk_admin_user_roles_role; Type: FK CONSTRAINT; Schema: user_schema; Owner: -
 --
 
 ALTER TABLE ONLY user_schema.admin_user_roles
@@ -3223,7 +3194,7 @@ ALTER TABLE ONLY user_schema.admin_user_roles
 
 
 --
--- Name: admin_user_roles fk_admin_user_roles_user; Type: FK CONSTRAINT; Schema: user_schema; Owner: doran
+-- Name: admin_user_roles fk_admin_user_roles_user; Type: FK CONSTRAINT; Schema: user_schema; Owner: -
 --
 
 ALTER TABLE ONLY user_schema.admin_user_roles
@@ -3231,7 +3202,23 @@ ALTER TABLE ONLY user_schema.admin_user_roles
 
 
 --
--- Name: review_ticket_items fk_review_ticket_items_ticket; Type: FK CONSTRAINT; Schema: user_schema; Owner: doran
+-- Name: onboarding_survey fk_onboarding_survey_user; Type: FK CONSTRAINT; Schema: user_schema; Owner: -
+--
+
+ALTER TABLE ONLY user_schema.onboarding_survey
+    ADD CONSTRAINT fk_onboarding_survey_user FOREIGN KEY (user_id) REFERENCES user_schema.app_user(id) ON DELETE CASCADE;
+
+
+--
+-- Name: profiles fk_profiles_user; Type: FK CONSTRAINT; Schema: user_schema; Owner: -
+--
+
+ALTER TABLE ONLY user_schema.profiles
+    ADD CONSTRAINT fk_profiles_user FOREIGN KEY (user_id) REFERENCES user_schema.app_user(id) ON DELETE CASCADE;
+
+
+--
+-- Name: review_ticket_items fk_review_ticket_items_ticket; Type: FK CONSTRAINT; Schema: user_schema; Owner: -
 --
 
 ALTER TABLE ONLY user_schema.review_ticket_items
@@ -3239,15 +3226,15 @@ ALTER TABLE ONLY user_schema.review_ticket_items
 
 
 --
--- Name: profiles fko9irkw5uae1s5s10pmstcvipw; Type: FK CONSTRAINT; Schema: user_schema; Owner: doran
+-- Name: settings fk_settings_user; Type: FK CONSTRAINT; Schema: user_schema; Owner: -
 --
 
-ALTER TABLE ONLY user_schema.profiles
-    ADD CONSTRAINT fko9irkw5uae1s5s10pmstcvipw FOREIGN KEY (user_id) REFERENCES user_schema.app_user(id);
+ALTER TABLE ONLY user_schema.settings
+    ADD CONSTRAINT fk_settings_user FOREIGN KEY (user_id) REFERENCES user_schema.app_user(id) ON DELETE CASCADE;
 
 
 --
--- Name: prompt_actives prompt_actives_activated_by_fkey; Type: FK CONSTRAINT; Schema: user_schema; Owner: doran
+-- Name: prompt_actives prompt_actives_activated_by_fkey; Type: FK CONSTRAINT; Schema: user_schema; Owner: -
 --
 
 ALTER TABLE ONLY user_schema.prompt_actives
@@ -3255,7 +3242,7 @@ ALTER TABLE ONLY user_schema.prompt_actives
 
 
 --
--- Name: prompt_actives prompt_actives_prompt_version_id_fkey; Type: FK CONSTRAINT; Schema: user_schema; Owner: doran
+-- Name: prompt_actives prompt_actives_prompt_version_id_fkey; Type: FK CONSTRAINT; Schema: user_schema; Owner: -
 --
 
 ALTER TABLE ONLY user_schema.prompt_actives
@@ -3263,7 +3250,7 @@ ALTER TABLE ONLY user_schema.prompt_actives
 
 
 --
--- Name: prompt_versions prompt_versions_created_by_fkey; Type: FK CONSTRAINT; Schema: user_schema; Owner: doran
+-- Name: prompt_versions prompt_versions_created_by_fkey; Type: FK CONSTRAINT; Schema: user_schema; Owner: -
 --
 
 ALTER TABLE ONLY user_schema.prompt_versions
@@ -3271,7 +3258,7 @@ ALTER TABLE ONLY user_schema.prompt_versions
 
 
 --
--- Name: prompt_versions prompt_versions_parent_version_id_fkey; Type: FK CONSTRAINT; Schema: user_schema; Owner: doran
+-- Name: prompt_versions prompt_versions_parent_version_id_fkey; Type: FK CONSTRAINT; Schema: user_schema; Owner: -
 --
 
 ALTER TABLE ONLY user_schema.prompt_versions
@@ -3279,22 +3266,8 @@ ALTER TABLE ONLY user_schema.prompt_versions
 
 
 --
--- Name: DEFAULT PRIVILEGES FOR SEQUENCES; Type: DEFAULT ACL; Schema: archive_schema; Owner: doran
---
-
-ALTER DEFAULT PRIVILEGES FOR ROLE doran IN SCHEMA archive_schema GRANT ALL ON SEQUENCES TO doran;
-
-
---
--- Name: DEFAULT PRIVILEGES FOR TABLES; Type: DEFAULT ACL; Schema: archive_schema; Owner: doran
---
-
-ALTER DEFAULT PRIVILEGES FOR ROLE doran IN SCHEMA archive_schema GRANT ALL ON TABLES TO doran;
-
-
---
 -- PostgreSQL database dump complete
 --
 
-\unrestrict fuzQfIMtI2oiVWC0PR7riVsd5Hp2fA71uO8FPQeFMtrO23jVvRcVqyArq2r0Oad
+\unrestrict qSlvnFp3zgZetbS9SXixjLCAy3vJz13MrlzJtjYjyGOMhsZj0Z6V0l0TBFc0Pvi
 

@@ -1,0 +1,64 @@
+import type { User } from './user'
+
+export interface LoginRequest {
+  email: string
+  password: string
+}
+
+export interface LoginResponse {
+  success: boolean
+  message: string
+  data: {
+    accessToken: string
+    refreshToken: string
+    tokenType: 'Bearer'
+    expiresIn: number
+    user: User
+  }
+}
+
+export interface SignupRequest {
+  email: string
+  firstName: string
+  lastName: string
+  name: string
+  password: string
+  picture?: string
+  info?: string
+}
+
+export interface SignupResponse {
+  id: string
+  email: string
+  firstName: string
+  lastName: string
+  name: string
+  status: string
+  role: string
+  createdAt: string
+  updatedAt: string
+}
+
+export interface LogoutResponse {
+  success: boolean
+  message: string
+  data: null
+  errorCode: string | null
+}
+
+export interface VerificationRequest {
+  email: string
+  firstName?: string
+  lastName?: string
+}
+
+export interface OAuthLoginRequest {
+  provider: string
+  idToken: string
+  /** 신규 사용자일 때 회원가입 확정 여부. true면 즉시 가입 후 토큰 반환 */
+  confirmSignup?: boolean
+  /** confirmSignup 시 저장할 생년월일. yyyy-MM-dd 형식. 미전달 시 기본값(1900-01-01) 사용 */
+  birthDate?: string
+}
+
+export type OAuthLoginResponse = LoginResponse

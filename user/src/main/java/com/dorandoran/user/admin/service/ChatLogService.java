@@ -83,6 +83,8 @@ public class ChatLogService {
     LocalDateTime endDateTime = request.getEndDate() != null
         ? request.getEndDate().atTime(23, 59, 59)
         : LocalDate.now().atTime(23, 59, 59);
+
+    // Repository 쿼리 실행
     return archChatroomRepository.searchChatLogs(
         request.getConcept(),
         request.getIntimacyLevel(),

@@ -1131,7 +1131,10 @@ public class PromptService {
     public int getCurrentIntimacyLevel(UUID chatroomId) {
         return intimacyProgressRepository.findByChatRoomId(chatroomId)
             .map(IntimacyProgress::getIntimacyLevel)
-            .orElse(2); // 기본값
+            .orElseGet(() -> {
+                log.info("intimacyLevel fallback: using default 1 (PromptService.getCurrentIntimacyLevel, chatroomId={}, intimacy_progress not found)", chatroomId);
+                return 1;
+            });
     }
     
     /**

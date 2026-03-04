@@ -19,6 +19,11 @@ import java.util.UUID;
 public interface AdminAuditLogRepository extends JpaRepository<AdminAuditLog, Long> {
 
     /**
+     * 전체 감사 로그 조회 (페이지네이션, 필터 없을 때 사용)
+     */
+    Page<AdminAuditLog> findAllByOrderByCreatedAtDesc(Pageable pageable);
+
+    /**
      * 관리자별 감사 로그 조회 (페이지네이션)
      */
     Page<AdminAuditLog> findByAdminUserIdOrderByCreatedAtDesc(UUID adminUserId, Pageable pageable);

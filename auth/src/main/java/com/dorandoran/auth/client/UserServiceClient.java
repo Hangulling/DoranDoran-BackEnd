@@ -91,6 +91,7 @@ public interface UserServiceClient {
             @org.springframework.web.bind.annotation.RequestParam("name") String name,
             @org.springframework.web.bind.annotation.RequestParam(value = "picture", required = false) String picture,
             @org.springframework.web.bind.annotation.RequestParam("provider") String provider,
-            @org.springframework.web.bind.annotation.RequestParam("oauthId") String oauthId
+            @org.springframework.web.bind.annotation.RequestParam("oauthId") String oauthId,
+            @org.springframework.web.bind.annotation.RequestParam(value = "birthDate", required = false) String birthDate
     );
 }

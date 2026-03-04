@@ -97,10 +97,10 @@ ai:
           temperature: 0.5  # 자연스러운 교정을 위해 적당히 설정
           max-tokens: 300
 
-# Gateway HMAC 검증 설정
+# Gateway HMAC 검증 설정 (환경변수로 주입)
 gateway:
   jwt:
-    hmac-secret: 404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970
+    hmac-secret: ${GATEWAY_JWT_HMAC_SECRET:}
     skew-ms: 3600000
 
 # Actuator 설정

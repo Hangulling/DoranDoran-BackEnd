@@ -3,8 +3,10 @@ package com.dorandoran.user.admin.controller;
 import com.dorandoran.user.admin.dto.response.AdminAuditLogListResponse;
 import com.dorandoran.user.admin.dto.response.AdminAuditLogResponse;
 import com.dorandoran.user.admin.entity.AdminAuditLog;
+import com.dorandoran.user.entity.User;
 import com.dorandoran.user.admin.enums.ActionType;
 import com.dorandoran.user.admin.service.AdminAuditLogService;
+import com.dorandoran.user.repository.UserRepository;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
@@ -34,6 +36,12 @@ import java.util.stream.Collectors;
 public class AdminAuditLogController {
 
     private final AdminAuditLogService adminAuditLogService;
+    private final UserRepository userRepository;
+
+    private String resolveAdminEmail(UUID adminUserId) {
+        if (adminUserId == null) return null;
+        return userRepository.findById(adminUserId).map(User::getEmail).orElse(null);
+    }
 
     @GetMapping
     @Operation(summary = "감사 로그 조회", description = "관리자 감사 로그를 조회합니다.")
@@ -59,7 +67,8 @@ public class AdminAuditLogController {
                     .map(log -> AdminAuditLogResponse.builder()
                         .id(log.getId())
                         .adminUserId(log.getAdminUserId())
-                        .actionType(log.getActionType().getValue())
+                        .adminUserEmail(resolveAdminEmail(log.getAdminUserId()))
+                        .actionType(log.getActionType() != null ? log.getActionType().getValue() : null)
                         .targetType(log.getTargetType() != null ? log.getTargetType().name() : null)
                         .targetId(log.getTargetId())
                         .summary(log.getSummary())
@@ -80,7 +89,7 @@ public class AdminAuditLogController {
 
             return ResponseEntity.ok(response);
         } catch (Exception e) {
-            log.error("감사 로그 조회 실패", e);
+            log.error("감사 로그 조회 실패: {} - {}", e.getMessage(), e);
             return ResponseEntity.internalServerError().build();
         }
     }

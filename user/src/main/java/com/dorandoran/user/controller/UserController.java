@@ -123,11 +123,12 @@ public class UserController {
             @RequestParam("name") String name,
             @RequestParam(value = "picture", required = false) String picture,
             @RequestParam("provider") String provider,
-            @RequestParam("oauthId") String oauthId) {
+            @RequestParam("oauthId") String oauthId,
+            @RequestParam(value = "birthDate", required = false) String birthDate) {
         log.info("OAuth 사용자 생성 요청: email={}, provider={}", email, provider);
         
         try {
-            UserDto createdUser = userService.createOAuthUser(email, firstName, lastName, name, picture, provider, oauthId);
+            UserDto createdUser = userService.createOAuthUser(email, firstName, lastName, name, picture, provider, oauthId, birthDate);
             return ResponseEntity.ok(createdUser);
         } catch (Exception e) {
             log.error("OAuth 사용자 생성 실패: email={}, provider={}, error={}", email, provider, e.getMessage());

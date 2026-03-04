@@ -1,4 +1,11 @@
 #!/bin/bash
+# 로컬 Docker 배포 (tar 이미지 사용)
+# 환경변수: .env 파일이 있으면 사용. 없으면 OPENAI_API_KEY, GATEWAY_JWT_HMAC_SECRET, APPLICATION_SECURITY_JWT_SECRET_KEY 등을 export 해 두세요.
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+ENV_FILE=""
+[ -f "$SCRIPT_DIR/../.env" ] && ENV_FILE="--env-file $SCRIPT_DIR/../.env"
+[ -f ".env" ] && ENV_FILE="--env-file .env"
 
 echo "=== DoranDoran Simple Deployment ==="
 
@@ -31,6 +38,7 @@ echo "Starting services..."
 
 # Auth Service
 docker run -d --name dorandoran-auth -p 8081:8081 \
+  $ENV_FILE \
   -e SPRING_PROFILES_ACTIVE=production \
   -e SPRING_DATASOURCE_URL="jdbc:postgresql://$LOCAL_DB_HOST:$LOCAL_DB_PORT/$DB_NAME" \
   -e SPRING_DATASOURCE_USERNAME=$DB_USER \
@@ -38,10 +46,13 @@ docker run -d --name dorandoran-auth -p 8081:8081 \
   -e SPRING_JPA_HIBERNATE_DEFAULT_SCHEMA=auth_schema \
   -e SPRING_REDIS_HOST=localhost \
   -e SPRING_REDIS_PORT=6379 \
+  -e APPLICATION_SECURITY_JWT_SECRET_KEY="${APPLICATION_SECURITY_JWT_SECRET_KEY}" \
+  -e GATEWAY_JWT_HMAC_SECRET="${GATEWAY_JWT_HMAC_SECRET}" \
   dorandoran-auth:latest
 
 # User Service
 docker run -d --name dorandoran-user -p 8082:8082 \
+  $ENV_FILE \
   -e SPRING_PROFILES_ACTIVE=production \
   -e SPRING_DATASOURCE_URL="jdbc:postgresql://$LOCAL_DB_HOST:$LOCAL_DB_PORT/$DB_NAME" \
   -e SPRING_DATASOURCE_USERNAME=$DB_USER \
@@ -49,10 +60,12 @@ docker run -d --name dorandoran-user -p 8082:8082 \
   -e SPRING_JPA_HIBERNATE_DEFAULT_SCHEMA=user_schema \
   -e SPRING_REDIS_HOST=localhost \
   -e SPRING_REDIS_PORT=6379 \
+  -e GATEWAY_JWT_HMAC_SECRET="${GATEWAY_JWT_HMAC_SECRET}" \
   dorandoran-user:latest
 
 # Chat Service
 docker run -d --name dorandoran-chat -p 8083:8083 \
+  $ENV_FILE \
   -e SPRING_PROFILES_ACTIVE=production \
   -e SPRING_DATASOURCE_URL="jdbc:postgresql://$LOCAL_DB_HOST:$LOCAL_DB_PORT/$DB_NAME" \
   -e SPRING_DATASOURCE_USERNAME=$DB_USER \
@@ -60,7 +73,8 @@ docker run -d --name dorandoran-chat -p 8083:8083 \
   -e SPRING_JPA_HIBERNATE_DEFAULT_SCHEMA=chat_schema \
   -e SPRING_REDIS_HOST=localhost \
   -e SPRING_REDIS_PORT=6379 \
-  -e OPENAI_API_KEY=$OPENAI_API_KEY \
+  -e OPENAI_API_KEY="${OPENAI_API_KEY}" \
+  -e GATEWAY_JWT_HMAC_SECRET="${GATEWAY_JWT_HMAC_SECRET}" \
   dorandoran-chat:latest
 
 # Batch Service
@@ -74,9 +88,11 @@ docker run -d --name dorandoran-batch -p 8085:8085 \
 
 # Gateway Service
 docker run -d --name dorandoran-gateway -p 8080:8080 \
+  $ENV_FILE \
   -e SPRING_PROFILES_ACTIVE=production \
   -e SPRING_REDIS_HOST=localhost \
   -e SPRING_REDIS_PORT=6379 \
+  -e GATEWAY_JWT_HMAC_SECRET="${GATEWAY_JWT_HMAC_SECRET}" \
   dorandoran-gateway:latest
 
 echo "=== Deployment Complete ==="

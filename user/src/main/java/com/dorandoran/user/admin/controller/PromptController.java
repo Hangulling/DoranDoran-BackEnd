@@ -14,11 +14,13 @@ import com.dorandoran.user.admin.dto.response.ConceptOption;
 import com.dorandoran.user.admin.dto.response.IntimacyLevelOption;
 import com.dorandoran.user.admin.entity.PromptActive;
 import com.dorandoran.user.admin.entity.PromptVersion;
+import com.dorandoran.user.entity.User;
 import com.dorandoran.user.admin.enums.AgentType;
 import com.dorandoran.user.admin.enums.Concept;
 import com.dorandoran.user.admin.service.AdminAuditLogService;
 import com.dorandoran.user.admin.service.PromptService;
 import com.dorandoran.user.admin.repository.PromptActiveRepository;
+import com.dorandoran.user.repository.UserRepository;
 import com.dorandoran.user.admin.enums.ActionType;
 import com.dorandoran.user.admin.enums.TargetType;
 import io.swagger.v3.oas.annotations.Operation;
@@ -53,6 +55,13 @@ public class PromptController {
     private final PromptService promptService;
     private final PromptActiveRepository promptActiveRepository;
     private final AdminAuditLogService adminAuditLogService;
+    private final UserRepository userRepository;
+
+    /** 작성자 UUID로 이메일 조회 (표시용 createdByName) */
+    private String resolveCreatorEmail(UUID createdBy) {
+        if (createdBy == null) return null;
+        return userRepository.findById(createdBy).map(User::getEmail).orElse(null);
+    }
 
     @GetMapping("/active")
     @Operation(summary = "Active 프롬프트 조회", description = "현재 활성화된 프롬프트를 조회합니다.")
@@ -215,6 +224,7 @@ public class PromptController {
                 .filePath(version.getFilePath())
                 .memo(version.getMemo())
                 .createdBy(version.getCreatedBy())
+                .createdByName(resolveCreatorEmail(version.getCreatedBy()))
                 .createdAt(version.getCreatedAt())
                 .build();
             
@@ -385,6 +395,7 @@ public class PromptController {
                             .filePath(v.getFilePath())
                             .memo(v.getMemo())
                             .createdBy(v.getCreatedBy())
+                            .createdByName(resolveCreatorEmail(v.getCreatedBy()))
                             .createdAt(v.getCreatedAt())
                             .isActive(isActive)
                             .build();
@@ -435,6 +446,7 @@ public class PromptController {
                 .filePath(version.getFilePath())
                 .memo(version.getMemo())
                 .createdBy(version.getCreatedBy())
+                .createdByName(resolveCreatorEmail(version.getCreatedBy()))
                 .createdAt(version.getCreatedAt())
                 .isActive(isActive)
                 .build();
@@ -631,6 +643,7 @@ public class PromptController {
                 .filePath(version.getFilePath())
                 .memo(version.getMemo())
                 .createdBy(version.getCreatedBy())
+                .createdByName(resolveCreatorEmail(version.getCreatedBy()))
                 .createdAt(version.getCreatedAt())
                 .isActive(true)  // 저장 및 적용이므로 항상 활성화됨
                 .build();

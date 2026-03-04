@@ -102,7 +102,7 @@ INSERT INTO chat_schema.chatbots (
     '{userMessage}',
     '한국어 단어를 영어로 번역하고 발음기호를 제공하세요.',
     '다음 한국어 단어들을 번역해주세요:\n{words}',
-    2,
+    1,
     true,
     NOW(),
     NOW(),

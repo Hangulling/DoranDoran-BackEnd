@@ -183,7 +183,7 @@ public class UserService {
      */
     @Transactional
     public UserDto createOAuthUser(String email, String firstName, String lastName, String name,
-                                   String picture, String provider, String oauthId) {
+                                   String picture, String provider, String oauthId, String birthDate) {
         log.info("OAuth 사용자 생성 요청: email={}, provider={}", email, provider);
         
         // 1. 이메일 중복 검사
@@ -198,16 +198,27 @@ public class UserService {
                 throw new DoranDoranException(ErrorCode.INVALID_REQUEST, "이미 등록된 OAuth 계정입니다.");
             }
             
-            // 3. 사용자 생성 (ACTIVE 상태로 바로 생성)
+            // 3. 생년월일 파싱 (yyyy-MM-dd). 미전달 또는 형식 오류 시 기본값 사용
+            LocalDate parsedBirthDate = LocalDate.of(1900, 1, 1);
+            if (birthDate != null && !birthDate.isBlank()) {
+                try {
+                    parsedBirthDate = LocalDate.parse(birthDate);
+                } catch (java.time.format.DateTimeParseException e) {
+                    log.warn("OAuth 사용자 생성 - birthDate 파싱 실패, 기본값 사용: birthDate={}", birthDate);
+                }
+            }
+            
+            // 4. 사용자 생성 (ACTIVE 상태로 바로 생성)
             User user = User.builder()
                     .id(UUID.randomUUID())
                     .email(email)
                     .firstName(firstName != null ? firstName : "")
                     .lastName(lastName != null ? lastName : "")
-                    .name(name != null ? name : (firstName + " " + lastName).trim())
+                    .name(name != null ? name : ((firstName != null ? firstName : "") + " " + (lastName != null ? lastName : "")).trim())
                     .passwordHash(null) // OAuth 사용자는 비밀번호 없음
                     .picture(picture)
                     .info("")
+                    .birthDate(parsedBirthDate)
                     .status(User.UserStatus.ACTIVE)
                     .coachCheck(false)
                     .exitModalDoNotShowAgain(false)
@@ -216,14 +227,14 @@ public class UserService {
                     .oauthId(oauthId)
                     .build();
             
-            // 4. 인증 방법 검증
+            // 5. 인증 방법 검증
             user.validateAuthMethod();
             
-            // 5. 데이터베이스 저장
+            // 6. 데이터베이스 저장
             User savedUser = userRepository.save(user);
             log.info("OAuth 사용자 생성 완료: id={}, email={}, provider={}", savedUser.getId(), savedUser.getEmail(), provider);
             
-            // 6. 사용자 생성 이벤트 발행
+            // 7. 사용자 생성 이벤트 발행
             UserCreatedEvent event = UserCreatedEvent.of(
                     savedUser.getId(),
                     savedUser.getEmail(),
