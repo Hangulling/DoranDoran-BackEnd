@@ -23,7 +23,6 @@ public interface ArchChatroomRepository extends JpaRepository<ArchChatroom, UUID
   /**
    * 채팅 로그 검색 (검색 조건 + 페이징)
    *
-   * @param chatroomId 채팅방 ID (선택)
    * @param intimacyLevel 친밀도 레벨 (선택)
    * @param startDateTime 시작 일시 (필수)
    * @param endDateTime 종료 일시 (필수)
@@ -36,14 +35,13 @@ public interface ArchChatroomRepository extends JpaRepository<ArchChatroom, UUID
       "(SELECT COUNT(m.id) FROM ArchMessage m WHERE m.archChatroomId = c.id), " +
       "c.userEmailSnapshot) " +
       "FROM ArchChatroom c " +
-      "WHERE (:chatroomId IS NULL OR c.id = :chatroomId) " +
+      "WHERE (:concept IS NULL OR c.concept = :concept) " +
       "AND (:intimacyLevel IS NULL OR c.chatbotIntimacyLevelSnapshot = :intimacyLevel) " +
       "AND c.sourceCreatedAt >= :startDateTime " +
       "AND c.sourceCreatedAt <= :endDateTime " +
-      "AND c.isDeleted = false " +
       "ORDER BY c.lastMessageAt DESC")
   Page<ChatLogListResponse> searchChatLogs(
-      @Param("chatroomId") UUID chatroomId,
+      @Param("concept") String concept,
       @Param("intimacyLevel") Integer intimacyLevel,
       @Param("startDateTime") LocalDateTime startDateTime,
       @Param("endDateTime") LocalDateTime endDateTime,

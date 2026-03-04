@@ -51,7 +51,7 @@ public class ChatService {
      */
     @Transactional
     public ChatRoom getOrCreateRoom(UUID userId, UUID chatbotId, String name) {
-        return getOrCreateRoom(userId, chatbotId, name, "FRIEND", 2);
+        return getOrCreateRoom(userId, chatbotId, name, "FRIEND", 1);
     }
     
     /**
@@ -509,7 +509,7 @@ public class ChatService {
     public Integer getIntimacyLevel(UUID chatroomId) {
         return intimacyProgressRepository.findByChatRoomId(chatroomId)
             .map(IntimacyProgress::getIntimacyLevel)
-            .orElse(2); // 기본값
+            .orElse(1); // 기본값
     }
     
     /**

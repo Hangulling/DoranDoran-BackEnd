@@ -501,7 +501,7 @@ public class IntimacyAgent {
         } catch (Exception e) {
             log.error("IntimacyAgent 컨셉 검증 실패: {} - 기본값 Level 2 사용, concept='{}', exception={}", 
                 e.getMessage(), concept, e.getClass().getSimpleName(), e);
-            return 2; // 기본값
+            return 1; // 기본값
         }
     }
     

@@ -25,11 +25,17 @@ public class ChatLogSearchRequest {
   @DateTimeFormat(pattern = "yyyy-MM-dd")
   private LocalDate endDate;
 
-  // 채팅방 ID
-  private UUID chatroomId;
+  // 채팅방 ID - 특정 채팅방을 검색하는 기능이 없어서 삭제
+  //  private UUID chatroomId;
+
+  // 채팅봇 컨셉
+  private String concept;
 
   // 친밀도 레벨
   private Integer intimacyLevel;
+
+  // 데이터 소스 (archive 또는 chat, 기본값 archive)
+  private String dataSource = "archive";
 
   // 페이지 번호 (0부터 시작)
   @Min(value = 0, message = "페이지 번호는 0 이상이어야 합니다")
