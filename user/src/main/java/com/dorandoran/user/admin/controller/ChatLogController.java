@@ -80,12 +80,14 @@ public class ChatLogController {
   public ResponseEntity<Page<MessageTimelineResponse>> getMessageTimeline(
       @PathVariable UUID chatroomId,
       @RequestParam(defaultValue = "0") int page,
-      @RequestParam(defaultValue = "50") int size) {
+      @RequestParam(defaultValue = "50") int size,
+      @RequestParam(defaultValue = "archive") String dataSource) {
 
     Page<MessageTimelineResponse> timeline = chatLogService.getMessageTimeline(
         chatroomId,
         page,
-        size
+        size,
+        dataSource
     );
 
     return ResponseEntity.ok(timeline);

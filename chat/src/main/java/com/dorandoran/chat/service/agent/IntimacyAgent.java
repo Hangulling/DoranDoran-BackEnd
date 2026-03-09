@@ -499,7 +499,7 @@ public class IntimacyAgent {
             log.info("=== validateIntimacyLevel: 레벨 검증 통과 - level={} ===", level);
             return level;
         } catch (Exception e) {
-            log.error("IntimacyAgent 컨셉 검증 실패: {} - 기본값 Level 1 사용, concept='{}', exception={}", 
+            log.error("IntimacyAgent 컨셉 검증 실패: {} - 기본값 Level 1 사용, concept='{}', exception={}",
                 e.getMessage(), concept, e.getClass().getSimpleName(), e);
             log.info("intimacyLevel fallback: using default 1 (IntimacyAgent.validateIntimacyLevel, concept validation failed, concept='{}')", concept);
             return 1; // 기본값

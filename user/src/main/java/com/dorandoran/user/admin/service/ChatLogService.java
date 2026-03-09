@@ -1,5 +1,6 @@
 package com.dorandoran.user.admin.service;
 
+import com.dorandoran.user.admin.client.ChatServiceClient;
 import com.dorandoran.user.admin.dto.request.ChatLogSearchRequest;
 import com.dorandoran.user.admin.dto.response.AgentResultResponse;
 import com.dorandoran.user.admin.dto.response.ChatLogListResponse;
@@ -15,6 +16,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -23,6 +25,7 @@ import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -40,6 +43,7 @@ public class ChatLogService {
   private final ArchChatroomRepository archChatroomRepository;
   private final ArchMessageRepository archMessageRepository;
   private final ArchAgentResultRepository archAgentResultRepository;
+  private final ChatServiceClient chatServiceClient;
 
   private final ObjectMapper objectMapper;
 
@@ -59,28 +63,83 @@ public class ChatLogService {
   // 친밀도 레벨 옵션 조회
   public List<IntimacyLevelOptionResponse> getIntimacyLevelOptions() {
     return List.of(
-        new IntimacyLevelOptionResponse(1, "Level 1 - 격식체 / 첫 만남"),
-        new IntimacyLevelOptionResponse(2, "Level 2 - 표준 존댓말 / 편한 관계"),
-        new IntimacyLevelOptionResponse(3, "Level 3 - 친근한 반말 / 아주 친한 사이")
+        new IntimacyLevelOptionResponse(1, "Level 1"),
+//        new IntimacyLevelOptionResponse(2, "Level 2 - 표준 존댓말 / 편한 관계"),
+        new IntimacyLevelOptionResponse(3, "Level 3")
     );
   }
 
   // 채팅 로그 리스트 검색 (검색 조건 + 페이징)
   public Page<ChatLogListResponse> searchChatLogs(ChatLogSearchRequest request) {
-    Pageable pageable = PageRequest.of(request.getPage(), request.getSize());
+    if ("chat".equalsIgnoreCase(request.getDataSource())) {
+      return searchChatLogsFromChatService(request);
+    }
+    return searchChatLogsFromArchive(request);
+  }
 
+  private Page<ChatLogListResponse> searchChatLogsFromArchive(ChatLogSearchRequest request) {
+    Pageable pageable = PageRequest.of(request.getPage(), request.getSize());
     LocalDateTime startDateTime = request.getStartDate().atStartOfDay();
     LocalDateTime endDateTime = request.getEndDate() != null
         ? request.getEndDate().atTime(23, 59, 59)
         : LocalDate.now().atTime(23, 59, 59);
 
+    // Repository 쿼리 실행
     return archChatroomRepository.searchChatLogs(
-        request.getChatroomId(),
+        request.getConcept(),
         request.getIntimacyLevel(),
         startDateTime,
         endDateTime,
         pageable
     );
+  }
+
+  @SuppressWarnings("unchecked")
+  private Page<ChatLogListResponse> searchChatLogsFromChatService(ChatLogSearchRequest request) {
+    String from = request.getStartDate().atStartOfDay().toString();
+    LocalDate endDateOrNow = request.getEndDate() != null ? request.getEndDate() : LocalDate.now();
+    String to = endDateOrNow.atTime(23, 59, 59).toString();
+
+    Map<String, Object> raw = chatServiceClient.getAdminConversations(
+        null, null, from, to, request.getConcept(),
+        request.getIntimacyLevel(), "chat",
+        request.getPage(), request.getSize()
+    );
+
+    if (raw == null) {
+      return Page.empty(PageRequest.of(request.getPage(), request.getSize()));
+    }
+
+    List<Map<String, Object>> content =
+        (List<Map<String, Object>>) raw.getOrDefault("content", List.of());
+
+    long totalElements = 0;
+    Object te = raw.get("totalElements");
+    totalElements = te instanceof Number ? ((Number) te).longValue() : 0;
+
+    List<ChatLogListResponse> items = content.stream()
+        .map(this::convertToChatLogListResponse)
+        .collect(Collectors.toList());
+
+    return new PageImpl<>(items, PageRequest.of(request.getPage(), request.getSize()), totalElements);
+  }
+
+  @SuppressWarnings("unchecked")
+  private ChatLogListResponse convertToChatLogListResponse(Map<String, Object> item) {
+    UUID chatroomId = null;
+    Object cidObj = item.get("conversationId");
+    if (cidObj instanceof String) {
+      try { chatroomId = UUID.fromString((String) cidObj); } catch (Exception ignored) {}
+    }
+
+    String roomKey = (String) item.get("roomKey");
+    Integer intimacyLevel = item.get("intimacyLevel") instanceof Number
+        ? ((Number) item.get("intimacyLevel")).intValue() : null;
+    LocalDateTime lastMessageAt = parseDateTime(item.get("lastMessageAt"));
+    Long messageCount = item.get("lastSequenceNumber") instanceof Number
+        ? ((Number) item.get("lastSequenceNumber")).longValue() : null;
+
+    return new ChatLogListResponse(chatroomId, roomKey, null, intimacyLevel, lastMessageAt, messageCount, null);
   }
 
   /**
@@ -89,9 +148,17 @@ public class ChatLogService {
    * @param chatroomId 채팅방 ID
    * @param page 페이지 번호 (0부터 시작)
    * @param size 페이지 크기
+   * @param dataSource 데이터 소스 (archive 또는 chat)
    * @return 메시지 타임라인 페이지
    */
-  public Page<MessageTimelineResponse> getMessageTimeline(UUID chatroomId, int page, int size) {
+  public Page<MessageTimelineResponse> getMessageTimeline(UUID chatroomId, int page, int size, String dataSource) {
+    if ("chat".equalsIgnoreCase(dataSource)) {
+      return getMessageTimelineFromChatService(chatroomId, page, size);
+    }
+    return getMessageTimelineFromArchive(chatroomId, page, size);
+  }
+
+  private Page<MessageTimelineResponse> getMessageTimelineFromArchive(UUID chatroomId, int page, int size) {
     Pageable pageable = PageRequest.of(page, size);
 
     // 1. 메시지 조회
@@ -133,11 +200,91 @@ public class ChatLogService {
     });
   }
 
+  @SuppressWarnings("unchecked")
+  private Page<MessageTimelineResponse> getMessageTimelineFromChatService(UUID chatroomId, int page, int size) {
+    Map<String, Object> raw = chatServiceClient.getAdminConversationDetail(chatroomId, "chat");
+
+    if (raw == null) {
+      return Page.empty(PageRequest.of(page, size));
+    }
+
+    List<Map<String, Object>> timeline =
+        (List<Map<String, Object>>) raw.getOrDefault("timeline", List.of());
+
+    List<MessageTimelineResponse> allMessages = timeline.stream()
+        .map(this::convertToMessageTimelineResponse)
+        .collect(Collectors.toList());
+
+    int start = page * size;
+    if (start >= allMessages.size()) {
+      return new PageImpl<>(List.of(), PageRequest.of(page, size), allMessages.size());
+    }
+    int end = Math.min(start + size, allMessages.size());
+    return new PageImpl<>(allMessages.subList(start, end), PageRequest.of(page, size), allMessages.size());
+  }
+
+  @SuppressWarnings("unchecked")
+  private MessageTimelineResponse convertToMessageTimelineResponse(Map<String, Object> msg) {
+    UUID messageId = null;
+    Object midObj = msg.get("messageId");
+    if (midObj instanceof String) {
+      try { messageId = UUID.fromString((String) midObj); } catch (Exception ignored) {}
+    }
+
+    Long sequenceNumber = msg.get("sequenceNumber") instanceof Number
+        ? ((Number) msg.get("sequenceNumber")).longValue() : null;
+    Long turnNumber = msg.get("turnNumber") instanceof Number
+        ? ((Number) msg.get("turnNumber")).longValue() : null;
+
+    return MessageTimelineResponse.builder()
+        .messageId(messageId)
+        .content((String) msg.get("content"))
+        .senderType((String) msg.get("senderType"))
+        .sequenceNumber(sequenceNumber)
+        .turnNumber(turnNumber)
+        .sourceCreatedAt(parseDateTime(msg.get("createdAt")))
+        .tokenCount(null)
+        .processingTimeMs(null)
+        .agentResults(null)
+        .build();
+  }
+
+  /**
+   * Object를 LocalDateTime으로 변환 (String ISO 형식 또는 Jackson 배열 형식 모두 처리)
+   */
+  @SuppressWarnings("unchecked")
+  private LocalDateTime parseDateTime(Object value) {
+    if (value == null) return null;
+    if (value instanceof String) {
+      String str = (String) value;
+      try {
+        return LocalDateTime.parse(str);
+      } catch (Exception ignored) {}
+      try {
+        return OffsetDateTime.parse(str).toLocalDateTime();
+      } catch (Exception ignored) {}
+      return null;
+    }
+    if (value instanceof List) {
+      List<?> arr = (List<?>) value;
+      if (arr.size() >= 6) {
+        try {
+          return LocalDateTime.of(
+              ((Number) arr.get(0)).intValue(),
+              ((Number) arr.get(1)).intValue(),
+              ((Number) arr.get(2)).intValue(),
+              ((Number) arr.get(3)).intValue(),
+              ((Number) arr.get(4)).intValue(),
+              ((Number) arr.get(5)).intValue()
+          );
+        } catch (Exception ignored) {}
+      }
+    }
+    return null;
+  }
+
   /**
    * Agent 결과 리스트를 AgentResultResponse로 변환
-   *
-   * @param agentResults Agent 결과 리스트
-   * @return AgentResultResponse
    */
   private AgentResultResponse buildAgentResultResponse(List<ArchAgentResult> agentResults) {
     AgentResultResponse.AgentResultResponseBuilder builder = AgentResultResponse.builder();
