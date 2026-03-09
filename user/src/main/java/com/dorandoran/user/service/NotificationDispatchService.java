@@ -7,8 +7,10 @@ import com.dorandoran.user.repository.InterestTopicRepository;
 import com.dorandoran.user.repository.PushDeliveryLogRepository;
 import com.dorandoran.user.repository.UserInterestTopicRepository;
 import com.dorandoran.user.repository.UserNotificationSettingRepository;
+import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
@@ -30,6 +32,9 @@ public class NotificationDispatchService {
     private final ConceptChatbotResolver conceptChatbotResolver;
     private final PushDeliveryLogRepository pushDeliveryLogRepository;
 
+    @Value("${notification.daily.cron:0 0 9 * * *}")
+    private String cronExpression;
+
     /**
      * 채팅방 컨셉(페르소나) 후보들.
      */
@@ -38,6 +43,11 @@ public class NotificationDispatchService {
     private String pickRandomConcept() {
         int idx = ThreadLocalRandom.current().nextInt(CONCEPTS.length);
         return CONCEPTS[idx];
+    }
+
+    @PostConstruct
+    public void init() {
+        log.info("[DailyInterestPush] NotificationDispatchService initialized, cron={}", cronExpression);
     }
 
     /**

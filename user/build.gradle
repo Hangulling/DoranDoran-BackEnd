@@ -23,8 +23,8 @@ dependencies {
     // Firebase Admin SDK (FCM 전송)
     implementation 'com.google.firebase:firebase-admin:9.2.0'
     
-    // 데이터베이스
-    runtimeOnly 'org.postgresql:postgresql:42.7.4'
+    // 데이터베이스 (PGobject 등 컴파일 시 사용)
+    implementation 'org.postgresql:postgresql:42.7.4'
     
     // Flyway
     implementation 'org.flywaydb:flyway-core'

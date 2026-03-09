@@ -68,6 +68,10 @@ auth:
   service:
     url: ${AUTH_SERVICE_URL:http://dorandoran-auth:8081}
 
+chat:
+  service:
+    url: ${CHAT_SERVICE_URL:http://dorandoran-chat:8083}
+
 instagram:
   enabled: ${INSTAGRAM_ENABLED:false}
   access-token: ${INSTAGRAM_ACCESS_TOKEN:}

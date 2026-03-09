@@ -45,9 +45,12 @@ public class SSEManager {
 		return list != null ? list.size() : 0;
 	}
 
-	public boolean hasEmitters(UUID chatroomId) {
+	public boolean hasAnySubscribers(UUID chatroomId) {
+		// SSE 또는 WebSocket 어느 한 쪽이라도 연결이 있으면 true
 		List<SseEmitter> list = emitters.get(chatroomId);
-		return list != null && !list.isEmpty();
+		boolean hasSse = list != null && !list.isEmpty();
+		boolean hasWs = webSocketSessionRegistry.hasSessions(chatroomId);
+		return hasSse || hasWs;
 	}
 
 	public void send(UUID chatroomId, String eventName, Object data) {

@@ -81,6 +81,20 @@ public class GreetingService {
             return getFallbackGreetingResponse(concept, intimacyLevel);
         }
     }
+
+    /**
+     * startMessage를 추가로 받는 오버로드.
+     * 현재는 기존 로직과 동일하게 동작하고, startMessage는 향후 프롬프트 확장 시 활용한다.
+     */
+    @Transactional
+    public GreetingResponse sendGreeting(UUID chatroomId,
+                                         UUID userId,
+                                         ChatRoomConcept concept,
+                                         int intimacyLevel,
+                                         String startMessage) {
+        // TODO: startMessage를 systemPrompt/userMessage에 반영하는 로직을 추가할 수 있음
+        return sendGreeting(chatroomId, userId, concept, intimacyLevel);
+    }
     
     private GreetingResponse generateAIGreeting(UUID chatroomId, ChatRoomConcept concept, int intimacyLevel) {
         String systemPrompt = buildGreetingSystemPrompt(concept, intimacyLevel);

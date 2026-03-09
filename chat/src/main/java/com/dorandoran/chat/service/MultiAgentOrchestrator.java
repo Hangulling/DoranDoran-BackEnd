@@ -614,7 +614,7 @@ public class MultiAgentOrchestrator {
         if (chatService.isMessageCancelled(messageId)) {
             return true;
         }
-        if (!sseManager.hasEmitters(chatroomId)) {
+		if (!sseManager.hasAnySubscribers(chatroomId)) {
             try {
                 chatService.cancelMessage(messageId, userId);
             } catch (Exception ignored) {}
