@@ -37,8 +37,8 @@ public interface ArchChatroomRepository extends JpaRepository<ArchChatroom, UUID
       "FROM ArchChatroom c " +
       "WHERE (:concept IS NULL OR c.concept = :concept) " +
       "AND (:intimacyLevel IS NULL OR c.chatbotIntimacyLevelSnapshot = :intimacyLevel) " +
-      "AND c.sourceCreatedAt >= :startDateTime " +
-      "AND c.sourceCreatedAt <= :endDateTime " +
+      "AND c.lastMessageAt >= :startDateTime " +
+      "AND c.lastMessageAt <= :endDateTime " +
       "ORDER BY c.lastMessageAt DESC")
   Page<ChatLogListResponse> searchChatLogs(
       @Param("concept") String concept,

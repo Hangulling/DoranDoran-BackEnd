@@ -114,8 +114,11 @@ public class ChatLogService {
         (List<Map<String, Object>>) raw.getOrDefault("content", List.of());
 
     long totalElements = 0;
-    Object te = raw.get("totalElements");
-    totalElements = te instanceof Number ? ((Number) te).longValue() : 0;
+    Map<String, Object> pageInfo = (Map<String, Object>) raw.get("page");
+    if (pageInfo != null) {
+      Object te = pageInfo.get("totalElements");
+      totalElements = te instanceof Number ? ((Number) te).longValue() : 0;
+    }
 
     List<ChatLogListResponse> items = content.stream()
         .map(this::convertToChatLogListResponse)
