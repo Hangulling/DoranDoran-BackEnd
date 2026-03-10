@@ -29,6 +29,15 @@ public interface ChatRoomRepository extends JpaRepository<ChatRoom, UUID> {
     
     // 사용자 ID와 삭제되지 않은 채팅방 목록 찾기 (페이징)
     Page<ChatRoom> findByUser_IdAndIsDeletedFalseOrderByLastMessageAtDesc(UUID userId, Pageable pageable);
+
+    /** 관리자 목록용: 필터 없이 삭제되지 않은 채팅방 최신순 (필터 전부 null일 때 사용) */
+    Page<ChatRoom> findByIsDeletedFalseOrderByLastMessageAtDesc(Pageable pageable);
+
+    /** 관리자 목록용: 필터 없이 전체 채팅방 최신순 (삭제 포함) */
+    @Query(value = "SELECT * FROM chat_schema.chatrooms cr ORDER BY cr.last_message_at DESC NULLS LAST",
+           countQuery = "SELECT COUNT(*) FROM chat_schema.chatrooms",
+           nativeQuery = true)
+    Page<ChatRoom> findAllForAdminOrderByLastMessageAtDesc(Pageable pageable);
     
     // 사용자가 특정 채팅방에 접근 권한이 있는지 확인
     boolean existsByUser_IdAndIdAndIsDeletedFalse(UUID userId, UUID chatroomId);
@@ -53,8 +62,7 @@ public interface ChatRoomRepository extends JpaRepository<ChatRoom, UUID> {
 
     @Query(value = "SELECT cr.* FROM chat_schema.chatrooms cr " +
            "JOIN chat_schema.chatbots cb ON cr.chatbot_id = cb.id " +
-           "WHERE cr.is_deleted = false " +
-           "AND (:userId IS NULL OR cr.user_id = :userId::uuid) " +
+           "WHERE (:userId IS NULL OR cr.user_id = :userId::uuid) " +
            "AND (:from IS NULL OR cr.last_message_at >= :from) " +
            "AND (:to IS NULL OR cr.last_message_at <= :to) " +
            "AND (:roomKey IS NULL OR (cr.settings->>'concept') = :roomKey) " +
@@ -62,8 +70,7 @@ public interface ChatRoomRepository extends JpaRepository<ChatRoom, UUID> {
            "ORDER BY cr.last_message_at DESC NULLS LAST",
            countQuery = "SELECT COUNT(*) FROM chat_schema.chatrooms cr " +
                        "JOIN chat_schema.chatbots cb ON cr.chatbot_id = cb.id " +
-                       "WHERE cr.is_deleted = false " +
-                       "AND (:userId IS NULL OR cr.user_id = :userId::uuid) " +
+                       "WHERE (:userId IS NULL OR cr.user_id = :userId::uuid) " +
                        "AND (:from IS NULL OR cr.last_message_at >= :from) " +
                        "AND (:to IS NULL OR cr.last_message_at <= :to) " +
                        "AND (:roomKey IS NULL OR (cr.settings->>'concept') = :roomKey) " +

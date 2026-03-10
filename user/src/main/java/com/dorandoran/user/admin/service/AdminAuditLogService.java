@@ -59,9 +59,13 @@ public class AdminAuditLogService {
 
     /**
      * 감사 로그 조회
+     * 필터가 모두 null이면 단순 목록 조회(JPQL null 바인딩 이슈 회피)
      */
     @Transactional(readOnly = true)
     public Page<AdminAuditLog> getAuditLogs(UUID adminUserId, ActionType actionType, LocalDateTime from, LocalDateTime to, Pageable pageable) {
+        if (adminUserId == null && actionType == null && from == null && to == null) {
+            return adminAuditLogRepository.findAllByOrderByCreatedAtDesc(pageable);
+        }
         return adminAuditLogRepository.findByConditions(adminUserId, actionType, from, to, pageable);
     }
 

@@ -19,6 +19,7 @@ import java.util.UUID;
 public class AdminAuditLogResponse {
     private Long id;
     private UUID adminUserId;
+    private String adminUserEmail;  // 표시용 (adminUserId로 조회)
     private String actionType;
     private String targetType;
     private Long targetId;

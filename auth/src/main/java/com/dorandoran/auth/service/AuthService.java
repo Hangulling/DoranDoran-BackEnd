@@ -10,6 +10,7 @@ import com.dorandoran.auth.repository.AuthEventRepository;
 import com.dorandoran.auth.dto.LoginRequest;
 import com.dorandoran.auth.dto.LoginResponse;
 import com.dorandoran.auth.dto.OAuthLoginRequest;
+import com.dorandoran.auth.dto.OAuthUserInfo;
 import com.dorandoran.common.exception.DoranDoranException;
 import com.dorandoran.common.exception.ErrorCode;
 import com.dorandoran.shared.dto.UserDto;
@@ -44,6 +45,7 @@ public class AuthService {
     private final PasswordResetService passwordResetService;
     private final GoogleOAuthService googleOAuthService;
     private final FirebaseAuthService firebaseAuthService;
+    private final AppleOAuthService appleOAuthService;
     private final PasswordResetCodeRedisService passwordResetCodeRedisService;
     private final EmailService emailService;
     
@@ -77,9 +79,10 @@ public class AuthService {
                 throw new DoranDoranException(ErrorCode.INVALID_PASSWORD);
             }
             
-            // JWT 토큰 생성 (User 서비스 데이터 기반)
-            String accessToken = jwtService.generateAccessToken(user.id().toString(), user.email(), user.name());
-            String refreshToken = jwtService.generateRefreshToken(user.id().toString(), user.email(), user.name());
+            // JWT 토큰 생성 (User 서비스 데이터 기반, role 클레임 포함)
+            String roleClaim = user.role().name();
+            String accessToken = jwtService.generateAccessToken(user.id().toString(), user.email(), user.name(), roleClaim);
+            String refreshToken = jwtService.generateRefreshToken(user.id().toString(), user.email(), user.name(), roleClaim);
 
             // User 엔티티 생성 (한 번만)
             com.dorandoran.auth.entity.User userEntity = com.dorandoran.auth.entity.User.builder()
@@ -202,8 +205,25 @@ public class AuthService {
                 picture = firebaseUserInfo.picture();
                 oauthId = firebaseUserInfo.uid();
                 
+            } else if ("APPLE".equalsIgnoreCase(request.provider())) {
+                // Apple Sign In identity token 검증
+                AppleOAuthService.AppleUserInfo appleUserInfo;
+                try {
+                    appleUserInfo = appleOAuthService.verifyIdToken(request.idToken());
+                } catch (Exception e) {
+                    log.error("Apple identity token 검증 실패: {}", e.getMessage());
+                    throw new DoranDoranException(ErrorCode.AUTH_TOKEN_INVALID, "Apple identity token 검증에 실패했습니다.");
+                }
+                
+                email = appleUserInfo.email();
+                firstName = appleUserInfo.firstName();
+                lastName = appleUserInfo.lastName();
+                name = appleUserInfo.name();
+                picture = null; // Apple은 프로필 이미지 미제공
+                oauthId = appleUserInfo.sub();
+                
             } else {
-                throw new DoranDoranException(ErrorCode.INVALID_REQUEST, "지원하지 않는 OAuth 제공자입니다. (google, firebase만 지원)");
+                throw new DoranDoranException(ErrorCode.INVALID_REQUEST, "지원하지 않는 OAuth 제공자입니다. (google, firebase, apple 지원)");
             }
             
             // 2. OAuth 사용자 조회 또는 생성
@@ -218,17 +238,36 @@ public class AuthService {
                     // 기존 사용자가 있으면 OAuth 정보 연결 (향후 구현)
                     log.info("기존 사용자 발견: email={}, OAuth 정보 연결 필요", email);
                 } catch (Exception ex) {
-                    // 신규 사용자 - 자동 회원가입
-                    log.info("신규 OAuth 사용자 자동 회원가입: email={}, provider={}", email, provider);
-                    user = userIntegrationService.createOAuthUser(
-                            email,
-                            firstName,
-                            lastName,
-                            name,
-                            picture,
-                            provider,
-                            oauthId
-                    );
+                    // 신규 사용자
+                    if (request.isConfirmSignup()) {
+                        // 회원가입 확정 → 즉시 생성 후 토큰 반환
+                        log.info("신규 OAuth 사용자 자동 회원가입: email={}, provider={}", email, provider);
+                        user = userIntegrationService.createOAuthUser(
+                                email,
+                                firstName,
+                                lastName,
+                                name,
+                                picture,
+                                provider,
+                                oauthId,
+                                request.birthDate()
+                        );
+                    } else {
+                        // 회원가입 폼 pre-fill용: oauthUserInfo 반환
+                        log.info("신규 OAuth 사용자 - 회원가입 폼용 정보 반환: email={}, provider={}", email, provider);
+                        OAuthUserInfo oauthUserInfo = OAuthUserInfo.builder()
+                                .email(email)
+                                .firstName(firstName != null ? firstName : "")
+                                .lastName(lastName != null ? lastName : "")
+                                .name(name != null ? name : "")
+                                .picture(picture)
+                                .provider(provider)
+                                .build();
+                        return LoginResponse.builder()
+                                .needSignup(true)
+                                .oauthUserInfo(oauthUserInfo)
+                                .build();
+                    }
                 }
             }
             
@@ -238,9 +277,10 @@ public class AuthService {
                 throw new DoranDoranException(ErrorCode.USER_ACCOUNT_DISABLED);
             }
             
-            // 4. JWT 토큰 생성
-            String accessToken = jwtService.generateAccessToken(user.id().toString(), user.email(), user.name());
-            String refreshToken = jwtService.generateRefreshToken(user.id().toString(), user.email(), user.name());
+            // 4. JWT 토큰 생성 (role 클레임 포함)
+            String roleClaim = user.role().name();
+            String accessToken = jwtService.generateAccessToken(user.id().toString(), user.email(), user.name(), roleClaim);
+            String refreshToken = jwtService.generateRefreshToken(user.id().toString(), user.email(), user.name(), roleClaim);
             
             // 5. User 엔티티 생성 (로그인 시도 기록용)
             com.dorandoran.auth.entity.User userEntity = com.dorandoran.auth.entity.User.builder()
@@ -354,9 +394,10 @@ public class AuthService {
             String oldHash = tokenBlacklistService.hashToken(refreshToken);
             java.util.Optional<RefreshToken> existing = refreshTokenService.findByHash(oldHash);
 
-            // 새 토큰 생성
-            String newAccessToken = jwtService.generateAccessToken(user.id().toString(), user.email(), user.name());
-            String newRefreshToken = jwtService.generateRefreshToken(user.id().toString(), user.email(), user.name());
+            // 새 토큰 생성 (role 클레임 포함)
+            String roleClaim = user.role().name();
+            String newAccessToken = jwtService.generateAccessToken(user.id().toString(), user.email(), user.name(), roleClaim);
+            String newRefreshToken = jwtService.generateRefreshToken(user.id().toString(), user.email(), user.name(), roleClaim);
 
             java.util.Date newRefreshExp = jwtService.extractExpiration(newRefreshToken);
             String newHash = tokenBlacklistService.hashToken(newRefreshToken);

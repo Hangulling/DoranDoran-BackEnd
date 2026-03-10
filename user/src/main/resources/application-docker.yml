@@ -68,6 +68,10 @@ auth:
   service:
     url: ${AUTH_SERVICE_URL:http://dorandoran-auth:8081}
 
+chat:
+  service:
+    url: ${CHAT_SERVICE_URL:http://dorandoran-chat:8083}
+
 instagram:
   enabled: ${INSTAGRAM_ENABLED:false}
   access-token: ${INSTAGRAM_ACCESS_TOKEN:}
@@ -82,16 +86,17 @@ notification:
 firebase:
   admin:
     json: ${FIREBASE_ADMIN_JSON:}
+    json-base64: ${FIREBASE_ADMIN_JSON_BASE64:}
 
 app:
   deeplink:
     scheme: ${APP_DEEPLINK_SCHEME:dorandoran://chat}
     universal-base: ${APP_DEEPLINK_UNIVERSAL_BASE:https://www.doran-chat.com/chat}
 
-# Gateway HMAC 검증 설정
+# Gateway HMAC 검증 설정 (환경변수로 주입)
 gateway:
   jwt:
-    hmac-secret: 404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970
+    hmac-secret: ${GATEWAY_JWT_HMAC_SECRET:}
     skew-ms: 3600000
 
 # Actuator 설정

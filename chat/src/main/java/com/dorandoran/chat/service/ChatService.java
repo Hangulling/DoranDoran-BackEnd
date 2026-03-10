@@ -51,7 +51,7 @@ public class ChatService {
      */
     @Transactional
     public ChatRoom getOrCreateRoom(UUID userId, UUID chatbotId, String name) {
-        return getOrCreateRoom(userId, chatbotId, name, "FRIEND", 2);
+        return getOrCreateRoom(userId, chatbotId, name, "FRIEND", 1);
     }
     
     /**
@@ -114,6 +114,58 @@ public class ChatService {
         // IntimacyProgress 초기화
         initializeIntimacyProgress(savedRoom.getId(), userId, intimacyLevel);
         
+        return savedRoom;
+    }
+
+    /**
+     * 딥링크 전용: 항상 새 채팅방을 만들고 topic 정보를 settings에 포함한다.
+     * intimacyLevel 이 null이면 친밀도는 나중에 start-greeting API에서 설정한다.
+     */
+    @Transactional
+    public ChatRoom createRoomWithTopic(UUID userId,
+                                        UUID chatbotId,
+                                        String name,
+                                        String concept,
+                                        Integer intimacyLevel,
+                                        String topic) {
+        // User와 Chatbot 객체 조회
+        User user = userRepository.findById(userId)
+            .orElseThrow(() -> new RuntimeException("User not found: " + userId));
+        Chatbot chatbot = chatbotRepository.findById(chatbotId)
+            .orElseThrow(() -> new RuntimeException("Chatbot not found: " + chatbotId));
+
+        // UUID 충돌 방지: 기존 레코드와 겹치지 않을 때까지 생성
+        UUID roomId;
+        do {
+            roomId = UUID.randomUUID();
+        } while (chatRoomRepository.findById(roomId).isPresent());
+
+        // settings에 concept, topic 저장
+        ObjectNode settings = objectMapper.createObjectNode();
+        settings.put("concept", concept);
+        if (topic != null && !topic.isBlank()) {
+            settings.put("topic", topic);
+        }
+
+        ChatRoom room = ChatRoom.builder()
+            .id(roomId)
+            .user(user)
+            .chatbot(chatbot)
+            .name(name)
+            .settings(settings)
+            .isArchived(false)
+            .isDeleted(false)
+            .createdAt(LocalDateTime.now())
+            .updatedAt(LocalDateTime.now())
+            .build();
+
+        ChatRoom savedRoom = chatRoomRepository.save(room);
+
+        // intimacyLevel 이 지정된 경우에만 초기 IntimacyProgress 생성
+        if (intimacyLevel != null) {
+            initializeIntimacyProgress(savedRoom.getId(), userId, intimacyLevel);
+        }
+
         return savedRoom;
     }
 
@@ -509,7 +561,7 @@ public class ChatService {
     public Integer getIntimacyLevel(UUID chatroomId) {
         return intimacyProgressRepository.findByChatRoomId(chatroomId)
             .map(IntimacyProgress::getIntimacyLevel)
-            .orElse(2); // 기본값
+            .orElse(1); // 기본값
     }
     
     /**

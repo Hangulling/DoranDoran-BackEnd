@@ -165,14 +165,14 @@ public class UserIntegrationService {
      */
     @CircuitBreaker(name = "user-service", fallbackMethod = "createOAuthUserFallback")
     @Retry(name = "user-service")
-    public UserDto createOAuthUser(String email, String firstName, String lastName, String name, 
-                                   String picture, String provider, String oauthId) {
+    public UserDto createOAuthUser(String email, String firstName, String lastName, String name,
+                                   String picture, String provider, String oauthId, String birthDate) {
         log.info("User Service 호출 - createOAuthUser: email={}, provider={}", email, provider);
-        return userServiceClient.createOAuthUser(email, firstName, lastName, name, picture, provider, oauthId);
+        return userServiceClient.createOAuthUser(email, firstName, lastName, name, picture, provider, oauthId, birthDate);
     }
     
     public UserDto createOAuthUserFallback(String email, String firstName, String lastName, String name,
-                                           String picture, String provider, String oauthId, Exception ex) {
+                                           String picture, String provider, String oauthId, String birthDate, Exception ex) {
         log.error("User Service 호출 실패 - createOAuthUser: email={}, provider={}, error={}", email, provider, ex.getMessage());
         throw new RuntimeException("User Service를 사용할 수 없습니다. 잠시 후 다시 시도해주세요.");
     }

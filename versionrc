@@ -1,0 +1,74 @@
+{
+  "types": [
+    {
+      "type": "Feat",
+      "section": "✨ New Features",
+      "hidden": false
+    },
+    {
+      "type": "Fix",
+      "section": "🐛 Bug Fixes",
+      "hidden": false
+    },
+    {
+      "type": "!HOTFIX",
+      "section": "🚑 Urgent Hotfixes",
+      "hidden": false
+    },
+    {
+      "type": "Design",
+      "section": "💄 Design Changes",
+      "hidden": false
+    },
+    {
+      "type": "Docs",
+      "section": "📝 Documentation",
+      "hidden": true
+    },
+    {
+      "type": "Style",
+      "section": "🎨 Styles",
+      "hidden": true
+    },
+    {
+      "type": "Refactor",
+      "section": "♻️ Code Refactoring",
+      "hidden": true
+    },
+    {
+      "type": "Test",
+      "section": "✅ Tests",
+      "hidden": true
+    },
+    {
+      "type": "Chore",
+      "section": "📦 Chores",
+      "hidden": true
+    },
+    {
+      "type": "Comment",
+      "section": "💡 Comments",
+      "hidden": true
+    },
+    {
+      "type": "Rename",
+      "section": "🚚 File Renaming",
+      "hidden": true
+    },
+    {
+      "type": "Remove",
+      "section": "🔥 File Removal",
+      "hidden": true
+    }
+  ],
+  "bumpFiles": [
+    {
+      "filename": "package.json",
+      "type": "json"
+    },
+    {
+      "filename": "package-lock.json",
+      "type": "json"
+    }
+  ]
+}

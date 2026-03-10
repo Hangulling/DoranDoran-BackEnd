@@ -67,6 +67,30 @@ spring:
                   factor: 2
                   maxBackoff: 500ms
                   basedOnPreviousValue: true
+
+        # Admin API 라우팅 (User 서비스: prompts, review-tickets, management-queue, chat-logs, audit-logs, support 등)
+        - id: user-service-admin
+          uri: http://dorandoran-user:8082
+          predicates:
+            - Path=/api/admin/**
+          filters: []
+
+        # Home/Support/Notification 라우팅 (User 서비스)
+        - id: user-service-home
+          uri: http://dorandoran-user:8082
+          predicates:
+            - Path=/api/home/**
+          filters: []
+        - id: user-service-support
+          uri: http://dorandoran-user:8082
+          predicates:
+            - Path=/api/support/**
+          filters: []
+        - id: user-service-notifications
+          uri: http://dorandoran-user:8082
+          predicates:
+            - Path=/api/notifications/**
+          filters: []
         
         # Chat 서비스 라우팅
         - id: chat-service
@@ -74,7 +98,21 @@ spring:
           predicates:
             - Path=/api/chat/**
           filters: []
-        
+
+        # 딥링크 라우팅 (User 서비스: path → screen/params)
+        - id: deeplink-route
+          uri: http://dorandoran-user:8082
+          predicates:
+            - Path=/api/deeplink/route
+          filters: []
+
+        # 딥링크 채팅방 생성 (Chat 서비스)
+        - id: deeplink-chatroom
+          uri: http://dorandoran-chat:8083
+          predicates:
+            - Path=/api/deeplink/chatroom/**
+          filters: []
+
         # Store 서비스 라우팅
         - id: store-service
           uri: http://dorandoran-store:8084
@@ -154,6 +192,10 @@ gateway:
   jwt:
     hmac-secret: 404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970
     skew-ms: 3600000
+    # 토큰 검증 캐시: 동일 토큰에 대해 Auth 재호출 생략 (채팅 등 반복 요청 지연 완화)
+    validation-cache-enabled: true
+    validation-cache-ttl-secs: 60
+    validation-cache-max-size: 10000
   security:
     blacklist:
       # 차단할 IP 주소 목록 (쉼표로 구분)

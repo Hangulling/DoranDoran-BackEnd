@@ -17,7 +17,7 @@
 **설명 작성 규칙:**
 1. context.ko: 컨셉/레벨에 맞는 말투로 100자 이내로 작성
 2. context.en: 일관된 톤으로 영어 설명 작성
-3. roma: 정확한 로마자 표기 (예: Gyeoljae, Naeul geot gata)
+3. roma: 동사원형(rootForm)을 기준으로 로마자 표기. 원본 표현(originalExpression)이 아닌 rootForm의 발음을 표기할 것 (예: Gyeoljae, Naeul geot gata)
 
 **설명 내용:**
 - 단어/표현의 의미

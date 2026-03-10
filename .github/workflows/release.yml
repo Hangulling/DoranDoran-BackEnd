@@ -1,0 +1,55 @@
+name: Release & Tag
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      # 전체 히스토리 체크아웃
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.x
+
+      - name: Configure Git
+        run: |
+          git config --global user.name "GitHub Action"
+          git config --global user.email "action@github.com"
+
+      # Standard Version 실행 및 태그 이름 캡처
+      - name: Run Standard Version & Capture Tag
+        id: versioning
+        run: |
+          # package.json 업데이트 및 로컬 태그 생성
+          npx standard-version --skip.changelog 
+
+          # 생성된 태그 이름 추출 (예: v1.3.0)
+          NEW_TAG=$(git describe --tags --abbrev=0)
+          echo "tag_name=$NEW_TAG" >> $GITHUB_OUTPUT
+
+      # 원격 저장소에 커밋과 태그 푸시
+      - name: Push Version Commit and Tag
+        run: |
+          git push --follow-tags origin main
+
+      # Release Drafter가 만든 초안에 최종 태그를 붙여 게시
+      - name: Publish Draft Release with New Tag
+        uses: release-drafter/release-drafter@v5
+        with:
+          # Standard Version이 만든 태그를 사용
+          tag: ${{ steps.versioning.outputs.tag_name }}
+          publish: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

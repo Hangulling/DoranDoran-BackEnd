@@ -1,6 +1,7 @@
 package com.dorandoran.user.service;
 
 import com.dorandoran.user.dto.PostResponse;
+import com.dorandoran.user.dto.PostResponseV2;
 import com.dorandoran.user.entity.PostCache;
 import com.dorandoran.user.repository.PostCacheRepository;
 import lombok.RequiredArgsConstructor;
@@ -13,6 +14,7 @@ import org.springframework.web.client.RestTemplate;
 
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -57,6 +59,32 @@ public class InstagramPostService {
             return Optional.empty();
         }
         return fetchSingleFromInstagram(externalId).map(this::mapToResponse);
+    }
+
+    /** v2 API: 확장 응답 (mediaType, coverImageUrl, assets). v1과 동일하게 Instagram API 우선, 실패 시 DB 캐시 fallback. */
+    @Transactional(readOnly = true)
+    public List<PostResponseV2> getHomePostsV2() {
+        List<PostCache> cached = postCacheRepository.findTop6ByOrderByFetchedAtDesc();
+        if (!enabled || accessToken == null || accessToken.isBlank()) {
+            return cached.stream().map(this::mapToResponseV2).toList();
+        }
+        List<PostCache> fetched = fetchFromInstagram(6);
+        if (!fetched.isEmpty()) {
+            return fetched.stream().map(this::mapToResponseV2).toList();
+        }
+        return cached.stream().map(this::mapToResponseV2).toList();
+    }
+
+    @Transactional(readOnly = true)
+    public Optional<PostResponseV2> getPostByExternalIdV2(String externalId) {
+        Optional<PostCache> cached = postCacheRepository.findById(externalId);
+        if (cached.isPresent()) {
+            return cached.map(this::mapToResponseV2);
+        }
+        if (!enabled || accessToken == null || accessToken.isBlank()) {
+            return Optional.empty();
+        }
+        return fetchSingleFromInstagram(externalId).map(this::mapToResponseV2);
     }
 
     @Transactional
@@ -149,6 +177,24 @@ public class InstagramPostService {
             cache.getDescription(),
             cache.getPermalink(),
             cache.getPublishedAt()
+        );
+    }
+
+    private PostResponseV2 mapToResponseV2(PostCache cache) {
+        String imageUrl = cache.getImageUrl();
+        List<com.dorandoran.user.dto.PostAssetResponse> assets = imageUrl != null && !imageUrl.isBlank()
+            ? List.of(new com.dorandoran.user.dto.PostAssetResponse("IMAGE", imageUrl, null))
+            : Collections.emptyList();
+        return new PostResponseV2(
+            cache.getExternalId(),
+            cache.getTitle(),
+            imageUrl,
+            cache.getDescription(),
+            cache.getPermalink(),
+            cache.getPublishedAt(),
+            "IMAGE",
+            imageUrl,
+            assets
         );
     }
 

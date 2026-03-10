@@ -298,6 +298,11 @@ public class MultiAgentOrchestrator {
             .orElse(1);
     }
     
+    /**
+     * 친밀도 진척(totalCorrections, lastFeedback, progress_data)만 갱신한다.
+     * 채팅방의 intimacyLevel은 여기서 갱신하지 않는다. start-greeting/createRoom/명시적 API에서만 설정되며,
+     * 감지 결과(detectedLevel)는 이력(correctionsHistory)에만 기록하고 DB의 intimacy_level에는 반영하지 않는다.
+     */
     private void updateIntimacyProgress(UUID chatroomId, UUID userId, IntimacyAgentResponse resp) {
         try {
             IntimacyProgress progress = intimacyProgressRepository.findByChatRoomId(chatroomId)
@@ -312,8 +317,7 @@ public class MultiAgentOrchestrator {
                         .totalCorrections(0)
                         .build();
                 });
-            
-            progress.setIntimacyLevel(resp.detectedLevel());
+
             // corrections가 String으로 변경되어 빈 문자열이 아닌 경우에만 카운트 증가
             if (resp.corrections() != null && !resp.corrections().trim().isEmpty()) {
                 progress.setTotalCorrections(progress.getTotalCorrections() + 1);
@@ -349,8 +353,8 @@ public class MultiAgentOrchestrator {
 			}
             
             intimacyProgressRepository.save(progress);
-            log.debug("친밀도 진척 업데이트: chatroomId={}, level={}, corrections={}", 
-                chatroomId, resp.detectedLevel(), progress.getTotalCorrections());
+            log.debug("친밀도 진척 업데이트: chatroomId={}, storedLevel={}, detectedLevel={}, corrections={}",
+                chatroomId, progress.getIntimacyLevel(), resp.detectedLevel(), progress.getTotalCorrections());
         } catch (Exception e) {
             log.error("친밀도 진척 업데이트 실패: chatroomId={}", chatroomId, e);
         }
@@ -610,7 +614,7 @@ public class MultiAgentOrchestrator {
         if (chatService.isMessageCancelled(messageId)) {
             return true;
         }
-        if (!sseManager.hasEmitters(chatroomId)) {
+		if (!sseManager.hasAnySubscribers(chatroomId)) {
             try {
                 chatService.cancelMessage(messageId, userId);
             } catch (Exception ignored) {}

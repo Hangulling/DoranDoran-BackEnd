@@ -27,7 +27,7 @@ public class ChatRoomCreateRequest {
     
     @Min(value = 1, message = "친밀도 레벨은 1 이상이어야 합니다")
     @Max(value = 3, message = "친밀도 레벨은 3 이하여야 합니다")
-    private Integer intimacyLevel = 2; // 1, 2, 3 (기본값: 2)
+    private Integer intimacyLevel = 1; // 1, 2, 3 (기본값: 1)
     
     private String testModel; // "a", "b", "c" (선택적, 테스트 채팅방용)
 }

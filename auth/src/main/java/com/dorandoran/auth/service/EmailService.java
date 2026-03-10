@@ -26,7 +26,7 @@ public class EmailService {
     private String fromAddress;
 
     public void sendVerificationEmail(String toEmail, String verifyLink) {
-        String subject = "[DoranDoran] 이메일 인증을 완료하세요";
+        String subject = "[Koach] 이메일 인증을 완료하세요";
         String htmlBody = buildVerificationHtml(verifyLink);
 
         try {
@@ -57,7 +57,7 @@ public class EmailService {
      * 비밀번호 재설정 코드 발송
      */
     public void sendPasswordResetCode(String toEmail, String code) {
-        String subject = "[DoranDoran] 비밀번호 재설정 인증 코드";
+        String subject = "[Koach] 비밀번호 재설정 인증 코드";
         String htmlBody = buildPasswordResetCodeHtml(code);
 
         try {
@@ -89,33 +89,23 @@ public class EmailService {
                 "<head>\n" +
                 "    <meta charset=\"UTF-8\">\n" +
                 "    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n" +
+                "    <style>body{margin:0;padding:0}.brand-bar{background:#6C51F0;padding:20px;text-align:center}.brand-name{color:#fff;font-size:22px;font-weight:700;letter-spacing:-0.5px}.brand-sub{color:rgba(255,255,255,0.9);font-size:12px;margin-top:4px}.btn-primary{background:#6C51F0;color:#fff;padding:14px 24px;border-radius:8px;text-decoration:none;font-weight:600;display:inline-block}.btn-primary:hover{background:#5a45d4}.card{max-width:600px;margin:0 auto;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 4px 24px rgba(108,81,240,0.12)}.accent-line{height:4px;background:linear-gradient(90deg,#6C51F0,#8B7CF7)}</style>\n" +
                 "</head>\n" +
-                "<body style=\"margin: 0; padding: 0; font-family: 'Noto Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background-color: #f5f5f5;\">\n" +
-                "    <table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" style=\"background-color: #f5f5f5;\">\n" +
-                "        <tr>\n" +
-                "            <td align=\"center\" style=\"padding: 40px 20px;\">\n" +
-                "                <table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" style=\"max-width: 600px; background-color: #ffffff; border-radius: 8px; overflow: hidden;\">\n" +
-                "                    <tr>\n" +
-                "                        <td align=\"center\" style=\"padding: 40px 20px;\">\n" +
-                "                            <h1 style=\"margin: 0 0 24px 0; font-family: 'Noto Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-weight: 500; font-size: 20px; line-height: 1.5; color: #333333; text-align: center;\">DoranDoran 이메일 인증 안내</h1>\n" +
-                "                            <p style=\"margin: 0 0 32px 0; font-family: 'Noto Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-weight: 500; font-size: 14px; line-height: 1.5; color: #666666; text-align: center;\">아래 링크를 클릭하여 이메일 인증을 완료하세요. (5분 내 유효)</p>\n" +
-                "                            <table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\">\n" +
-                "                                <tr>\n" +
-                "                                    <td align=\"center\" style=\"padding: 0;\">\n" +
-                "                                        <a href=\"" + link + "\" target=\"_self\" style=\"display: inline-block; padding: 14px 16px; background-color: rgb(84, 189, 180); color: rgb(255, 255, 255); text-decoration: none; border-radius: 8px; font-family: 'Noto Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-weight: 500; font-size: 14px; line-height: 1.5; text-align: center;\">\n" +
-                "                                            <span style=\"display: inline-block; vertical-align: middle; margin-right: 8px;\">✓</span>\n" +
-                "                                            <span style=\"display: inline-block; vertical-align: middle;\">이메일 인증하기</span>\n" +
-                "                                        </a>\n" +
-                "                                    </td>\n" +
-                "                                </tr>\n" +
-                "                            </table>\n" +
-                // "                            <p style=\"margin: 32px 0 0 0; font-family: 'Noto Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-weight: 500; font-size: 14px; line-height: 1.5; color: #999999; text-align: center;\">링크가 클릭되지 않으면 브라우저 주소창에 복사해서 여세요.</p>\n" +
-                // "                            <p style=\"margin: 16px 0 0 0; font-family: 'Noto Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-weight: 500; font-size: 12px; line-height: 1.5; color: #999999; text-align: center; word-break: break-all;\">" + link + "</p>\n" +
-                "                        </td>\n" +
-                "                    </tr>\n" +
-                "                </table>\n" +
-                "            </td>\n" +
-                "        </tr>\n" +
+                "<body style=\"margin:0;padding:0;font-family:'Noto Sans KR',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#F5F3FF;\">\n" +
+                "    <table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" style=\"background:#F5F3FF;\">\n" +
+                "        <tr><td align=\"center\" style=\"padding:40px 20px;\">\n" +
+                "            <table class=\"card\" width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" style=\"max-width:600px;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 4px 24px rgba(108,81,240,0.12);\">\n" +
+                "                <tr><td class=\"accent-line\" style=\"height:4px;background:linear-gradient(90deg,#6C51F0,#8B7CF7);\"></td></tr>\n" +
+                "                <tr><td class=\"brand-bar\" style=\"background:#6C51F0;padding:20px;text-align:center;\"><div class=\"brand-name\" style=\"color:#fff;font-size:22px;font-weight:700;letter-spacing:-0.5px;\">Koach</div><div class=\"brand-sub\" style=\"color:rgba(255,255,255,0.9);font-size:12px;margin-top:4px;\">코치</div></td></tr>\n" +
+                "                <tr><td align=\"center\" style=\"padding:40px 28px;\">\n" +
+                "                    <h1 style=\"margin:0 0 16px 0;font-size:20px;font-weight:600;color:#1f1f2e;\">이메일 인증을 완료하세요</h1>\n" +
+                "                    <p style=\"margin:0 0 32px 0;font-size:14px;line-height:1.6;color:#666;\">아래 버튼을 클릭하여 이메일 인증을 완료해 주세요.<br><span style=\"color:#6C51F0;font-weight:500;\">(5분 내 유효)</span></p>\n" +
+                "                    <table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\"><tr><td align=\"center\">\n" +
+                "                        <a href=\"" + link + "\" target=\"_self\" class=\"btn-primary\" style=\"display:inline-block;padding:14px 24px;background:#6C51F0;color:#fff;text-decoration:none;border-radius:8px;font-weight:600;font-size:14px;\"><span style=\"margin-right:8px;\">✓</span>이메일 인증하기</a>\n" +
+                "                    </td></tr></table>\n" +
+                "                </td></tr>\n" +
+                "            </table>\n" +
+                "        </td></tr>\n" +
                 "    </table>\n" +
                 "</body>\n" +
                 "</html>";
@@ -127,29 +117,24 @@ public class EmailService {
                 "<head>\n" +
                 "    <meta charset=\"UTF-8\">\n" +
                 "    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n" +
+                "    <style>.brand-bar{background:#6C51F0;padding:20px;text-align:center}.brand-name{color:#fff;font-size:22px;font-weight:700}.code-box{background:#F5F3FF;border:2px solid #6C51F0;border-radius:10px;padding:20px 32px;font-size:32px;font-weight:700;color:#6C51F0;letter-spacing:8px}</style>\n" +
                 "</head>\n" +
-                "<body style=\"margin: 0; padding: 0; font-family: 'Noto Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background-color: #f5f5f5;\">\n" +
-                "    <table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" style=\"background-color: #f5f5f5;\">\n" +
-                "        <tr>\n" +
-                "            <td align=\"center\" style=\"padding: 40px 20px;\">\n" +
-                "                <table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" style=\"max-width: 600px; background-color: #ffffff; border-radius: 8px; overflow: hidden;\">\n" +
-                "                    <tr>\n" +
-                "                        <td align=\"center\" style=\"padding: 40px 20px;\">\n" +
-                "                            <h1 style=\"margin: 0 0 24px 0; font-family: 'Noto Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-weight: 500; font-size: 20px; line-height: 1.5; color: #333333; text-align: center;\">DoranDoran 비밀번호 재설정</h1>\n" +
-                "                            <p style=\"margin: 0 0 32px 0; font-family: 'Noto Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-weight: 500; font-size: 14px; line-height: 1.5; color: #666666; text-align: center;\">아래 인증 코드를 입력하여 비밀번호를 재설정하세요. (5분 내 유효)</p>\n" +
-                "                            <table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\">\n" +
-                "                                <tr>\n" +
-                "                                    <td align=\"center\" style=\"padding: 0 0 24px 0;\">\n" +
-                "                                        <div style=\"display: inline-block; padding: 20px 32px; background-color: #f5f5f5; border-radius: 8px; font-family: 'Noto Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-weight: 600; font-size: 32px; line-height: 1.5; color: #333333; letter-spacing: 8px;\">" + code + "</div>\n" +
-                "                                    </td>\n" +
-                "                                </tr>\n" +
-                "                            </table>\n" +
-                "                            <p style=\"margin: 32px 0 0 0; font-family: 'Noto Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-weight: 500; font-size: 14px; line-height: 1.5; color: #999999; text-align: center;\">본인이 요청하지 않은 경우 이 메일을 무시하세요.</p>\n" +
-                "                        </td>\n" +
-                "                    </tr>\n" +
-                "                </table>\n" +
-                "            </td>\n" +
-                "        </tr>\n" +
+                "<body style=\"margin:0;padding:0;font-family:'Noto Sans KR',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#F5F3FF;\">\n" +
+                "    <table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" style=\"background:#F5F3FF;\">\n" +
+                "        <tr><td align=\"center\" style=\"padding:40px 20px;\">\n" +
+                "            <table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" style=\"max-width:600px;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 4px 24px rgba(108,81,240,0.12);\">\n" +
+                "                <tr><td style=\"height:4px;background:linear-gradient(90deg,#6C51F0,#8B7CF7);\"></td></tr>\n" +
+                "                <tr><td class=\"brand-bar\" style=\"background:#6C51F0;padding:20px;text-align:center;\"><div class=\"brand-name\" style=\"color:#fff;font-size:22px;font-weight:700;letter-spacing:-0.5px;\">Koach</div><div style=\"color:rgba(255,255,255,0.9);font-size:12px;margin-top:4px;\">코치</div></td></tr>\n" +
+                "                <tr><td align=\"center\" style=\"padding:40px 28px;\">\n" +
+                "                    <h1 style=\"margin:0 0 16px 0;font-size:20px;font-weight:600;color:#1f1f2e;\">비밀번호 재설정 인증 코드</h1>\n" +
+                "                    <p style=\"margin:0 0 28px 0;font-size:14px;line-height:1.6;color:#666;\">아래 인증 코드를 앱에 입력하여 비밀번호를 재설정해 주세요.<br><span style=\"color:#6C51F0;font-weight:500;\">(5분 내 유효)</span></p>\n" +
+                "                    <table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\"><tr><td align=\"center\" style=\"padding:0 0 28px 0;\">\n" +
+                "                        <div class=\"code-box\" style=\"display:inline-block;padding:20px 32px;background:#F5F3FF;border:2px solid #6C51F0;border-radius:10px;font-weight:700;font-size:32px;color:#6C51F0;letter-spacing:8px;\">" + code + "</div>\n" +
+                "                    </td></tr></table>\n" +
+                "                    <p style=\"margin:0;font-size:13px;color:#999;text-align:center;\">본인이 요청하지 않은 경우 이 메일을 무시하세요.</p>\n" +
+                "                </td></tr>\n" +
+                "            </table>\n" +
+                "        </td></tr>\n" +
                 "    </table>\n" +
                 "</body>\n" +
                 "</html>";

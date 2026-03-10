@@ -13,6 +13,7 @@ import com.dorandoran.chat.service.AIService;
 import com.dorandoran.chat.service.GreetingService;
 import com.dorandoran.chat.service.MultiAgentOrchestrator;
 import com.dorandoran.chat.service.ChatbotService;
+import com.dorandoran.chat.service.PushNotificationTextService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
@@ -53,6 +54,7 @@ public class ChatController {
     private final GreetingService greetingService;
     private final MultiAgentOrchestrator multiAgentOrchestrator;
     private final ChatbotService chatbotService;
+    private final PushNotificationTextService pushNotificationTextService;
 
     @Operation(summary = "채팅방 생성/조회", description = "새로운 채팅방을 생성하거나 기존 채팅방을 조회합니다.")
     @ApiResponses(value = {
@@ -361,6 +363,33 @@ public class ChatController {
                 "chatbotId", chatbotId
             ));
         }
+    }
+
+    @Operation(summary = "푸시 알림 문구 생성", description = "관계 컨셉/친밀도/주제에 맞는 푸시 알림 body 문구를 LLM으로 생성합니다.")
+    @PostMapping("/push-text")
+    public ResponseEntity<PushTextResponse> generatePushText(@Valid @RequestBody PushTextRequest request) {
+        UUID userId = request.getUserId();
+        if (userId == null) {
+            userId = extractUserIdFromSecurityContext();
+        }
+        if (userId == null) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
+        }
+        int level;
+        if (request.getIntimacyLevel() != null) {
+            level = request.getIntimacyLevel();
+        } else {
+            log.info("intimacyLevel fallback: using default 1 (POST /push-text, request.intimacyLevel=null)");
+            level = 1;
+        }
+        String body = pushNotificationTextService.generatePushBody(
+            userId,
+            request.getChatbotId(),
+            request.getTopic(),
+            request.getConcept(),
+            level
+        );
+        return ResponseEntity.ok(new PushTextResponse(body));
     }
 
     @Operation(summary = "전체 프롬프트 조회 (Concept 반영)", 
@@ -707,6 +736,79 @@ public class ChatController {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of(
                 "success", false,
                 "error", e.getMessage()
+            ));
+        }
+    }
+
+    @Operation(summary = "Greeting 시작", description = "푸시 알림에서 받은 startMessage와 선택한 intimacyLevel로 AI 인사말을 시작합니다.")
+    @ApiResponses(value = {
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Greeting 시작 성공"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "잘못된 요청 데이터"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "채팅방을 찾을 수 없음")
+    })
+    @SecurityRequirement(name = "bearerAuth")
+    @PostMapping("/chatrooms/{chatroomId}/start-greeting")
+    public ResponseEntity<?> startGreeting(
+            @PathVariable UUID chatroomId,
+            @Valid @RequestBody com.dorandoran.chat.service.dto.StartGreetingRequest request,
+            @RequestHeader(value = "X-User-Id", required = false) String xUserIdHeader) {
+        // 컨트롤러 진입 시 SecurityContext 상태 확인
+        Authentication controllerAuth = SecurityContextHolder.getContext().getAuthentication();
+        log.debug("startGreeting 컨트롤러 진입: chatroomId={}, SecurityContext auth={}, X-User-Id 헤더={}", 
+                chatroomId, (controllerAuth != null ? controllerAuth.getPrincipal() : "null"), 
+                (xUserIdHeader != null ? xUserIdHeader : "(없음)"));
+        
+        UUID userId = extractUserIdFromSecurityContext();
+        if (userId == null && xUserIdHeader != null && !xUserIdHeader.isBlank()) {
+            try {
+                userId = UUID.fromString(xUserIdHeader.trim());
+                log.debug("start-greeting: SecurityContext 비어있어 X-User-Id 헤더로 fallback, userId={}", userId);
+            } catch (IllegalArgumentException ignored) { }
+        }
+        if (userId == null) {
+            log.warn("start-greeting 401: SecurityContext userId=null, chatroomId={}, X-User-Id 헤더 present={}, value={}",
+                    chatroomId, (xUserIdHeader != null && !xUserIdHeader.isBlank()), (xUserIdHeader != null ? xUserIdHeader : "(없음)"));
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("error", "사용자 인증이 필요합니다"));
+        }
+        
+        // 채팅방 접근 권한 확인
+        if (!chatRoomRepository.existsByUser_IdAndIdAndIsDeletedFalse(userId, chatroomId)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", "채팅방 접근 권한이 없습니다"));
+        }
+        
+        try {
+            ChatRoom room = chatService.getChatRoomById(chatroomId);
+            String conceptStr = chatService.getConcept(chatroomId);
+            ChatRoomConcept concept = ChatRoomConcept.valueOf(conceptStr != null ? conceptStr : "FRIEND");
+            
+            // intimacyLevel 업데이트
+            chatService.updateIntimacyLevel(chatroomId, userId, request.getIntimacyLevel());
+            
+            // startMessage를 사용하여 greeting 시작
+            GreetingResponse greetingResponse = greetingService.sendGreeting(
+                chatroomId,
+                userId,
+                concept,
+                request.getIntimacyLevel(),
+                request.getStartMessage() // startMessage 전달
+            );
+            
+            return ResponseEntity.ok(Map.of(
+                "success", true,
+                "message", "Greeting이 시작되었습니다",
+                "greeting", greetingResponse
+            ));
+        } catch (RuntimeException e) {
+            log.error("Greeting 시작 실패: chatroomId={}, error={}", chatroomId, e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of(
+                "success", false,
+                "error", e.getMessage()
+            ));
+        } catch (Exception e) {
+            log.error("Greeting 시작 중 예외 발생: chatroomId={}", chatroomId, e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of(
+                "success", false,
+                "error", "Greeting 시작 중 오류가 발생했습니다"
             ));
         }
     }

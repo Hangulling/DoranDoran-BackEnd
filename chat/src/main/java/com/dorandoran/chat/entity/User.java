@@ -120,6 +120,7 @@ public class User {
      */
     public enum OAuthProvider {
         GOOGLE,
+        APPLE,
         FACEBOOK,
         KAKAO,
         NAVER

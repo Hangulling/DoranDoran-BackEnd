@@ -23,6 +23,8 @@ public class SecurityConfig {
                 .pathMatchers("/actuator/**").permitAll()
                 // API 경로는 모든 접근 허용 (MSA 내부 통신용)
                 .pathMatchers("/api/**").permitAll()
+                // WebSocket 채팅: JwtAuthFilter에서 쿼리 token으로 검증 (브라우저는 헤더 미지원)
+                .pathMatchers("/ws/chat/**").permitAll()
                 // 루트 경로는 모든 접근 허용
                 .pathMatchers("/").permitAll()
                 // 기타 모든 요청은 인증 필요
@@ -48,6 +50,7 @@ public class SecurityConfig {
         corsConfig.addAllowedOrigin("http://127.0.0.1:3001");
         corsConfig.addAllowedOrigin("https://localhost");
         corsConfig.addAllowedOrigin("capacitor://localhost");
+        corsConfig.addAllowedOrigin("ionic://localhost");
         
         // 프로덕션 도메인
         corsConfig.addAllowedOrigin("https://doran-chat.com");

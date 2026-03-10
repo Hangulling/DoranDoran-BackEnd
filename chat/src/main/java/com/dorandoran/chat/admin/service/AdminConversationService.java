@@ -52,9 +52,14 @@ public class AdminConversationService {
         }
 
         Pageable pageable = PageRequest.of(page, size);
-        Page<ChatRoom> roomPage = chatRoomRepository.findAdminConversations(
-            userId, from, to, roomKey, intimacyLevel, pageable
-        );
+        Page<ChatRoom> roomPage;
+        if (userId == null && from == null && to == null && (roomKey == null || roomKey.isBlank()) && intimacyLevel == null) {
+            roomPage = chatRoomRepository.findAllForAdminOrderByLastMessageAtDesc(pageable);
+        } else {
+            roomPage = chatRoomRepository.findAdminConversations(
+                userId, from, to, roomKey, intimacyLevel, pageable
+            );
+        }
 
         List<AdminConversationListItem> content = roomPage.getContent().stream()
             .map(room -> AdminConversationListItem.builder()
@@ -142,8 +147,10 @@ public class AdminConversationService {
     ) {
         int offset = page * size;
 
-        String baseWhere = "WHERE cr.is_deleted = false " +
-            "AND (:userId IS NULL OR cr.user_id = :userId) " +
+        log.debug("[Archive 목록] 요청 파라미터: userId={}, userEmail={}, from={}, to={}, roomKey={}, intimacyLevel={}, page={}, size={}, offset={}",
+                userId, userEmail, from, to, roomKey, intimacyLevel, page, size, offset);
+
+        String baseWhere = "WHERE (:userId IS NULL OR cr.user_id = :userId) " +
             "AND (:userEmail IS NULL OR cr.user_email_snapshot ILIKE '%' || :userEmail || '%') " +
             "AND (:from IS NULL OR cr.last_message_at >= :from) " +
             "AND (:to IS NULL OR cr.last_message_at <= :to) " +
@@ -161,30 +168,51 @@ public class AdminConversationService {
 
         String countSql = "SELECT COUNT(*) FROM archive_schema.arch_chatrooms cr " + baseWhere;
 
+        String effectiveUserEmail = (userEmail != null && !userEmail.isBlank()) ? userEmail : null;
+        String effectiveRoomKey = (roomKey != null && !roomKey.isBlank()) ? roomKey : null;
         MapSqlParameterSource params = new MapSqlParameterSource()
             .addValue("userId", userId)
-            .addValue("userEmail", (userEmail != null && !userEmail.isBlank()) ? userEmail : null)
+            .addValue("userEmail", effectiveUserEmail)
             .addValue("from", from)
             .addValue("to", to)
-            .addValue("roomKey", (roomKey != null && !roomKey.isBlank()) ? roomKey : null)
+            .addValue("roomKey", effectiveRoomKey)
             .addValue("intimacyLevel", intimacyLevel)
             .addValue("size", size)
             .addValue("offset", offset);
 
-        List<AdminConversationListItem> content = namedParameterJdbcTemplate.query(
-            listSql,
-            params,
-            (rs, rowNum) -> AdminConversationListItem.builder()
-                .conversationId(UUID.fromString(rs.getString("conversation_id")))
-                .userId(rs.getString("user_id") != null ? UUID.fromString(rs.getString("user_id")) : null)
-                .roomKey(rs.getString("room_key"))
-                .intimacyLevel((Integer) rs.getObject("intimacy_level"))
-                .lastMessageAt(rs.getTimestamp("last_message_at") != null ? rs.getTimestamp("last_message_at").toLocalDateTime() : null)
-                .lastSequenceNumber(rs.getObject("last_sequence_number") != null ? rs.getLong("last_sequence_number") : null)
-                .build()
-        );
+        log.debug("[Archive 목록] SQL 실행: listSql 길이={}, 바인딩 params: userId={}, userEmail={}, size={}, offset={}",
+                listSql.length(), userId, effectiveUserEmail, size, offset);
 
-        Long totalElements = namedParameterJdbcTemplate.queryForObject(countSql, params, Long.class);
+        List<AdminConversationListItem> content;
+        try {
+            content = namedParameterJdbcTemplate.query(
+                listSql,
+                params,
+                (rs, rowNum) -> AdminConversationListItem.builder()
+                    .conversationId(UUID.fromString(rs.getString("conversation_id")))
+                    .userId(rs.getString("user_id") != null ? UUID.fromString(rs.getString("user_id")) : null)
+                    .roomKey(rs.getString("room_key"))
+                    .intimacyLevel((Integer) rs.getObject("intimacy_level"))
+                    .lastMessageAt(rs.getTimestamp("last_message_at") != null ? rs.getTimestamp("last_message_at").toLocalDateTime() : null)
+                    .lastSequenceNumber(rs.getObject("last_sequence_number") != null ? rs.getLong("last_sequence_number") : null)
+                    .build()
+            );
+        } catch (Exception e) {
+            log.error("[Archive 목록] SQL 실행 실패: userId={}, userEmail={}, page={}, size={}, error={}, exceptionClass={}",
+                    userId, effectiveUserEmail, page, size, e.getMessage(), e.getClass().getName(), e);
+            throw e;
+        }
+
+        log.debug("[Archive 목록] 목록 조회 성공: contentSize={}", content.size());
+
+        Long totalElements;
+        try {
+            totalElements = namedParameterJdbcTemplate.queryForObject(countSql, params, Long.class);
+        } catch (Exception e) {
+            log.error("[Archive 목록] COUNT SQL 실행 실패: userId={}, userEmail={}, error={}, exceptionClass={}",
+                    userId, effectiveUserEmail, e.getMessage(), e.getClass().getName(), e);
+            throw e;
+        }
         int totalPages = totalElements == null ? 0 : (int) Math.ceil(totalElements / (double) size);
 
         return AdminConversationListResponse.builder()
@@ -199,6 +227,8 @@ public class AdminConversationService {
     }
 
     private AdminConversationDetailResponse getArchiveConversationDetail(UUID conversationId) {
+        log.debug("[Archive 상세] 요청: conversationId={}", conversationId);
+
         String sql = "SELECT source_message_id, sender_type, content, content_type, " +
             "metadata_json::text AS metadata, sequence_number, turn_number, source_created_at " +
             "FROM archive_schema.arch_messages " +
@@ -208,24 +238,33 @@ public class AdminConversationService {
         MapSqlParameterSource params = new MapSqlParameterSource()
             .addValue("conversationId", conversationId);
 
-        List<AdminConversationMessageResponse> timeline = namedParameterJdbcTemplate.query(
-            sql,
-            params,
-            (rs, rowNum) -> AdminConversationMessageResponse.builder()
-                .messageId(rs.getString("source_message_id") != null
-                    ? UUID.fromString(rs.getString("source_message_id"))
-                    : null)
-                .senderType(rs.getString("sender_type"))
-                .content(rs.getString("content"))
-                .contentType(rs.getString("content_type"))
-                .metadata(rs.getString("metadata"))
-                .sequenceNumber(rs.getLong("sequence_number"))
-                .turnNumber(rs.getLong("turn_number"))
-                .createdAt(rs.getTimestamp("source_created_at") != null
-                    ? rs.getTimestamp("source_created_at").toLocalDateTime()
-                    : null)
-                .build()
-        );
+        List<AdminConversationMessageResponse> timeline;
+        try {
+            timeline = namedParameterJdbcTemplate.query(
+                sql,
+                params,
+                (rs, rowNum) -> AdminConversationMessageResponse.builder()
+                    .messageId(rs.getString("source_message_id") != null
+                        ? UUID.fromString(rs.getString("source_message_id"))
+                        : null)
+                    .senderType(rs.getString("sender_type"))
+                    .content(rs.getString("content"))
+                    .contentType(rs.getString("content_type"))
+                    .metadata(rs.getString("metadata"))
+                    .sequenceNumber(rs.getLong("sequence_number"))
+                    .turnNumber(rs.getLong("turn_number"))
+                    .createdAt(rs.getTimestamp("source_created_at") != null
+                        ? rs.getTimestamp("source_created_at").toLocalDateTime()
+                        : null)
+                    .build()
+            );
+        } catch (Exception e) {
+            log.error("[Archive 상세] SQL 실행 실패: conversationId={}, error={}, exceptionClass={}",
+                    conversationId, e.getMessage(), e.getClass().getName(), e);
+            throw e;
+        }
+
+        log.debug("[Archive 상세] 조회 성공: conversationId={}, messageCount={}", conversationId, timeline.size());
 
         return AdminConversationDetailResponse.builder()
             .conversationId(conversationId)

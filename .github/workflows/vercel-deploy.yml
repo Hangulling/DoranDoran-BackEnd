@@ -1,0 +1,32 @@
+# Vercel 자동 배포
+# main 브랜치 푸시 시 프로덕션 배포, develop 등 다른 브랜치 푸시 시 Preview 배포
+#
+# 필수 시크릿: VERCEL_TOKEN, VERCEL_ORG_ID, VERCEL_PROJECT_ID
+# 설정 방법: docs/deployment/dorandoran-web-vercel.md 의 "자동화 (GitHub Actions)" 참고
+
+name: Vercel Deploy
+
+on:
+  push:
+    branches: [main, develop]
+
+env:
+  # 모노레포에서 배포할 앱 경로 (루트 배포 시 '.', 서브폴더 예: 'Koach-Admin')
+  VERCEL_WORKING_DIR: .
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Deploy to Vercel
+        uses: amondnet/vercel-action@v25
+        with:
+          vercel-token: ${{ secrets.VERCEL_TOKEN }}
+          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
+          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
+          working-directory: ${{ env.VERCEL_WORKING_DIR }}
+          # main 푸시 시에만 프로덕션 배포, 나머지는 Preview
+          vercel-args: ${{ github.ref == 'refs/heads/main' && '--prod' || '' }}

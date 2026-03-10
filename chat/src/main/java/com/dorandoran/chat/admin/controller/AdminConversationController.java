@@ -54,7 +54,7 @@ public class AdminConversationController {
 
             return ResponseEntity.ok(response);
         } catch (Exception e) {
-            log.error("대화 목록 조회 실패", e);
+            log.error("대화 목록 조회 실패: {} - {}", e.getMessage(), e);
             return ResponseEntity.internalServerError().build();
         }
     }
@@ -69,7 +69,7 @@ public class AdminConversationController {
             AdminConversationDetailResponse response = adminConversationService.getConversationDetail(conversationId, dataSource);
             return ResponseEntity.ok(response);
         } catch (Exception e) {
-            log.error("대화 상세 조회 실패", e);
+            log.error("대화 상세 조회 실패: {} - {}", e.getMessage(), e);
             return ResponseEntity.internalServerError().build();
         }
     }

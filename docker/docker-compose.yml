@@ -51,6 +51,13 @@ services:
       - SPRING_MAIL_USERNAME=${SPRING_MAIL_USERNAME}
       - SPRING_MAIL_PASSWORD=${SPRING_MAIL_PASSWORD}
       - FRONTEND_URL=${FRONTEND_URL}
+      # Apple OAuth 웹 플로우 (AOS)
+      - APPLE_OAUTH_SERVICE_ID=${APPLE_OAUTH_SERVICE_ID:-com.koach.apple.login}
+      - APPLE_OAUTH_REDIRECT_URI=${APPLE_OAUTH_REDIRECT_URI:-https://api.doran-chat.com/api/auth/oauth/callback}
+      - OAUTH_APP_REDIRECT_BASE=${OAUTH_APP_REDIRECT_BASE:-dorandoran://oauth-callback}
+      - APPLE_OAUTH_TEAM_ID=${APPLE_OAUTH_TEAM_ID:-}
+      - APPLE_OAUTH_KEY_ID=${APPLE_OAUTH_KEY_ID:-}
+      - APPLE_OAUTH_PRIVATE_KEY=${APPLE_OAUTH_PRIVATE_KEY:-}
     depends_on:
       shared-db:
         condition: service_healthy

@@ -499,9 +499,10 @@ public class IntimacyAgent {
             log.info("=== validateIntimacyLevel: 레벨 검증 통과 - level={} ===", level);
             return level;
         } catch (Exception e) {
-            log.error("IntimacyAgent 컨셉 검증 실패: {} - 기본값 Level 2 사용, concept='{}', exception={}", 
+            log.error("IntimacyAgent 컨셉 검증 실패: {} - 기본값 Level 1 사용, concept='{}', exception={}",
                 e.getMessage(), concept, e.getClass().getSimpleName(), e);
-            return 2; // 기본값
+            log.info("intimacyLevel fallback: using default 1 (IntimacyAgent.validateIntimacyLevel, concept validation failed, concept='{}')", concept);
+            return 1; // 기본값
         }
     }
     
@@ -559,7 +560,10 @@ public class IntimacyAgent {
                 - 하다 → 진행하다/수행하다 (업무 맥락)
                 잘못된 예: "밥 드셨어요?" → "식사하셨어요?" 로 교정 필수
                 """;
-            default -> getBossGuideline(2); // Level 3은 Level 2로 처리
+            default -> {
+                log.info("intimacyLevel fallback: BOSS concept level 3 not allowed (max 2), using Level 1 guideline");
+                yield getBossGuideline(1); // Level 3은 Level 1로 처리
+            }
         };
     }
     
