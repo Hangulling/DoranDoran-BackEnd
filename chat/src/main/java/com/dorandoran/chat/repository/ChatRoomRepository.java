@@ -62,7 +62,7 @@ public interface ChatRoomRepository extends JpaRepository<ChatRoom, UUID> {
 
     @Query(value = "SELECT cr.* FROM chat_schema.chatrooms cr " +
            "JOIN chat_schema.chatbots cb ON cr.chatbot_id = cb.id " +
-           "WHERE (:userId IS NULL OR cr.user_id = :userId::uuid) " +
+           "WHERE (:userId IS NULL OR cr.user_id = CAST(:userId AS uuid)) " +
            "AND (:from IS NULL OR cr.last_message_at >= :from) " +
            "AND (:to IS NULL OR cr.last_message_at <= :to) " +
            "AND (:roomKey IS NULL OR (cr.settings->>'concept') = :roomKey) " +
@@ -70,7 +70,7 @@ public interface ChatRoomRepository extends JpaRepository<ChatRoom, UUID> {
            "ORDER BY cr.last_message_at DESC NULLS LAST",
            countQuery = "SELECT COUNT(*) FROM chat_schema.chatrooms cr " +
                        "JOIN chat_schema.chatbots cb ON cr.chatbot_id = cb.id " +
-                       "WHERE (:userId IS NULL OR cr.user_id = :userId::uuid) " +
+                       "WHERE (:userId IS NULL OR cr.user_id = CAST(:userId AS uuid)) " +
                        "AND (:from IS NULL OR cr.last_message_at >= :from) " +
                        "AND (:to IS NULL OR cr.last_message_at <= :to) " +
                        "AND (:roomKey IS NULL OR (cr.settings->>'concept') = :roomKey) " +
