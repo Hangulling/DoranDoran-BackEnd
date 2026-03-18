@@ -1,5 +1,6 @@
 package com.dorandoran.user.entity;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
@@ -8,7 +9,8 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.time.LocalDateTime;
 
@@ -42,7 +44,20 @@ public class PostCache {
     @Column(name = "published_at")
     private LocalDateTime publishedAt;
 
-    @CreationTimestamp
+    /** API media_type: IMAGE, VIDEO, CAROUSEL_ALBUM */
+    @Column(name = "media_type", length = 20)
+    private String mediaType;
+
+    /** 리스트 썸네일/대표 이미지 URL */
+    @Column(name = "cover_image_url", columnDefinition = "TEXT")
+    private String coverImageUrl;
+
+    /** [{ "type": "IMAGE"|"VIDEO", "url": "...", "thumbnailUrl": "..." }] */
+    @Column(name = "assets", columnDefinition = "jsonb")
+    @JdbcTypeCode(SqlTypes.JSON)
+    private JsonNode assets;
+
+    /** 캐시 갱신 시각 (API 성공 시 업데이트) */
     @Column(name = "fetched_at", nullable = false)
     private LocalDateTime fetchedAt;
 }

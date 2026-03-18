@@ -1,9 +1,13 @@
 package com.dorandoran.user.service;
 
+import com.dorandoran.user.dto.PostAssetResponse;
 import com.dorandoran.user.dto.PostResponse;
 import com.dorandoran.user.dto.PostResponseV2;
 import com.dorandoran.user.entity.PostCache;
 import com.dorandoran.user.repository.PostCacheRepository;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -11,10 +15,12 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestTemplate;
+import org.springframework.web.util.UriComponentsBuilder;
 
+import java.net.URI;
+import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -24,8 +30,13 @@ import java.util.Optional;
 @Slf4j
 public class InstagramPostService {
 
+    private static final String GRAPH_API_BASE_URL = "https://graph.instagram.com";
+    private static final String MEDIA_FIELDS = "id,caption,media_url,media_type,thumbnail_url,permalink,timestamp,children{media_type,media_url,thumbnail_url}";
+    private static final String CHILDREN_FIELDS = "media_type,media_url,thumbnail_url";
+
     private final RestTemplate restTemplate;
     private final PostCacheRepository postCacheRepository;
+    private final ObjectMapper objectMapper;
 
     @Value("${instagram.enabled:false}")
     private boolean enabled;
@@ -36,7 +47,7 @@ public class InstagramPostService {
     @Value("${instagram.user-id:}")
     private String userId;
 
-    @Transactional(readOnly = true)
+    @Transactional
     public List<PostResponse> getHomePosts() {
         List<PostResponse> cached = mapToResponses(postCacheRepository.findTop6ByOrderByFetchedAtDesc());
         if (!enabled || accessToken == null || accessToken.isBlank()) {
@@ -49,7 +60,7 @@ public class InstagramPostService {
         return cached;
     }
 
-    @Transactional(readOnly = true)
+    @Transactional
     public Optional<PostResponse> getPostByExternalId(String externalId) {
         Optional<PostCache> cached = postCacheRepository.findById(externalId);
         if (cached.isPresent()) {
@@ -62,7 +73,7 @@ public class InstagramPostService {
     }
 
     /** v2 API: 확장 응답 (mediaType, coverImageUrl, assets). v1과 동일하게 Instagram API 우선, 실패 시 DB 캐시 fallback. */
-    @Transactional(readOnly = true)
+    @Transactional
     public List<PostResponseV2> getHomePostsV2() {
         List<PostCache> cached = postCacheRepository.findTop6ByOrderByFetchedAtDesc();
         if (!enabled || accessToken == null || accessToken.isBlank()) {
@@ -75,7 +86,7 @@ public class InstagramPostService {
         return cached.stream().map(this::mapToResponseV2).toList();
     }
 
-    @Transactional(readOnly = true)
+    @Transactional
     public Optional<PostResponseV2> getPostByExternalIdV2(String externalId) {
         Optional<PostCache> cached = postCacheRepository.findById(externalId);
         if (cached.isPresent()) {
@@ -87,20 +98,23 @@ public class InstagramPostService {
         return fetchSingleFromInstagram(externalId).map(this::mapToResponseV2);
     }
 
-    @Transactional
     protected List<PostCache> fetchFromInstagram(int limit) {
         try {
             String target = (userId == null || userId.isBlank()) ? "me" : userId;
-            String url = String.format(
-                "https://graph.instagram.com/%s/media?fields=id,caption,media_url,permalink,timestamp&access_token=%s&limit=%d",
-                target,
-                accessToken,
-                limit
-            );
-            Map<String, Object> response = restTemplate.getForObject(url, Map.class);
+            URI uri = UriComponentsBuilder.fromHttpUrl(GRAPH_API_BASE_URL + "/" + target + "/media")
+                .queryParam("fields", MEDIA_FIELDS)
+                .queryParam("access_token", accessToken)
+                .queryParam("limit", limit)
+                .build()
+                .encode()
+                .toUri();
+
+            Map<String, Object> response = restTemplate.getForObject(uri, Map.class);
             if (response == null || !response.containsKey("data")) {
                 return List.of();
             }
+
+            @SuppressWarnings("unchecked")
             List<Map<String, Object>> data = (List<Map<String, Object>>) response.get("data");
             List<PostCache> saved = new ArrayList<>();
             for (Map<String, Object> item : data) {
@@ -108,14 +122,7 @@ public class InstagramPostService {
                 if (id == null || id.isBlank()) {
                     continue;
                 }
-                PostCache cache = PostCache.builder()
-                    .externalId(id)
-                    .title(extractTitle(safeString(item.get("caption"))))
-                    .description(safeString(item.get("caption")))
-                    .imageUrl(safeString(item.get("media_url")))
-                    .permalink(safeString(item.get("permalink")))
-                    .publishedAt(parseTimestamp(safeString(item.get("timestamp"))))
-                    .build();
+                PostCache cache = buildPostCacheFromItem(id, item);
                 postCacheRepository.save(cache);
                 saved.add(cache);
             }
@@ -126,30 +133,26 @@ public class InstagramPostService {
         }
     }
 
-    @Transactional
     protected Optional<PostCache> fetchSingleFromInstagram(String externalId) {
         try {
-            String url = String.format(
-                "https://graph.instagram.com/%s?fields=id,caption,media_url,permalink,timestamp&access_token=%s",
-                externalId,
-                accessToken
-            );
-            Map<String, Object> item = restTemplate.getForObject(url, Map.class);
+            URI uri = UriComponentsBuilder.fromHttpUrl(GRAPH_API_BASE_URL + "/" + externalId)
+                .queryParam("fields", MEDIA_FIELDS)
+                .queryParam("access_token", accessToken)
+                .build()
+                .encode()
+                .toUri();
+
+            @SuppressWarnings("unchecked")
+            Map<String, Object> item = restTemplate.getForObject(uri, Map.class);
             if (item == null || !item.containsKey("id")) {
                 return Optional.empty();
             }
+
             String id = safeString(item.get("id"));
             if (id == null || id.isBlank()) {
                 return Optional.empty();
             }
-            PostCache cache = PostCache.builder()
-                .externalId(id)
-                .title(extractTitle(safeString(item.get("caption"))))
-                .description(safeString(item.get("caption")))
-                .imageUrl(safeString(item.get("media_url")))
-                .permalink(safeString(item.get("permalink")))
-                .publishedAt(parseTimestamp(safeString(item.get("timestamp"))))
-                .build();
+            PostCache cache = buildPostCacheFromItem(id, item);
             return Optional.of(postCacheRepository.save(cache));
         } catch (Exception e) {
             log.warn("인스타그램 게시글 단건 조회 실패: externalId={}, error={}", externalId, e.getMessage());
@@ -182,9 +185,16 @@ public class InstagramPostService {
 
     private PostResponseV2 mapToResponseV2(PostCache cache) {
         String imageUrl = cache.getImageUrl();
-        List<com.dorandoran.user.dto.PostAssetResponse> assets = imageUrl != null && !imageUrl.isBlank()
-            ? List.of(new com.dorandoran.user.dto.PostAssetResponse("IMAGE", imageUrl, null))
-            : Collections.emptyList();
+        String mediaType = (cache.getMediaType() != null && !cache.getMediaType().isBlank())
+            ? cache.getMediaType()
+            : inferMediaType(imageUrl);
+        String coverImageUrl = (cache.getCoverImageUrl() != null && !cache.getCoverImageUrl().isBlank())
+            ? cache.getCoverImageUrl()
+            : imageUrl;
+        List<PostAssetResponse> assets = parseAssets(cache.getAssets());
+        if (assets.isEmpty() && imageUrl != null && !imageUrl.isBlank()) {
+            assets = List.of(new PostAssetResponse(mediaType, imageUrl, null));
+        }
         return new PostResponseV2(
             cache.getExternalId(),
             cache.getTitle(),
@@ -192,10 +202,152 @@ public class InstagramPostService {
             cache.getDescription(),
             cache.getPermalink(),
             cache.getPublishedAt(),
-            "IMAGE",
-            imageUrl,
+            mediaType,
+            coverImageUrl,
             assets
         );
+    }
+
+    private List<PostAssetResponse> parseAssets(JsonNode json) {
+        if (json == null || json.isNull() || json.isMissingNode()) {
+            return List.of();
+        }
+        try {
+            return objectMapper.convertValue(json, new TypeReference<>() {});
+        } catch (Exception e) {
+            log.debug("assets JSON 파싱 실패: {}", e.getMessage());
+            return List.of();
+        }
+    }
+
+    private PostCache buildPostCacheFromItem(String id, Map<String, Object> item) {
+        String mediaTypeRaw = safeString(item.get("media_type"));
+        String mediaType = normalizeMediaType(mediaTypeRaw);
+        String mediaUrl = safeString(item.get("media_url"));
+        String thumbnailUrl = safeString(item.get("thumbnail_url"));
+
+        List<PostAssetResponse> assetList;
+        String coverImageUrl;
+
+        if ("CAROUSEL_ALBUM".equals(mediaType)) {
+            assetList = buildAssetsFromChildren(item.get("children"));
+            if (assetList.isEmpty()) {
+                assetList = fetchChildrenFromApi(id);
+            }
+            coverImageUrl = assetList.isEmpty()
+                ? mediaUrl
+                : (assetList.get(0).thumbnailUrl() != null ? assetList.get(0).thumbnailUrl() : assetList.get(0).url());
+        } else if ("VIDEO".equals(mediaType)) {
+            assetList = List.of(new PostAssetResponse("VIDEO", mediaUrl, thumbnailUrl));
+            coverImageUrl = thumbnailUrl != null && !thumbnailUrl.isBlank() ? thumbnailUrl : mediaUrl;
+        } else {
+            assetList = List.of(new PostAssetResponse("IMAGE", mediaUrl, null));
+            coverImageUrl = mediaUrl;
+        }
+
+        JsonNode assetsJson = toAssetsJson(assetList);
+        String imageUrl = coverImageUrl != null ? coverImageUrl : mediaUrl;
+
+        return PostCache.builder()
+            .externalId(id)
+            .title(extractTitle(safeString(item.get("caption"))))
+            .description(safeString(item.get("caption")))
+            .imageUrl(imageUrl)
+            .mediaType(mediaType)
+            .coverImageUrl(coverImageUrl)
+            .assets(assetsJson)
+            .permalink(safeString(item.get("permalink")))
+            .publishedAt(parseTimestamp(safeString(item.get("timestamp"))))
+            .fetchedAt(LocalDateTime.now())
+            .build();
+    }
+
+    private JsonNode toAssetsJson(List<PostAssetResponse> assets) {
+        if (assets == null || assets.isEmpty()) {
+            return null;
+        }
+        try {
+            return objectMapper.valueToTree(assets);
+        } catch (Exception e) {
+            log.warn("assets JSON 직렬화 실패: {}", e.getMessage());
+            return null;
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private List<PostAssetResponse> fetchChildrenFromApi(String mediaId) {
+        try {
+            URI uri = UriComponentsBuilder.fromHttpUrl(GRAPH_API_BASE_URL + "/" + mediaId + "/children")
+                .queryParam("fields", CHILDREN_FIELDS)
+                .queryParam("access_token", accessToken)
+                .build()
+                .encode()
+                .toUri();
+            Map<String, Object> response = restTemplate.getForObject(uri, Map.class);
+            if (response == null || !response.containsKey("data")) {
+                return List.of();
+            }
+            Object dataObj = response.get("data");
+            if (!(dataObj instanceof List)) {
+                return List.of();
+            }
+            return buildAssetsFromRawChildren((List<?>) dataObj);
+        } catch (Exception e) {
+            log.warn("캐러셀 children 조회 실패: mediaId={}, error={}", mediaId, e.getMessage());
+            return List.of();
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private List<PostAssetResponse> buildAssetsFromChildren(Object childrenObj) {
+        if (!(childrenObj instanceof Map)) {
+            return List.of();
+        }
+        Object dataObj = ((Map<String, Object>) childrenObj).get("data");
+        if (!(dataObj instanceof List)) {
+            return List.of();
+        }
+        return buildAssetsFromRawChildren((List<?>) dataObj);
+    }
+
+    @SuppressWarnings("unchecked")
+    private List<PostAssetResponse> buildAssetsFromRawChildren(List<?> dataList) {
+        List<PostAssetResponse> result = new ArrayList<>();
+        for (Object childObj : dataList) {
+            if (!(childObj instanceof Map)) {
+                continue;
+            }
+            Map<String, Object> child = (Map<String, Object>) childObj;
+            String childType = normalizeMediaType(safeString(child.get("media_type")));
+            if (childType == null || (!"IMAGE".equals(childType) && !"VIDEO".equals(childType))) {
+                childType = "IMAGE";
+            }
+            String url = safeString(child.get("media_url"));
+            String thumb = safeString(child.get("thumbnail_url"));
+            if (url != null && !url.isBlank()) {
+                result.add(new PostAssetResponse(childType, url, thumb));
+            }
+        }
+        return result;
+    }
+
+    private String normalizeMediaType(String value) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+        String v = value.trim().toUpperCase();
+        return ("IMAGE".equals(v) || "VIDEO".equals(v) || "CAROUSEL_ALBUM".equals(v)) ? v : null;
+    }
+
+    private String inferMediaType(String url) {
+        if (url == null || url.isBlank()) {
+            return "IMAGE";
+        }
+        String path = url.split("\\?")[0].toLowerCase();
+        if (path.endsWith(".mp4") || path.contains(".mp4") || path.contains("/video")) {
+            return "VIDEO";
+        }
+        return "IMAGE";
     }
 
     private String extractTitle(String caption) {
@@ -210,7 +362,7 @@ public class InstagramPostService {
         return value == null ? null : value.toString();
     }
 
-    private java.time.LocalDateTime parseTimestamp(String value) {
+    private LocalDateTime parseTimestamp(String value) {
         if (value == null || value.isBlank()) {
             return null;
         }
