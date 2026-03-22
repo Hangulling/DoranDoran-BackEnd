@@ -1,8 +1,12 @@
 package com.dorandoran.user.service;
 
+import com.dorandoran.user.admin.client.ChatServiceRequestSigner;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
@@ -16,6 +20,7 @@ import org.springframework.web.client.RestTemplate;
 public class AuthServiceIntegration {
     
     private final RestTemplate restTemplate;
+    private final ChatServiceRequestSigner requestSigner;
     
     @Value("${auth.service.url:http://localhost:8081}")
     private String authServiceUrl;
@@ -73,6 +78,25 @@ public class AuthServiceIntegration {
             log.debug("이메일 인증 데이터는 TTL로 자동 삭제됩니다: email={}", email);
         } catch (Exception e) {
             log.warn("이메일 인증 데이터 삭제 실패: email={}, error={}", email, e.getMessage());
+        }
+    }
+
+    /**
+     * 회원 탈퇴(하드 삭제) 시 해당 사용자 토큰 즉시 무효화 (Auth 내부 API, HMAC).
+     */
+    public void invalidateTokensForUser(String userId) {
+        try {
+            String url = authServiceUrl + "/api/auth/internal/users/" + userId + "/invalidate-tokens";
+            HttpHeaders headers = new HttpHeaders();
+            headers.addAll(requestSigner.createHeaders("user-service"));
+            HttpEntity<Void> entity = new HttpEntity<>(headers);
+            ResponseEntity<Void> response = restTemplate.exchange(
+                    url, HttpMethod.POST, entity, Void.class);
+            if (!response.getStatusCode().is2xxSuccessful()) {
+                log.warn("Auth 토큰 무효화 응답 비정상: userId={}, status={}", userId, response.getStatusCode());
+            }
+        } catch (Exception e) {
+            log.warn("Auth 토큰 무효화 호출 실패: userId={}, error={}", userId, e.getMessage());
         }
     }
 }

@@ -477,4 +477,19 @@ public class AuthController {
                     .body(ApiResponse.error("사용자 정보 조회 중 오류가 발생했습니다.", ErrorCode.INTERNAL_SERVER_ERROR.getCode()));
         }
     }
+
+    /**
+     * 내부 API: 회원 탈퇴(하드 삭제) 시 해당 사용자 토큰 즉시 무효화.
+     * User 서비스에서 HMAC 헤더로 호출.
+     */
+    @PostMapping("/internal/users/{userId}/invalidate-tokens")
+    public ResponseEntity<Void> invalidateTokensForUser(@PathVariable String userId) {
+        try {
+            authService.invalidateAllTokensForUser(userId);
+            return ResponseEntity.ok().build();
+        } catch (Exception e) {
+            log.error("토큰 무효화 실패: userId={}", userId, e);
+            return ResponseEntity.internalServerError().build();
+        }
+    }
 }
