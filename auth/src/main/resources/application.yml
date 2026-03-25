@@ -105,20 +105,19 @@ logging:
 
 gateway:
   jwt:
-    hmac-secret: 404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970
+    hmac-secret: ${GATEWAY_JWT_HMAC_SECRET:}
     skew-ms: 3600000
 
-# Google OAuth 2.0 설정
+# Google OAuth 2.0 설정 (실제 값은 환경변수·도커 env로 주입)
 google:
   oauth:
-    # Web Client ID
-    client-id: 7033117549-66689tp0iqof4s6h6prflfoont2g9hnv.apps.googleusercontent.com
-    # Android Client IDs (쉼표로 구분)
-    android-client-ids: 7033117549-m863ru45qu4l8ham1796j357hi1jc3sp.apps.googleusercontent.com,7033117549-d7k7vr58pk5vhfjsatc1d09bfl2i5i12.apps.googleusercontent.com,29324186506-c971u3g05h8meusc6133888052r642r0.apps.googleusercontent.com
-    client-secret: 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
+    client-id: ${GOOGLE_OAUTH_CLIENT_ID:}
+    android-client-ids: ${GOOGLE_OAUTH_ANDROID_CLIENT_IDS:}
+    client-secret: ${GOOGLE_OAUTH_CLIENT_SECRET:}
 
 # Firebase 설정 (로컬 개발용, 프로덕션은 환경변수 사용)
 firebase:
+  admin-json-base64: ${FIREBASE_ADMIN_JSON_BASE64:}
   project-id: ${FIREBASE_PROJECT_ID:}
   client-email: ${FIREBASE_CLIENT_EMAIL:}
   private-key: ${FIREBASE_PRIVATE_KEY:}

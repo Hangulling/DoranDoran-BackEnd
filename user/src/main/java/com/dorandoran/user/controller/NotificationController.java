@@ -39,6 +39,12 @@ public class NotificationController {
             return ResponseEntity.badRequest().body(ApiResponse.error("FCM 토큰이 필요합니다."));
         }
         String platform = request.platform() != null ? request.platform() : "unknown";
+        if (platform != null && "ios".equalsIgnoreCase(platform)) {
+            String tokenValue = request.token() != null ? request.token() : "";
+            String tokenPreview = tokenValue.length() > 12 ? tokenValue.substring(0, 12) + "..." : tokenValue;
+            log.info("[iOS FCM debug] register: userId={}, platform=ios, tokenPreview={}, tokenLen={}",
+                userId, tokenPreview, tokenValue.length());
+        }
         FcmToken token = fcmTokenService.registerToken(userId, request.token(), platform);
         log.info("FCM 토큰 등록: userId={}, platform={}, tokenId={}", userId, platform, token.getId());
         return ResponseEntity.ok(ApiResponse.success(null, "FCM 토큰이 등록되었습니다."));
