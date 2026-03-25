@@ -4,6 +4,7 @@ import com.dorandoran.common.exception.DoranDoranException;
 import com.dorandoran.common.exception.ErrorCode;
 import com.dorandoran.user.entity.User;
 import com.dorandoran.user.repository.UserRepository;
+import com.dorandoran.user.repository.UserStatsRepository;
 import com.dorandoran.user.util.EmailMaskingUtil;
 import com.dorandoran.shared.dto.CreateUserRequest;
 import com.dorandoran.shared.dto.UpdateUserRequest;
@@ -40,6 +41,8 @@ public class UserService {
     private final PasswordEncoder passwordEncoder;
     private final ApplicationEventPublisher eventPublisher;
     private final AuthServiceIntegration authServiceIntegration;
+    private final UserWithdrawalArchiveService userWithdrawalArchiveService;
+    private final UserStatsRepository userStatsRepository;
     
     /**
      * 사용자 생성
@@ -436,6 +439,30 @@ public class UserService {
         userRepository.save(user);
         
         System.out.println("사용자 삭제 완료: id=" + id);
+    }
+
+    /**
+     * 회원 탈퇴(하드 삭제): 토큰 무효화 → archive 이관 → 선행 삭제 → app_user 물리 삭제.
+     * {@link #deleteUser(UUID)} 는 소프트 삭제(INACTIVE)만 수행.
+     */
+    @Transactional
+    public void hardDeleteUser(UUID id) {
+        log.info("회원 탈퇴(하드 삭제) 시작: userId={}", id);
+
+        User user = userRepository.findById(id)
+            .orElseThrow(() -> new DoranDoranException(ErrorCode.USER_NOT_FOUND));
+
+        authServiceIntegration.invalidateTokensForUser(id.toString());
+
+        userWithdrawalArchiveService.archiveUserData(id);
+
+        userWithdrawalArchiveService.deleteMonthlyUserCosts(id);
+        userStatsRepository.findById(id).ifPresent(userStatsRepository::delete);
+        userWithdrawalArchiveService.deleteUserChatbotLastInteraction(id);
+
+        userRepository.delete(user);
+
+        log.info("회원 탈퇴(하드 삭제) 완료: userId={}", id);
     }
     
     /**

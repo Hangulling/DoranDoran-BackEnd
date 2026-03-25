@@ -337,6 +337,29 @@ public class UserController {
     }
     
     /**
+     * 회원탈퇴(하드 삭제): archive 이관 후 회원 레코드 물리 삭제.
+     * 본인만 가능: path userId와 X-User-Id(게이트웨이가 넣어주는 토큰 사용자) 일치 검증.
+     */
+    @DeleteMapping("/{userId}/hard")
+    public ResponseEntity<Void> hardDeleteUser(
+            @PathVariable String userId,
+            @RequestHeader(value = "X-User-Id", required = false) String authUserId) {
+        log.info("회원탈퇴(하드 삭제) 요청: userId={}", userId);
+        if (authUserId == null || !authUserId.equals(userId)) {
+            log.warn("회원탈퇴(하드 삭제) 권한 없음: path userId={}, X-User-Id={}", userId, authUserId);
+            return ResponseEntity.status(403).build();
+        }
+        try {
+            userService.hardDeleteUser(UUID.fromString(userId));
+            log.info("회원탈퇴(하드 삭제) 완료: userId={}", userId);
+            return ResponseEntity.ok().build();
+        } catch (IllegalArgumentException e) {
+            log.error("잘못된 사용자 ID: userId={}, error={}", userId, e.getMessage());
+            return ResponseEntity.badRequest().build();
+        }
+    }
+    
+    /**
      * 회원탈퇴 (소프트 삭제 - 상태를 INACTIVE로 변경)
      * 실제 삭제는 배치 작업에서 처리 예정
      */
