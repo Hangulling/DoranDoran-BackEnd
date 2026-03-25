@@ -12,7 +12,9 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
+import java.time.OffsetDateTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -60,20 +62,40 @@ public class PushNotificationService {
             }
 
             Map<String, String> safeExtraData = extraData != null ? extraData : new HashMap<>();
+            boolean isIos = token.getPlatform() != null && "ios".equalsIgnoreCase(token.getPlatform());
+            String tokenValue = token.getToken() != null ? token.getToken() : "";
+            String tokenPreview = tokenValue.length() > 12 ? tokenValue.substring(0, 12) + "..." : tokenValue;
 
             try {
+                String deeplink = buildSchemeLink(chatroomId, messageId);
+                String universalLink = buildUniversalLink(chatroomId, messageId);
+                String startMessage = body != null ? body : "";
+                String sentAt = OffsetDateTime.now().toString();
+
+                if (isIos) {
+                    log.info("[iOS FCM debug] send start: userId={}, tokenId={}, tokenPreview={}, title='{}', bodyLen={}, deeplink='{}', universalLink='{}', extraKeys={}",
+                        userId,
+                        token.getId(),
+                        tokenPreview,
+                        title,
+                        body != null ? body.length() : 0,
+                        deeplink,
+                        universalLink,
+                        safeExtraData.keySet());
+                }
+
                 Message.Builder builder = Message.builder()
                     .setToken(token.getToken())
                     .setNotification(Notification.builder()
                         .setTitle(title)
                         .setBody(body)
                         .build())
-                    .putData("deeplink", buildSchemeLink(chatroomId, messageId))
-                    .putData("universalLink", buildUniversalLink(chatroomId, messageId))
+                    .putData("deeplink", deeplink)
+                    .putData("universalLink", universalLink)
                     .putData("chatroomId", chatroomId != null ? chatroomId.toString() : "")
                     .putData("messageId", messageId != null ? messageId.toString() : "")
-                    .putData("startMessage", body != null ? body : "")
-                    .putData("sentAt", java.time.OffsetDateTime.now().toString());
+                    .putData("startMessage", startMessage)
+                    .putData("sentAt", sentAt);
 
                 // 개념/주제 기반 푸시 등에서 추가 컨텍스트를 payload 에 포함
                 for (Map.Entry<String, String> entry : safeExtraData.entrySet()) {
@@ -89,8 +111,21 @@ public class PushNotificationService {
                     firebaseApp.getName(), userId, token.getId());
                 String response = FirebaseMessaging.getInstance(firebaseApp).send(message);
                 log.info("푸시 전송 성공: userId={}, tokenId={}, response={}", userId, token.getId(), response);
+                if (isIos) {
+                    log.info("[iOS FCM debug] send success: userId={}, tokenId={}, response={}", userId, token.getId(), response);
+                }
             } catch (Exception e) {
-                log.warn("푸시 전송 실패: userId={}, tokenId={}, error={}", userId, token.getId(), e.getMessage());
+                if (isIos) {
+                    log.error("[iOS FCM debug] send failed: userId={}, tokenId={}, tokenPreview={}, errorType={}, errorMessage={}",
+                        userId,
+                        token.getId(),
+                        tokenPreview,
+                        e.getClass().getName(),
+                        e.getMessage(),
+                        e);
+                } else {
+                    log.warn("푸시 전송 실패: userId={}, tokenId={}, error={}", userId, token.getId(), e.getMessage());
+                }
                 if (isDeletableInvalidToken(e)) {
                     try {
                         fcmTokenService.deleteToken(token.getId());
@@ -128,9 +163,36 @@ public class PushNotificationService {
         if (concept != null && !concept.isBlank()) {
             extra.put("concept", concept);
         }
+        if (chatbotId != null) {
+            extra.put("chatbotId", chatbotId.toString());
+        }
         extra.put("intimacyLevel", String.valueOf(intimacy));
 
-        sendToUser(userId, text.title(), text.body(), null, null, extra);
+        // data.notification.title/body도 제공하기 위해, top-level notification.title/body를 먼저 결정
+        String notificationTitle = (concept != null && !concept.isBlank()) ? concept : text.title();
+        String notificationBody = text.body() != null ? text.body() : "";
+
+        // data.notification: { "title": "...", "body": "..." } 형태를 JSON 문자열로 넣는다.
+        // FCM data payload 값은 string만 허용되므로, 최종 payload에서 따옴표가 이스케이프될 수는 있다.
+        // 대신 여기서는 "이중 escape"를 피하기 위해 ObjectMapper로 직렬화한다.
+        String notificationJson = buildNotificationJson(notificationTitle, notificationBody);
+        extra.put("notification", notificationJson);
+
+        // top-level notification.title/body도 의도한 값으로 맞춤
+        sendToUser(userId, notificationTitle, notificationBody, null, null, extra);
+    }
+
+    private String buildNotificationJson(String title, String body) {
+        try {
+            return new ObjectMapper().writeValueAsString(Map.of(
+                "title", title != null ? title : "",
+                "body", body != null ? body : ""
+            ));
+        } catch (Exception e) {
+            // 직렬화 실패 시에도 클라이언트가 최소 동작하게 빈 구조를 보낸다.
+            log.warn("notification JSON 직렬화 실패: {}", e.getMessage());
+            return "{\"title\":\"\",\"body\":\"\"}";
+        }
     }
 
     private String buildSchemeLink(UUID chatroomId, UUID messageId) {

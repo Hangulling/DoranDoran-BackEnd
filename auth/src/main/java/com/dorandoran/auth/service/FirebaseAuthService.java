@@ -5,6 +5,8 @@ import com.google.firebase.FirebaseOptions;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseAuthException;
 import com.google.firebase.auth.FirebaseToken;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -13,6 +15,7 @@ import jakarta.annotation.PostConstruct;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.util.Base64;
 
 /**
  * Firebase Authentication 서비스
@@ -30,19 +33,26 @@ public class FirebaseAuthService {
     
     @Value("${firebase.private-key:}")
     private String privateKey;
+
+    @Value("${firebase.admin-json-base64:}")
+    private String firebaseAdminJsonBase64;
     
     private FirebaseAuth firebaseAuth;
     
     @PostConstruct
     public void initialize() {
-        if (projectId == null || projectId.trim().isEmpty() ||
-            clientEmail == null || clientEmail.trim().isEmpty() ||
-            privateKey == null || privateKey.trim().isEmpty()) {
+        boolean hasAdminJsonBase64 = firebaseAdminJsonBase64 != null && !firebaseAdminJsonBase64.trim().isEmpty();
+        boolean hasLegacyFields = projectId != null && !projectId.trim().isEmpty()
+                && clientEmail != null && !clientEmail.trim().isEmpty()
+                && privateKey != null && !privateKey.trim().isEmpty();
+
+        if (!hasAdminJsonBase64 && !hasLegacyFields) {
             log.warn("Firebase 설정이 완전하지 않습니다. Firebase Auth 기능이 비활성화됩니다.");
             log.warn("projectId: {}, clientEmail: {}, privateKey: {}", 
                     projectId != null && !projectId.isEmpty() ? "설정됨" : "미설정",
                     clientEmail != null && !clientEmail.isEmpty() ? "설정됨" : "미설정",
                     privateKey != null && !privateKey.isEmpty() ? "설정됨" : "미설정");
+            log.warn("adminJsonBase64: {}", hasAdminJsonBase64 ? "설정됨" : "미설정");
             return;
         }
         
@@ -50,18 +60,22 @@ public class FirebaseAuthService {
             // Firebase Admin SDK 초기화
             // 이미 초기화된 경우 스킵
             if (FirebaseApp.getApps().isEmpty()) {
-                // private key의 이스케이프된 개행 문자를 실제 개행 문자로 변환
-                String normalizedPrivateKey = normalizePrivateKey(privateKey);
-                
-                FirebaseOptions options = FirebaseOptions.builder()
-                        .setProjectId(projectId)
-                        .setCredentials(
-                                com.google.auth.oauth2.GoogleCredentials.fromStream(
-                                        createCredentialsJsonStream(normalizedPrivateKey)
-                                )
-                        )
-                        .build();
-                
+                FirebaseOptions options;
+                if (firebaseAdminJsonBase64 != null && !firebaseAdminJsonBase64.trim().isEmpty()) {
+                    options = createOptionsFromAdminJsonBase64(firebaseAdminJsonBase64);
+                } else {
+                    // 하위 호환: 분리 환경변수 사용
+                    String normalizedPrivateKey = normalizePrivateKey(privateKey);
+                    options = FirebaseOptions.builder()
+                            .setProjectId(projectId)
+                            .setCredentials(
+                                    com.google.auth.oauth2.GoogleCredentials.fromStream(
+                                            createCredentialsJsonStream(normalizedPrivateKey)
+                                    )
+                            )
+                            .build();
+                }
+
                 FirebaseApp.initializeApp(options);
                 log.info("Firebase Admin SDK 초기화 완료: projectId={}", projectId);
             } else {
@@ -133,6 +147,34 @@ public class FirebaseAuthService {
         );
         
         return new ByteArrayInputStream(credentialsJson.getBytes(StandardCharsets.UTF_8));
+    }
+
+    private FirebaseOptions createOptionsFromAdminJsonBase64(String base64) throws IOException {
+        byte[] decodedBytes = Base64.getDecoder().decode(base64.trim());
+        String credentialsJson = new String(decodedBytes, StandardCharsets.UTF_8);
+
+        ObjectMapper objectMapper = new ObjectMapper();
+        JsonNode root = objectMapper.readTree(credentialsJson);
+
+        String jsonProjectId = root.path("project_id").asText("");
+        String jsonClientEmail = root.path("client_email").asText("");
+        String jsonPrivateKey = root.path("private_key").asText("");
+
+        if (jsonProjectId.isBlank() || jsonClientEmail.isBlank() || jsonPrivateKey.isBlank()) {
+            throw new IllegalArgumentException("FIREBASE_ADMIN_JSON_BASE64에 project_id/client_email/private_key가 모두 필요합니다.");
+        }
+
+        // 로그에 projectId를 일관되게 남기기 위해 동기화
+        this.projectId = jsonProjectId;
+
+        return FirebaseOptions.builder()
+                .setProjectId(jsonProjectId)
+                .setCredentials(
+                        com.google.auth.oauth2.GoogleCredentials.fromStream(
+                                new ByteArrayInputStream(decodedBytes)
+                        )
+                )
+                .build();
     }
     
     /**

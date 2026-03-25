@@ -1,6 +1,5 @@
 package com.dorandoran.user.entity;
 
-import com.fasterxml.jackson.databind.JsonNode;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
@@ -9,8 +8,7 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import org.hibernate.annotations.JdbcTypeCode;
-import org.hibernate.type.SqlTypes;
+import org.hibernate.annotations.CreationTimestamp;
 
 import java.time.LocalDateTime;
 
@@ -53,11 +51,10 @@ public class PostCache {
     private String coverImageUrl;
 
     /** [{ "type": "IMAGE"|"VIDEO", "url": "...", "thumbnailUrl": "..." }] */
-    @Column(name = "assets", columnDefinition = "jsonb")
-    @JdbcTypeCode(SqlTypes.JSON)
-    private JsonNode assets;
+    @Column(name = "assets", columnDefinition = "JSONB")
+    private String assets;
 
-    /** 캐시 갱신 시각 (API 성공 시 업데이트) */
+    @CreationTimestamp
     @Column(name = "fetched_at", nullable = false)
     private LocalDateTime fetchedAt;
 }
