@@ -40,8 +40,8 @@ public class AuthController {
     private final com.dorandoran.auth.service.UserIntegrationService userIntegrationService;
     private final com.dorandoran.auth.service.EmailVerificationRedisService emailVerificationRedisService;
     private final com.dorandoran.auth.service.EmailService emailService;
-    @org.springframework.beans.factory.annotation.Value("${email.verification.frontend-url:http://localhost:5173}")
-    private String frontendUrl;
+    @org.springframework.beans.factory.annotation.Value("${email.verification.app-redirect-base:dorandoran://email-verified}")
+    private String emailVerificationAppRedirectBase;
     @org.springframework.beans.factory.annotation.Value("${email.verification.backend-url:http://localhost:8081}")
     private String backendUrl;
     
@@ -349,16 +349,8 @@ public class AuthController {
             if (!emailVerificationRedisService.verifyToken(email, token)) {
                 log.warn("토큰 검증 실패: email={}", email);
                 String errorMsg = java.net.URLEncoder.encode("인증 링크가 유효하지 않거나 만료되었습니다.", java.nio.charset.StandardCharsets.UTF_8);
-                String redirectUrl = frontendUrl + "/signup?email=" + 
-                        java.net.URLEncoder.encode(email, java.nio.charset.StandardCharsets.UTF_8) +
-                        "&verified=false&error=" + errorMsg;
-                // firstName, lastName이 있으면 리디렉션 URL에 포함
-                if (firstName != null && !firstName.trim().isEmpty()) {
-                    redirectUrl += "&firstName=" + java.net.URLEncoder.encode(firstName, java.nio.charset.StandardCharsets.UTF_8);
-                }
-                if (lastName != null && !lastName.trim().isEmpty()) {
-                    redirectUrl += "&lastName=" + java.net.URLEncoder.encode(lastName, java.nio.charset.StandardCharsets.UTF_8);
-                }
+                String redirectUrl = buildEmailVerificationRedirectUrl(
+                        email, false, firstName, lastName, errorMsg);
                 writeRedirectHtml(response, redirectUrl, "인증 실패");
                 return;
             }
@@ -368,32 +360,40 @@ public class AuthController {
             
             // 3. 프론트엔드 SignupPage로 리다이렉트 (같은 창에서) - firstName, lastName 포함
             log.info("이메일 인증 완료: email={}", email);
-            String redirectUrl = frontendUrl + "/signup?email=" + 
-                    java.net.URLEncoder.encode(email, java.nio.charset.StandardCharsets.UTF_8) +
-                    "&verified=true";
-            // firstName, lastName이 있으면 리디렉션 URL에 포함
-            if (firstName != null && !firstName.trim().isEmpty()) {
-                redirectUrl += "&firstName=" + java.net.URLEncoder.encode(firstName, java.nio.charset.StandardCharsets.UTF_8);
-            }
-            if (lastName != null && !lastName.trim().isEmpty()) {
-                redirectUrl += "&lastName=" + java.net.URLEncoder.encode(lastName, java.nio.charset.StandardCharsets.UTF_8);
-            }
+            String redirectUrl = buildEmailVerificationRedirectUrl(
+                    email, true, firstName, lastName, null);
             writeRedirectHtml(response, redirectUrl, "인증 완료");
         } catch (Exception e) {
             log.error("이메일 인증 처리 중 오류", e);
             String errorMsg = java.net.URLEncoder.encode("이메일 인증 처리 중 오류가 발생했습니다.", java.nio.charset.StandardCharsets.UTF_8);
-            String redirectUrl = frontendUrl + "/signup?email=" + 
-                    java.net.URLEncoder.encode(email, java.nio.charset.StandardCharsets.UTF_8) +
-                    "&verified=false&error=" + errorMsg;
-            // firstName, lastName이 있으면 리디렉션 URL에 포함
-            if (firstName != null && !firstName.trim().isEmpty()) {
-                redirectUrl += "&firstName=" + java.net.URLEncoder.encode(firstName, java.nio.charset.StandardCharsets.UTF_8);
-            }
-            if (lastName != null && !lastName.trim().isEmpty()) {
-                redirectUrl += "&lastName=" + java.net.URLEncoder.encode(lastName, java.nio.charset.StandardCharsets.UTF_8);
-            }
+            String redirectUrl = buildEmailVerificationRedirectUrl(
+                    email, false, firstName, lastName, errorMsg);
             writeRedirectHtml(response, redirectUrl, "인증 오류");
         }
+    }
+
+    /**
+     * 이메일 인증 결과를 앱 딥링크로 조립
+     */
+    private String buildEmailVerificationRedirectUrl(
+            String email,
+            boolean verified,
+            String firstName,
+            String lastName,
+            String errorMsgEncoded) {
+        String redirectUrl = emailVerificationAppRedirectBase + "?email="
+                + java.net.URLEncoder.encode(email, java.nio.charset.StandardCharsets.UTF_8)
+                + "&verified=" + verified;
+        if (errorMsgEncoded != null && !errorMsgEncoded.trim().isEmpty()) {
+            redirectUrl += "&error=" + errorMsgEncoded;
+        }
+        if (firstName != null && !firstName.trim().isEmpty()) {
+            redirectUrl += "&firstName=" + java.net.URLEncoder.encode(firstName, java.nio.charset.StandardCharsets.UTF_8);
+        }
+        if (lastName != null && !lastName.trim().isEmpty()) {
+            redirectUrl += "&lastName=" + java.net.URLEncoder.encode(lastName, java.nio.charset.StandardCharsets.UTF_8);
+        }
+        return redirectUrl;
     }
     
     /**
