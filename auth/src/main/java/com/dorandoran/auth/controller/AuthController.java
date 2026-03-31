@@ -40,8 +40,7 @@ public class AuthController {
     private final com.dorandoran.auth.service.UserIntegrationService userIntegrationService;
     private final com.dorandoran.auth.service.EmailVerificationRedisService emailVerificationRedisService;
     private final com.dorandoran.auth.service.EmailService emailService;
-    @org.springframework.beans.factory.annotation.Value("${email.verification.app-redirect-base:dorandoran://email-verified}")
-    private String emailVerificationAppRedirectBase;
+    private static final String EMAIL_VERIFICATION_APP_REDIRECT_BASE = "dorandoran://email-verified";
     @org.springframework.beans.factory.annotation.Value("${email.verification.backend-url:http://localhost:8081}")
     private String backendUrl;
     
@@ -381,7 +380,7 @@ public class AuthController {
             String firstName,
             String lastName,
             String errorMsgEncoded) {
-        String redirectUrl = emailVerificationAppRedirectBase + "?email="
+        String redirectUrl = EMAIL_VERIFICATION_APP_REDIRECT_BASE + "?email="
                 + java.net.URLEncoder.encode(email, java.nio.charset.StandardCharsets.UTF_8)
                 + "&verified=" + verified;
         if (errorMsgEncoded != null && !errorMsgEncoded.trim().isEmpty()) {
