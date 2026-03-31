@@ -63,16 +63,16 @@ public interface ChatRoomRepository extends JpaRepository<ChatRoom, UUID> {
     @Query(value = "SELECT cr.* FROM chat_schema.chatrooms cr " +
            "JOIN chat_schema.chatbots cb ON cr.chatbot_id = cb.id " +
            "WHERE (:userId IS NULL OR cr.user_id = CAST(:userId AS uuid)) " +
-           "AND (:from IS NULL OR cr.last_message_at >= :from) " +
-           "AND (:to IS NULL OR cr.last_message_at <= :to) " +
+           "AND (CAST(:from AS timestamp) IS NULL OR cr.last_message_at >= CAST(:from AS timestamp)) " +
+           "AND (CAST(:to AS timestamp) IS NULL OR cr.last_message_at <= CAST(:to AS timestamp)) " +
            "AND (:roomKey IS NULL OR (cr.settings->>'concept') = :roomKey) " +
            "AND (:intimacyLevel IS NULL OR cb.intimacy_level = :intimacyLevel) " +
            "ORDER BY cr.last_message_at DESC NULLS LAST",
            countQuery = "SELECT COUNT(*) FROM chat_schema.chatrooms cr " +
                        "JOIN chat_schema.chatbots cb ON cr.chatbot_id = cb.id " +
                        "WHERE (:userId IS NULL OR cr.user_id = CAST(:userId AS uuid)) " +
-                       "AND (:from IS NULL OR cr.last_message_at >= :from) " +
-                       "AND (:to IS NULL OR cr.last_message_at <= :to) " +
+                       "AND (CAST(:from AS timestamp) IS NULL OR cr.last_message_at >= CAST(:from AS timestamp)) " +
+                       "AND (CAST(:to AS timestamp) IS NULL OR cr.last_message_at <= CAST(:to AS timestamp)) " +
                        "AND (:roomKey IS NULL OR (cr.settings->>'concept') = :roomKey) " +
                        "AND (:intimacyLevel IS NULL OR cb.intimacy_level = :intimacyLevel)",
            nativeQuery = true)

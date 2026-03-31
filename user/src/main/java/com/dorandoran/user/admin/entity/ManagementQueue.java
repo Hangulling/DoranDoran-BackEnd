@@ -4,6 +4,8 @@ import com.dorandoran.user.admin.enums.QueueStatus;
 import com.dorandoran.user.admin.enums.QueueType;
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.time.LocalDateTime;
 import java.util.UUID;
@@ -46,6 +48,7 @@ public class ManagementQueue {
    * - messageId, chatroomId, items, memo, details 등
    * - String으로 저장 후 ObjectMapper로 파싱
    */
+  @JdbcTypeCode(SqlTypes.JSON)
   @Column(name = "request_data", columnDefinition = "jsonb", nullable = false)
   private String requestData;
 
@@ -54,6 +57,7 @@ public class ManagementQueue {
    * - processedBy, processedAt, action, note 등
    * - 처리 완료 시에만 저장
    */
+  @JdbcTypeCode(SqlTypes.JSON)
   @Column(name = "result_data", columnDefinition = "jsonb")
   private String resultData;
 
