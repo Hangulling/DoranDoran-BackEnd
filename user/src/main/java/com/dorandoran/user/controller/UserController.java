@@ -9,10 +9,13 @@ import com.dorandoran.shared.dto.FindEmailRequest;
 import com.dorandoran.shared.dto.FindEmailResponse;
 import com.dorandoran.user.service.UserService;
 import com.dorandoran.common.response.ApiResponse;
+import com.dorandoran.common.exception.DoranDoranException;
+import com.dorandoran.common.exception.ErrorCode;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
@@ -41,16 +44,20 @@ public class UserController {
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "잘못된 요청 데이터")
     })
     @PostMapping
-    public ResponseEntity<ApiResponse<UserDto>> createUser(@RequestBody CreateUserRequest request) {
+    public ResponseEntity<ApiResponse<UserDto>> createUser(@Valid @RequestBody CreateUserRequest request) {
         log.info("사용자 생성 요청: email={}", request.email());
         
         try {
             UserDto createdUser = userService.createUser(request);
             return ResponseEntity.ok(ApiResponse.success(createdUser, "사용자가 성공적으로 생성되었습니다."));
+        } catch (DoranDoranException e) {
+            log.warn("사용자 생성 비즈니스 검증 실패: email={}, error={}", request.email(), e.getMessage());
+            return ResponseEntity.badRequest()
+                    .body(ApiResponse.error(e.getMessage(), e.getErrorCode().getCode()));
         } catch (Exception e) {
             log.error("사용자 생성 실패: email={}, error={}", request.email(), e.getMessage());
             return ResponseEntity.badRequest()
-                    .body(ApiResponse.error("사용자 생성에 실패했습니다: " + e.getMessage()));
+                    .body(ApiResponse.error("사용자 생성 중 오류가 발생했습니다.", ErrorCode.INTERNAL_SERVER_ERROR.getCode()));
         }
     }
     
@@ -58,16 +65,20 @@ public class UserController {
      * 회원가입 (별도 엔드포인트)
      */
     @PostMapping("/register")
-    public ResponseEntity<ApiResponse<UserDto>> registerUser(@RequestBody CreateUserRequest request) {
+    public ResponseEntity<ApiResponse<UserDto>> registerUser(@Valid @RequestBody CreateUserRequest request) {
         log.info("회원가입 요청: email={}", request.email());
         
         try {
             UserDto createdUser = userService.createUser(request);
             return ResponseEntity.ok(ApiResponse.success(createdUser, "회원가입이 성공적으로 완료되었습니다."));
+        } catch (DoranDoranException e) {
+            log.warn("회원가입 비즈니스 검증 실패: email={}, error={}", request.email(), e.getMessage());
+            return ResponseEntity.badRequest()
+                    .body(ApiResponse.error(e.getMessage(), e.getErrorCode().getCode()));
         } catch (Exception e) {
             log.error("회원가입 실패: email={}, error={}", request.email(), e.getMessage());
             return ResponseEntity.badRequest()
-                    .body(ApiResponse.error("회원가입에 실패했습니다: " + e.getMessage()));
+                    .body(ApiResponse.error("회원가입 처리 중 오류가 발생했습니다.", ErrorCode.INTERNAL_SERVER_ERROR.getCode()));
         }
     }
     
