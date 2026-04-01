@@ -69,12 +69,14 @@ public class UserService {
         // 4. 비밀번호 암호화
         String encodedPassword = passwordEncoder.encode(request.password());
         
-        // 4-1. 생년월일 파싱 (yyyy-MM-dd)
-        LocalDate birthDate;
-        try {
-            birthDate = LocalDate.parse(request.birthDate());
-        } catch (DateTimeParseException e) {
-            throw new DoranDoranException(ErrorCode.INVALID_REQUEST, "생년월일 형식이 올바르지 않습니다. (yyyy-MM-dd)");
+        // 4-1. 생년월일 파싱 (yyyy-MM-dd). 미전달 시 기본값 사용
+        LocalDate birthDate = LocalDate.of(1900, 1, 1);
+        if (request.birthDate() != null && !request.birthDate().isBlank()) {
+            try {
+                birthDate = LocalDate.parse(request.birthDate());
+            } catch (DateTimeParseException e) {
+                throw new DoranDoranException(ErrorCode.INVALID_REQUEST, "생년월일 형식이 올바르지 않습니다. (yyyy-MM-dd)");
+            }
         }
         
         // 5. 사용자 생성 (ACTIVE 상태로 바로 생성)
