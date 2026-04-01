@@ -76,7 +76,7 @@ Write-Host ""
 # 4. 서버에서 배포 (환경변수: dorandoran-user.env)
 # -----------------------------------------------------------------------------
 Write-Host "[4/4] 서버에서 컨테이너 배포 중..." -ForegroundColor Yellow
-$deployCmd = "docker load -i /home/ec2-user/dorandoran-user-latest.tar && docker stop dorandoran-user 2>/dev/null || true && docker rm dorandoran-user 2>/dev/null || true && docker run -d --name dorandoran-user --network dorandoran-network -p 8082:8082 --restart=unless-stopped --env-file /home/ec2-user/dorandoran-user.env -e SPRING_PROFILES_ACTIVE=docker -e SPRING_FLYWAY_ENABLED=false -e NOTIFICATION_DAILY_CRON='$NotificationCron' dorandoran-user:latest"
+$deployCmd = "docker load -i /home/ec2-user/dorandoran-user-latest.tar && docker stop dorandoran-user 2>/dev/null || true && docker rm dorandoran-user 2>/dev/null || true && docker run -d --name dorandoran-user --network dorandoran-network -p 8082:8082 --restart=unless-stopped --env-file /home/ec2-user/dorandoran-user.env -e SPRING_PROFILES_ACTIVE=docker -e NOTIFICATION_DAILY_CRON='$NotificationCron' dorandoran-user:latest"
 ssh -i $PemPath $ServerHost $deployCmd
 if ($LASTEXITCODE -ne 0) {
     Write-Host "서버 배포 실패." -ForegroundColor Red
