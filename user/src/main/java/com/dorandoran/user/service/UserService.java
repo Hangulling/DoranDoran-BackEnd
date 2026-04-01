@@ -23,6 +23,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.time.format.DateTimeParseException;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -69,7 +70,12 @@ public class UserService {
         String encodedPassword = passwordEncoder.encode(request.password());
         
         // 4-1. 생년월일 파싱 (yyyy-MM-dd)
-        LocalDate birthDate = LocalDate.parse(request.birthDate());
+        LocalDate birthDate;
+        try {
+            birthDate = LocalDate.parse(request.birthDate());
+        } catch (DateTimeParseException e) {
+            throw new DoranDoranException(ErrorCode.INVALID_REQUEST, "생년월일 형식이 올바르지 않습니다. (yyyy-MM-dd)");
+        }
         
         // 5. 사용자 생성 (ACTIVE 상태로 바로 생성)
         User user = User.builder()
