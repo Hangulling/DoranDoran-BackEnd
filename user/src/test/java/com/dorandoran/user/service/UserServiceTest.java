@@ -83,7 +83,7 @@ class UserServiceTest {
     @Test
     void 사용자_생성_성공() {
         // Given
-        when(userRepository.existsByEmail(anyString())).thenReturn(false);
+        when(userRepository.existsByEmailIgnoreCase(anyString())).thenReturn(false);
         when(passwordEncoder.encode(anyString())).thenReturn("encodedPassword");
         when(userRepository.save(any(User.class))).thenReturn(testUser);
 
@@ -94,7 +94,7 @@ class UserServiceTest {
         assertNotNull(result);
         assertEquals("test@example.com", result.email());
         assertEquals("홍길동", result.name());
-        verify(userRepository).existsByEmail("test@example.com");
+        verify(userRepository).existsByEmailIgnoreCase("test@example.com");
         verify(passwordEncoder).encode("password123");
         verify(userRepository).save(any(User.class));
     }
@@ -102,7 +102,7 @@ class UserServiceTest {
     @Test
     void 사용자_생성_실패_이메일_중복() {
         // Given
-        when(userRepository.existsByEmail(anyString())).thenReturn(true);
+        when(userRepository.existsByEmailIgnoreCase(anyString())).thenReturn(true);
 
         // When & Then
         DoranDoranException exception = assertThrows(DoranDoranException.class, () -> {
@@ -110,7 +110,7 @@ class UserServiceTest {
         });
 
         assertEquals(ErrorCode.EMAIL_ALREADY_EXISTS, exception.getErrorCode());
-        verify(userRepository).existsByEmail("test@example.com");
+        verify(userRepository).existsByEmailIgnoreCase("test@example.com");
         verify(userRepository, never()).save(any(User.class));
     }
 
@@ -159,7 +159,7 @@ class UserServiceTest {
         );
 
         when(userRepository.findById(any(UUID.class))).thenReturn(Optional.of(testUser));
-        when(userRepository.existsByEmail(anyString())).thenReturn(false);
+        when(userRepository.existsByEmailIgnoreCase(anyString())).thenReturn(false);
         when(userRepository.save(any(User.class))).thenReturn(testUser);
 
         // When
@@ -203,7 +203,7 @@ class UserServiceTest {
     @Test
     void 사용자_이메일_조회_성공() {
         // Given
-        when(userRepository.findByEmail(anyString())).thenReturn(Optional.of(testUser));
+        when(userRepository.findByEmailIgnoreCase(anyString())).thenReturn(Optional.of(testUser));
 
         // When
         UserDto result = userService.findByEmail("test@example.com");
@@ -212,13 +212,13 @@ class UserServiceTest {
         assertNotNull(result);
         assertEquals(testUser.getId(), result.id());
         assertEquals(testUser.getEmail(), result.email());
-        verify(userRepository).findByEmail("test@example.com");
+        verify(userRepository).findByEmailIgnoreCase("test@example.com");
     }
 
     @Test
     void 사용자_이메일_조회_실패() {
         // Given
-        when(userRepository.findByEmail(anyString())).thenReturn(Optional.empty());
+        when(userRepository.findByEmailIgnoreCase(anyString())).thenReturn(Optional.empty());
 
         // When & Then
         DoranDoranException exception = assertThrows(DoranDoranException.class, () -> {
@@ -226,7 +226,7 @@ class UserServiceTest {
         });
 
         assertEquals(ErrorCode.USER_NOT_FOUND, exception.getErrorCode());
-        verify(userRepository).findByEmail("nonexistent@example.com");
+        verify(userRepository).findByEmailIgnoreCase("nonexistent@example.com");
     }
 
     @Test
@@ -279,7 +279,7 @@ class UserServiceTest {
     @Test
     void 비밀번호_재설정_이메일_성공() {
         // Given
-        when(userRepository.findByEmail(anyString())).thenReturn(Optional.of(testUser));
+        when(userRepository.findByEmailIgnoreCase(anyString())).thenReturn(Optional.of(testUser));
         when(passwordEncoder.encode(anyString())).thenReturn("newEncodedPassword");
         when(userRepository.save(any(User.class))).thenReturn(testUser);
 
@@ -287,7 +287,7 @@ class UserServiceTest {
         userService.resetPasswordByEmail("test@example.com", "newPassword123");
 
         // Then
-        verify(userRepository).findByEmail("test@example.com");
+        verify(userRepository).findByEmailIgnoreCase("test@example.com");
         verify(passwordEncoder).encode("newPassword123");
         verify(userRepository).save(any(User.class));
     }
@@ -295,7 +295,7 @@ class UserServiceTest {
     @Test
     void 비밀번호_재설정_이메일_실패_사용자없음() {
         // Given
-        when(userRepository.findByEmail(anyString())).thenReturn(Optional.empty());
+        when(userRepository.findByEmailIgnoreCase(anyString())).thenReturn(Optional.empty());
 
         // When & Then
         DoranDoranException exception = assertThrows(DoranDoranException.class, () -> {
@@ -303,7 +303,7 @@ class UserServiceTest {
         });
 
         assertEquals(ErrorCode.USER_NOT_FOUND, exception.getErrorCode());
-        verify(userRepository).findByEmail("nonexistent@example.com");
+        verify(userRepository).findByEmailIgnoreCase("nonexistent@example.com");
     }
 
     @Test
@@ -339,7 +339,7 @@ class UserServiceTest {
     @Test
     void 비밀번호_정책_검증_실패_길이부족() {
         // Given
-        when(userRepository.existsByEmail(anyString())).thenReturn(false);
+        when(userRepository.existsByEmailIgnoreCase(anyString())).thenReturn(false);
 
         // When & Then
         DoranDoranException exception = assertThrows(DoranDoranException.class, () -> {
@@ -356,14 +356,14 @@ class UserServiceTest {
         });
 
         assertEquals(ErrorCode.INVALID_REQUEST, exception.getErrorCode());
-        verify(userRepository).existsByEmail("test@example.com");
+        verify(userRepository).existsByEmailIgnoreCase("test@example.com");
         verify(userRepository, never()).save(any(User.class));
     }
 
     @Test
     void 비밀번호_정책_검증_실패_영문없음() {
         // Given
-        when(userRepository.existsByEmail(anyString())).thenReturn(false);
+        when(userRepository.existsByEmailIgnoreCase(anyString())).thenReturn(false);
 
         // When & Then
         DoranDoranException exception = assertThrows(DoranDoranException.class, () -> {
@@ -380,14 +380,14 @@ class UserServiceTest {
         });
 
         assertEquals(ErrorCode.INVALID_REQUEST, exception.getErrorCode());
-        verify(userRepository).existsByEmail("test@example.com");
+        verify(userRepository).existsByEmailIgnoreCase("test@example.com");
         verify(userRepository, never()).save(any(User.class));
     }
 
     @Test
     void 비밀번호_정책_검증_실패_숫자없음() {
         // Given
-        when(userRepository.existsByEmail(anyString())).thenReturn(false);
+        when(userRepository.existsByEmailIgnoreCase(anyString())).thenReturn(false);
 
         // When & Then
         DoranDoranException exception = assertThrows(DoranDoranException.class, () -> {
@@ -404,14 +404,14 @@ class UserServiceTest {
         });
 
         assertEquals(ErrorCode.INVALID_REQUEST, exception.getErrorCode());
-        verify(userRepository).existsByEmail("test@example.com");
+        verify(userRepository).existsByEmailIgnoreCase("test@example.com");
         verify(userRepository, never()).save(any(User.class));
     }
 
     @Test
     void 사용자_생성_시_이벤트_발행_검증() {
         // Given
-        when(userRepository.existsByEmail(anyString())).thenReturn(false);
+        when(userRepository.existsByEmailIgnoreCase(anyString())).thenReturn(false);
         when(passwordEncoder.encode(anyString())).thenReturn("encodedPassword");
         when(userRepository.save(any(User.class))).thenReturn(testUser);
 
@@ -447,7 +447,7 @@ class UserServiceTest {
         );
 
         when(userRepository.findById(any(UUID.class))).thenReturn(Optional.of(testUser));
-        when(userRepository.existsByEmail(anyString())).thenReturn(false);
+        when(userRepository.existsByEmailIgnoreCase(anyString())).thenReturn(false);
         when(userRepository.save(any(User.class))).thenReturn(testUser);
 
         // When

@@ -25,6 +25,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -50,15 +51,19 @@ public class UserService {
      */
     @Transactional
     public UserDto createUser(CreateUserRequest request) {
-        System.out.println("사용자 생성 요청: email=" + request.email());
+        String email = normalizeEmail(request.email());
+        if (email == null || email.isEmpty()) {
+            throw new DoranDoranException(ErrorCode.INVALID_REQUEST, "이메일을 입력해주세요.");
+        }
+        System.out.println("사용자 생성 요청: email=" + email);
         
         // 1. 이메일 중복 검사
-        if (userRepository.existsByEmail(request.email())) {
+        if (userRepository.existsByEmailIgnoreCase(email)) {
             throw new DoranDoranException(ErrorCode.EMAIL_ALREADY_EXISTS);
         }
         
         // 2. 이메일 인증 완료 여부 확인
-        boolean isEmailVerified = authServiceIntegration.isEmailVerified(request.email());
+        boolean isEmailVerified = authServiceIntegration.isEmailVerified(email);
         if (!isEmailVerified) {
             throw new DoranDoranException(ErrorCode.INVALID_REQUEST, "이메일 인증을 먼저 완료해주세요.");
         }
@@ -82,7 +87,7 @@ public class UserService {
         // 5. 사용자 생성 (ACTIVE 상태로 바로 생성)
         User user = User.builder()
             .id(UUID.randomUUID())
-            .email(request.email())
+            .email(email)
             .firstName(request.firstName())
             .lastName(request.lastName())
             .name(request.getDisplayName())
@@ -108,7 +113,7 @@ public class UserService {
         log.info("사용자 생성 완료: id={}, email={}", savedUser.getId(), savedUser.getEmail());
         
         // 7. 이메일 인증 데이터 삭제 (Redis TTL로 자동 삭제되지만 명시적으로 처리)
-        authServiceIntegration.deleteEmailVerification(request.email());
+        authServiceIntegration.deleteEmailVerification(email);
         
         // 8. 사용자 생성 이벤트 발행
         UserCreatedEvent event = UserCreatedEvent.of(
@@ -151,9 +156,10 @@ public class UserService {
      * 사용자 조회 (이메일)
      */
     public UserDto findByEmail(String email) {
-        System.out.println("사용자 조회: email=" + email);
+        String emailNorm = requireNormalizedEmail(email);
+        System.out.println("사용자 조회: email=" + emailNorm);
         
-        User user = userRepository.findByEmail(email)
+        User user = userRepository.findByEmailIgnoreCase(emailNorm)
             .orElseThrow(() -> new DoranDoranException(ErrorCode.USER_NOT_FOUND));
         
         return convertToDto(user);
@@ -163,9 +169,10 @@ public class UserService {
      * 사용자 조회 (이메일) - Auth 서비스용 (passwordHash 포함)
      */
     public UserWithPasswordDto findByEmailForAuth(String email) {
-        System.out.println("Auth 서비스용 사용자 조회: email=" + email);
+        String emailNorm = requireNormalizedEmail(email);
+        System.out.println("Auth 서비스용 사용자 조회: email=" + emailNorm);
         
-        User user = userRepository.findByEmail(email)
+        User user = userRepository.findByEmailIgnoreCase(emailNorm)
             .orElseThrow(() -> new DoranDoranException(ErrorCode.USER_NOT_FOUND));
         
         return convertToDtoWithPassword(user);
@@ -195,10 +202,14 @@ public class UserService {
     @Transactional
     public UserDto createOAuthUser(String email, String firstName, String lastName, String name,
                                    String picture, String provider, String oauthId, String birthDate) {
-        log.info("OAuth 사용자 생성 요청: email={}, provider={}", email, provider);
+        String emailNorm = normalizeEmail(email);
+        if (emailNorm == null || emailNorm.isEmpty()) {
+            throw new DoranDoranException(ErrorCode.INVALID_REQUEST, "이메일을 입력해주세요.");
+        }
+        log.info("OAuth 사용자 생성 요청: email={}, provider={}", emailNorm, provider);
         
         // 1. 이메일 중복 검사
-        if (userRepository.existsByEmail(email)) {
+        if (userRepository.existsByEmailIgnoreCase(emailNorm)) {
             throw new DoranDoranException(ErrorCode.EMAIL_ALREADY_EXISTS);
         }
         
@@ -222,7 +233,7 @@ public class UserService {
             // 4. 사용자 생성 (ACTIVE 상태로 바로 생성)
             User user = User.builder()
                     .id(UUID.randomUUID())
-                    .email(email)
+                    .email(emailNorm)
                     .firstName(firstName != null ? firstName : "")
                     .lastName(lastName != null ? lastName : "")
                     .name(name != null ? name : ((firstName != null ? firstName : "") + " " + (lastName != null ? lastName : "")).trim())
@@ -279,8 +290,9 @@ public class UserService {
             throw new DoranDoranException(ErrorCode.INVALID_REQUEST, "올바른 이메일 형식이 아닙니다.");
         }
         
-        boolean exists = userRepository.existsByEmail(email);
-        log.info("이메일 중복확인 결과: email={}, exists={}", email, exists);
+        String emailNorm = normalizeEmail(email);
+        boolean exists = userRepository.existsByEmailIgnoreCase(emailNorm);
+        log.info("이메일 중복확인 결과: email={}, exists={}", emailNorm, exists);
         
         return exists;
     }
@@ -289,13 +301,14 @@ public class UserService {
      * OAuth 사용자 여부 확인
      */
     public boolean isOAuthUser(String email) {
-        log.info("OAuth 사용자 여부 확인: email={}", email);
+        String emailNorm = requireNormalizedEmail(email);
+        log.info("OAuth 사용자 여부 확인: email={}", emailNorm);
         
-        User user = userRepository.findByEmail(email)
+        User user = userRepository.findByEmailIgnoreCase(emailNorm)
             .orElseThrow(() -> new DoranDoranException(ErrorCode.USER_NOT_FOUND));
         
         boolean isOAuth = user.getOauthProvider() != null;
-        log.info("OAuth 사용자 여부 확인 결과: email={}, isOAuth={}", email, isOAuth);
+        log.info("OAuth 사용자 여부 확인 결과: email={}, isOAuth={}", emailNorm, isOAuth);
         
         return isOAuth;
     }
@@ -339,12 +352,16 @@ public class UserService {
         User user = userRepository.findById(id)
             .orElseThrow(() -> new DoranDoranException(ErrorCode.USER_NOT_FOUND));
         
-        // 이메일 변경 시 중복 검사
-        if (request.email() != null && !request.email().equals(user.getEmail())) {
-            if (userRepository.existsByEmail(request.email())) {
-                throw new DoranDoranException(ErrorCode.EMAIL_ALREADY_EXISTS);
+        // 이메일 변경 시 중복 검사 및 소문자 저장
+        if (request.email() != null && !request.email().isBlank()) {
+            String newEmail = normalizeEmail(request.email());
+            String currentNorm = normalizeEmail(user.getEmail());
+            if (!newEmail.equals(currentNorm)) {
+                if (userRepository.existsByEmailIgnoreCase(newEmail)) {
+                    throw new DoranDoranException(ErrorCode.EMAIL_ALREADY_EXISTS);
+                }
             }
-            user.setEmail(request.email());
+            user.setEmail(newEmail);
         }
         
         // 정보 업데이트
@@ -491,7 +508,8 @@ public class UserService {
      */
     @Transactional
     public void resetPasswordByEmail(String email, String newPassword) {
-        User user = userRepository.findByEmail(email)
+        String emailNorm = requireNormalizedEmail(email);
+        User user = userRepository.findByEmailIgnoreCase(emailNorm)
             .orElseThrow(() -> new DoranDoranException(ErrorCode.USER_NOT_FOUND));
 
         validateBasicPasswordPolicy(newPassword);
@@ -680,5 +698,21 @@ public class UserService {
             log.error("이메일 찾기 중 예상치 못한 오류: error={}", e.getMessage(), e);
             throw new DoranDoranException(ErrorCode.INTERNAL_SERVER_ERROR, "이메일 찾기 중 오류가 발생했습니다.");
         }
+    }
+
+    /** 저장·조회 일관성을 위해 이메일 로컬/도메인을 소문자로 정규화 (앞뒤 공백 제거). */
+    private static String normalizeEmail(String email) {
+        if (email == null) {
+            return null;
+        }
+        return email.trim().toLowerCase(Locale.ROOT);
+    }
+
+    private static String requireNormalizedEmail(String email) {
+        String normalized = normalizeEmail(email);
+        if (normalized == null || normalized.isEmpty()) {
+            throw new DoranDoranException(ErrorCode.INVALID_REQUEST, "이메일을 입력해주세요.");
+        }
+        return normalized;
     }
 }
