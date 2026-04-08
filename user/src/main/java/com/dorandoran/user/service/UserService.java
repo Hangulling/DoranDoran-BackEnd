@@ -2,7 +2,10 @@ package com.dorandoran.user.service;
 
 import com.dorandoran.common.exception.DoranDoranException;
 import com.dorandoran.common.exception.ErrorCode;
+import com.dorandoran.user.dto.OnboardingSubmitRequest;
+import com.dorandoran.user.entity.OnboardingSurvey;
 import com.dorandoran.user.entity.User;
+import com.dorandoran.user.repository.OnboardingSurveyRepository;
 import com.dorandoran.user.repository.UserRepository;
 import com.dorandoran.user.repository.UserStatsRepository;
 import com.dorandoran.user.util.EmailMaskingUtil;
@@ -28,6 +31,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 /**
@@ -45,6 +49,9 @@ public class UserService {
     private final AuthServiceIntegration authServiceIntegration;
     private final UserWithdrawalArchiveService userWithdrawalArchiveService;
     private final UserStatsRepository userStatsRepository;
+    private final InterestService interestService;
+    private final NotificationSettingService notificationSettingService;
+    private final OnboardingSurveyRepository onboardingSurveyRepository;
     
     /**
      * 사용자 생성
@@ -626,22 +633,76 @@ public class UserService {
     }
     
     /**
-     * 사용자 온보딩 완료 여부 업데이트
+     * 사용자 온보딩 완료 여부 업데이트. 요청 본문이 있으면 관심 주제·알림·설문 행까지 함께 반영한다.
      */
     @Transactional
-    public UserDto updateOnboard(UUID userId) {
+    public UserDto updateOnboard(UUID userId, OnboardingSubmitRequest request) {
         log.info("사용자 온보딩 완료 업데이트: userId={}", userId);
-        
+
         User user = userRepository.findById(userId)
             .orElseThrow(() -> new DoranDoranException(ErrorCode.USER_NOT_FOUND));
-        
-        // 온보딩 완료로 업데이트
+
         user.updateOnboard(true);
         User savedUser = userRepository.save(user);
-        
+
+        if (request != null) {
+            if (request.getTopicKeys() != null) {
+                interestService.updateUserInterests(userId, request.getTopicKeys());
+            }
+            if (request.getPushEnabled() != null) {
+                notificationSettingService.updateSetting(userId, request.getPushEnabled());
+            }
+            if (hasOnboardingSurveyFields(request)) {
+                upsertOnboardingSurvey(userId, request);
+            }
+        }
+
         log.info("사용자 온보딩 완료 업데이트 완료: userId={}", userId);
-        
+
         return convertToDto(savedUser);
+    }
+
+    private static boolean hasOnboardingSurveyFields(OnboardingSubmitRequest r) {
+        return r.getReferralSource() != null
+            || r.getReferralOther() != null
+            || r.getKoreanLevel() != null
+            || r.getPurposeKey() != null
+            || (r.getPurposeKeys() != null && !r.getPurposeKeys().isEmpty())
+            || r.getPurposeOther() != null;
+    }
+
+    private void upsertOnboardingSurvey(UUID userId, OnboardingSubmitRequest req) {
+        OnboardingSurvey entity = onboardingSurveyRepository.findByUserId(userId)
+            .orElseGet(() -> OnboardingSurvey.builder().userId(userId).build());
+        if (req.getReferralSource() != null) {
+            entity.setReferralSource(req.getReferralSource());
+        }
+        if (req.getReferralOther() != null) {
+            entity.setReferralOther(req.getReferralOther());
+        }
+        if (req.getKoreanLevel() != null) {
+            entity.setKoreanLevel(req.getKoreanLevel());
+        }
+        String purpose = resolvePurposeKey(req);
+        if (purpose != null) {
+            entity.setPurposeKey(purpose);
+        }
+        if (req.getPurposeOther() != null) {
+            entity.setPurposeOther(req.getPurposeOther());
+        }
+        onboardingSurveyRepository.save(entity);
+    }
+
+    private static String resolvePurposeKey(OnboardingSubmitRequest req) {
+        if (req.getPurposeKeys() != null && !req.getPurposeKeys().isEmpty()) {
+            return req.getPurposeKeys().stream()
+                .filter(Objects::nonNull)
+                .map(String::trim)
+                .filter(s -> !s.isEmpty())
+                .findFirst()
+                .orElse(null);
+        }
+        return req.getPurposeKey();
     }
     
     /**

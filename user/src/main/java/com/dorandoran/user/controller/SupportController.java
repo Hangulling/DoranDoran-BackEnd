@@ -1,5 +1,6 @@
 package com.dorandoran.user.controller;
 
+import com.dorandoran.common.exception.ErrorCode;
 import com.dorandoran.common.response.ApiResponse;
 import com.dorandoran.user.dto.SupportCreateRequest;
 import com.dorandoran.user.dto.SupportCreateResponse;
@@ -7,7 +8,10 @@ import com.dorandoran.user.entity.SupportRequest;
 import com.dorandoran.user.service.SupportService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
@@ -23,6 +27,18 @@ import java.util.UUID;
 public class SupportController {
 
     private final SupportService supportService;
+
+    /**
+     * GET으로 URL만 열면 정적 리소스 폴백 → NoResourceFoundException → 기존에는 500으로 처리되던 케이스를 방지합니다.
+     * 실제 문의 접수는 POST만 지원합니다.
+     */
+    @GetMapping
+    public ResponseEntity<ApiResponse<Void>> supportGetNotAllowed() {
+        return ResponseEntity
+            .status(HttpStatus.METHOD_NOT_ALLOWED)
+            .header(HttpHeaders.ALLOW, "POST, OPTIONS")
+            .body(ApiResponse.error("문의 등록은 POST /api/support 만 지원합니다.", ErrorCode.INVALID_REQUEST.getCode()));
+    }
 
     @PostMapping
     public ResponseEntity<ApiResponse<SupportCreateResponse>> createSupport(

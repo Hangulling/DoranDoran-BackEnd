@@ -7,6 +7,7 @@ import com.dorandoran.shared.dto.UserWithPasswordDto;
 import com.dorandoran.shared.dto.ResetPasswordRequest;
 import com.dorandoran.shared.dto.FindEmailRequest;
 import com.dorandoran.shared.dto.FindEmailResponse;
+import com.dorandoran.user.dto.OnboardingSubmitRequest;
 import com.dorandoran.user.service.UserService;
 import com.dorandoran.common.response.ApiResponse;
 import com.dorandoran.common.exception.DoranDoranException;
@@ -264,7 +265,7 @@ public class UserController {
     /**
      * 사용자 온보딩 완료 업데이트
      */
-    @Operation(summary = "온보딩 완료", description = "사용자의 온보딩 완료 여부를 true로 업데이트합니다.")
+    @Operation(summary = "온보딩 완료", description = "온보딩 완료(is_onboard) 처리. 선택 본문으로 관심 주제(topicKeys), 알림(pushEnabled), 설문(유입·레벨·목적 등)을 함께 저장합니다.")
     @ApiResponses(value = {
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "온보딩 완료 업데이트 성공"),
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "사용자를 찾을 수 없음")
@@ -272,11 +273,12 @@ public class UserController {
     @PatchMapping("/{userId}/onboard")
     public ResponseEntity<ApiResponse<UserDto>> updateOnboard(
             @Parameter(description = "사용자 UUID", required = true)
-            @PathVariable String userId) {
+            @PathVariable String userId,
+            @RequestBody(required = false) OnboardingSubmitRequest body) {
         log.info("사용자 온보딩 완료 업데이트 요청: userId={}", userId);
         
         try {
-            UserDto updatedUser = userService.updateOnboard(UUID.fromString(userId));
+            UserDto updatedUser = userService.updateOnboard(UUID.fromString(userId), body);
             return ResponseEntity.ok(ApiResponse.success(updatedUser, "온보딩이 완료되었습니다."));
         } catch (IllegalArgumentException e) {
             log.error("잘못된 사용자 ID: userId={}, error={}", userId, e.getMessage());
