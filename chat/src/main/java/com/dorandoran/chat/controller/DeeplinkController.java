@@ -1,10 +1,7 @@
 package com.dorandoran.chat.controller;
 
 import com.dorandoran.chat.entity.ChatRoom;
-import com.dorandoran.chat.enums.ChatRoomConcept;
-import com.dorandoran.chat.repository.ChatRoomRepository;
 import com.dorandoran.chat.service.ChatService;
-import com.dorandoran.chat.service.GreetingService;
 import com.dorandoran.chat.service.dto.ChatRoomResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -31,8 +28,6 @@ import java.util.UUID;
 public class DeeplinkController {
 
     private final ChatService chatService;
-    private final ChatRoomRepository chatRoomRepository;
-    private final GreetingService greetingService;
 
     @GetMapping("/chatroom/create")
     @Operation(summary = "딥링크 채팅방 생성", description = "chatbotId, topic(선택), concept로 항상 새 채팅방을 생성합니다. intimacyLevel은 null로 설정되어 UI에서 선택 후 별도 API로 greeting을 시작합니다. X-User-Id 필수.")
@@ -54,7 +49,7 @@ public class DeeplinkController {
         String topicVal = (topic != null && !topic.isBlank()) ? topic : null;
         try {
             // intimacyLevel을 null로 설정하여 UI에서 선택하도록 함
-            ChatRoom room = chatService.createRoomWithTopic(uid, chatbotId, "새 대화", conceptStr, null, topicVal);
+            ChatRoom room = chatService.recreateRoom(uid, chatbotId, "새 대화", conceptStr, null, topicVal, null);
             log.info("딥링크 채팅방 새로 생성 완료 (intimacyLevel 미설정): userId={}, chatbotId={}, topic={}, roomId={}", uid, chatbotId, topicVal, room.getId());
             ChatRoomResponse response = toChatRoomResponse(room);
             return ResponseEntity.ok(response);

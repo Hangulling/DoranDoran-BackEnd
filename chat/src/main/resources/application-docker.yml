@@ -103,6 +103,10 @@ gateway:
     hmac-secret: ${GATEWAY_JWT_HMAC_SECRET:}
     skew-ms: 3600000
 
+# gateway.auth.deeplink-public 과 동시에 true일 때만 딥링크 채팅방 생성을 HMAC 없이 허용 (비권장)
+app:
+  deeplink-public: ${APP_DEEPLINK_PUBLIC:false}
+
 # Actuator 설정
 management:
   endpoints:

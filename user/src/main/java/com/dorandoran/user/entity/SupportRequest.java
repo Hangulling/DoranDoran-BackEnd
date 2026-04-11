@@ -7,6 +7,9 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
+import com.fasterxml.jackson.databind.JsonNode;
 
 import java.time.LocalDateTime;
 import java.util.UUID;
@@ -61,8 +64,25 @@ public class SupportRequest {
     @Column(name = "message_content", columnDefinition = "TEXT")
     private String messageContent;
 
+    @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "ai_response_snapshot", columnDefinition = "jsonb")
-    private String aiResponseSnapshot;
+    private JsonNode aiResponseSnapshot;
+
+    @Column(name = "status", nullable = false, length = 20)
+    @Builder.Default
+    private String status = "PENDING";
+
+    @Column(name = "answer_content", columnDefinition = "TEXT")
+    private String answerContent;
+
+    @Column(name = "answered_by", length = 100)
+    private String answeredBy;
+
+    @Column(name = "answered_at")
+    private LocalDateTime answeredAt;
+
+    @Column(name = "deleted_at")
+    private LocalDateTime deletedAt;
 
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)

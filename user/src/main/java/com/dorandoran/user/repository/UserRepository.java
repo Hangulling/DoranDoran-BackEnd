@@ -19,14 +19,14 @@ import java.util.UUID;
 public interface UserRepository extends JpaRepository<User, UUID> {
     
     /**
-     * 이메일로 사용자 조회
+     * 이메일로 사용자 조회 (대소문자 무시; 조회 전 소문자 정규화 권장)
      */
-    Optional<User> findByEmail(String email);
+    Optional<User> findByEmailIgnoreCase(String email);
     
     /**
-     * 이메일 존재 여부 확인
+     * 이메일 존재 여부 확인 (대소문자 무시)
      */
-    boolean existsByEmail(String email);
+    boolean existsByEmailIgnoreCase(String email);
     
     /**
      * 이름으로 사용자 검색 (LIKE 검색)

@@ -20,6 +20,9 @@ dependencies {
     // Web Client (Auth 서비스 통신용)
     implementation 'org.springframework.boot:spring-boot-starter-web'
 
+    // 메일 발송 (문의 답변 이메일)
+    implementation 'org.springframework.boot:spring-boot-starter-mail'
+
     // Firebase Admin SDK (FCM 전송)
     implementation 'com.google.firebase:firebase-admin:9.2.0'
     

@@ -4,7 +4,6 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.fasterxml.jackson.databind.SerializationFeature;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.RedisTemplate;
@@ -12,6 +11,7 @@ import org.springframework.stereotype.Service;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.util.Locale;
 import java.util.Optional;
 
 /**
@@ -44,9 +44,10 @@ public class EmailVerificationRedisService {
      */
     public void saveVerificationRequest(String email, String token) {
         try {
-            String key = VERIFICATION_PREFIX + email;
+            String norm = normalizeEmail(email);
+            String key = VERIFICATION_PREFIX + norm;
             VerificationData data = VerificationData.builder()
-                    .email(email)
+                    .email(norm)
                     .token(token)
                     .verified(false)
                     .createdAt(LocalDateTime.now())
@@ -57,7 +58,7 @@ public class EmailVerificationRedisService {
             Duration ttl = Duration.ofMinutes(expirationMinutes);
             
             redisTemplate.opsForValue().set(key, jsonValue, ttl);
-            log.info("이메일 인증 요청 저장: email={}, ttl={}분", email, expirationMinutes);
+            log.info("이메일 인증 요청 저장: email={}, ttl={}분", norm, expirationMinutes);
         } catch (JsonProcessingException e) {
             log.error("이메일 인증 요청 저장 실패: email={}, error={}", email, e.getMessage());
             throw new RuntimeException("이메일 인증 요청 저장 실패", e);
@@ -69,8 +70,9 @@ public class EmailVerificationRedisService {
      */
     public void markEmailVerified(String email) {
         try {
-            String key = VERIFICATION_PREFIX + email;
-            Optional<VerificationData> dataOpt = getVerificationData(email);
+            String norm = normalizeEmail(email);
+            String key = VERIFICATION_PREFIX + norm;
+            Optional<VerificationData> dataOpt = getVerificationData(norm);
             
             if (dataOpt.isPresent()) {
                 VerificationData data = dataOpt.get();
@@ -81,12 +83,12 @@ public class EmailVerificationRedisService {
                 long remainingSeconds = Duration.between(LocalDateTime.now(), data.getExpiresAt()).getSeconds();
                 if (remainingSeconds > 0) {
                     redisTemplate.opsForValue().set(key, jsonValue, Duration.ofSeconds(remainingSeconds));
-                    log.info("이메일 인증 완료 처리: email={}", email);
+                    log.info("이메일 인증 완료 처리: email={}", norm);
                 } else {
-                    log.warn("이메일 인증 만료됨: email={}", email);
+                    log.warn("이메일 인증 만료됨: email={}", norm);
                 }
             } else {
-                log.warn("인증 요청 정보를 찾을 수 없음: email={}", email);
+                log.warn("인증 요청 정보를 찾을 수 없음: email={}", norm);
             }
         } catch (JsonProcessingException e) {
             log.error("이메일 인증 완료 처리 실패: email={}, error={}", email, e.getMessage());
@@ -106,7 +108,8 @@ public class EmailVerificationRedisService {
      * 토큰 검증
      */
     public boolean verifyToken(String email, String token) {
-        Optional<VerificationData> dataOpt = getVerificationData(email);
+        String norm = normalizeEmail(email);
+        Optional<VerificationData> dataOpt = getVerificationData(norm);
         if (dataOpt.isEmpty()) {
             return false;
         }
@@ -115,13 +118,13 @@ public class EmailVerificationRedisService {
         
         // 토큰 일치 확인
         if (!data.getToken().equals(token)) {
-            log.warn("토큰 불일치: email={}", email);
+            log.warn("토큰 불일치: email={}", norm);
             return false;
         }
         
         // 만료 시간 확인
         if (data.getExpiresAt().isBefore(LocalDateTime.now())) {
-            log.warn("토큰 만료: email={}, expiresAt={}", email, data.getExpiresAt());
+            log.warn("토큰 만료: email={}, expiresAt={}", norm, data.getExpiresAt());
             return false;
         }
         
@@ -133,7 +136,8 @@ public class EmailVerificationRedisService {
      */
     private Optional<VerificationData> getVerificationData(String email) {
         try {
-            String key = VERIFICATION_PREFIX + email;
+            String norm = normalizeEmail(email);
+            String key = VERIFICATION_PREFIX + norm;
             String jsonValue = redisTemplate.opsForValue().get(key);
             
             if (jsonValue == null) {
@@ -152,9 +156,17 @@ public class EmailVerificationRedisService {
      * 인증 데이터 삭제
      */
     public void deleteVerificationData(String email) {
-        String key = VERIFICATION_PREFIX + email;
+        String norm = normalizeEmail(email);
+        String key = VERIFICATION_PREFIX + norm;
         redisTemplate.delete(key);
-        log.info("이메일 인증 데이터 삭제: email={}", email);
+        log.info("이메일 인증 데이터 삭제: email={}", norm);
+    }
+
+    private static String normalizeEmail(String email) {
+        if (email == null) {
+            return null;
+        }
+        return email.trim().toLowerCase(Locale.ROOT);
     }
     
     /**

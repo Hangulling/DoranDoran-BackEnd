@@ -67,24 +67,20 @@ public class ChatController {
         // SecurityContext에서 userId 우선 사용 (없으면 요청 바디)
         UUID userId = extractUserIdFromSecurityContext();
         if (userId == null) userId = request.getUserId();
-        // 기존 채팅방이 있는지 확인
-        boolean isNewRoom = !chatRoomRepository.findByUser_IdAndChatbot_IdAndIsDeletedFalse(userId, request.getChatbotId()).isPresent();
-        
-        ChatRoom room = chatService.getOrCreateRoom(
+        if (userId == null) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
+        }
+
+        ChatRoom room = chatService.recreateRoom(
             userId, 
             request.getChatbotId(), 
             request.getName(),
             request.getConcept(),
             request.getIntimacyLevel(),
+            null,
             request.getTestModel()
         );
-        
-        // 새로 생성된 채팅방에만 AI 인사말 발송 (임시 주석처리)
-        // if (isNewRoom) {
-        //     ChatRoomConcept concept = ChatRoomConcept.fromString(request.getConcept());
-        //     greetingService.sendGreeting(room.getId(), userId, concept, request.getIntimacyLevel());
-        // }
-        
+
         // concept와 intimacyLevel을 포함한 응답 생성
         return ResponseEntity.ok(toChatRoomResponse(room));
     }
@@ -552,13 +548,15 @@ public class ChatController {
         UUID uid = extractUserIdFromSecurityContext();
         if (uid == null) uid = request.getUserId();
         if (uid == null) return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
-        boolean isNewRoom = !chatRoomRepository.findByUser_IdAndChatbot_IdAndIsDeletedFalse(uid, request.getChatbotId()).isPresent();
-        ChatRoom room = chatService.getOrCreateRoom(uid, request.getChatbotId(), request.getName(), request.getConcept(), request.getIntimacyLevel());
-        // AI 인사말 발송 (임시 주석처리)
-        // if (isNewRoom) {
-        //     ChatRoomConcept concept = ChatRoomConcept.fromString(request.getConcept());
-        //     greetingService.sendGreeting(room.getId(), uid, concept, request.getIntimacyLevel());
-        // }
+        ChatRoom room = chatService.recreateRoom(
+            uid,
+            request.getChatbotId(),
+            request.getName(),
+            request.getConcept(),
+            request.getIntimacyLevel(),
+            null,
+            request.getTestModel()
+        );
         return ResponseEntity.ok(toChatRoomResponse(room));
     }
 

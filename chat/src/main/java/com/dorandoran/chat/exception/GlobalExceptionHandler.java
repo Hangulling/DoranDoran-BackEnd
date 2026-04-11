@@ -1,6 +1,7 @@
 package com.dorandoran.chat.exception;
 
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
@@ -113,6 +114,33 @@ public class GlobalExceptionHandler {
             .path(request.getDescription(false).replace("uri=", ""))
             .build();
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(error);
+    }
+
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ResponseEntity<ErrorResponse> handleDataIntegrityViolation(DataIntegrityViolationException ex, WebRequest request) {
+        String msg = ex.getMessage();
+        boolean duplicateChatroom = msg != null && msg.contains("idx_chatrooms_user_chatbot");
+        if (duplicateChatroom) {
+            log.warn("채팅방 중복 생성 충돌: {}", msg);
+            ErrorResponse error = ErrorResponse.builder()
+                .timestamp(LocalDateTime.now())
+                .status(HttpStatus.CONFLICT.value())
+                .error("Conflict")
+                .message("채팅방 생성 충돌이 발생했습니다. 다시 시도해주세요.")
+                .path(request.getDescription(false).replace("uri=", ""))
+                .build();
+            return ResponseEntity.status(HttpStatus.CONFLICT).body(error);
+        }
+
+        log.warn("데이터 무결성 오류: {}", msg);
+        ErrorResponse error = ErrorResponse.builder()
+            .timestamp(LocalDateTime.now())
+            .status(HttpStatus.BAD_REQUEST.value())
+            .error("Bad Request")
+            .message("데이터 무결성 검증에 실패했습니다.")
+            .path(request.getDescription(false).replace("uri=", ""))
+            .build();
+        return ResponseEntity.badRequest().body(error);
     }
 
     @ExceptionHandler(Exception.class)

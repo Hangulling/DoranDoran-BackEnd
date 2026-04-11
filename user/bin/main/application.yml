@@ -63,7 +63,7 @@ logging:
 
 gateway:
   jwt:
-    hmac-secret: 404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970
+    hmac-secret: ${GATEWAY_JWT_HMAC_SECRET:}
     skew-ms: 3600000
 
 # 서비스 간 통신 설정
@@ -74,6 +74,29 @@ auth:
 chat:
   service:
     url: ${CHAT_SERVICE_URL:http://localhost:8083}
+
+instagram:
+  enabled: ${INSTAGRAM_ENABLED:false}
+  access-token: ${INSTAGRAM_ACCESS_TOKEN:}
+  user-id: ${INSTAGRAM_USER_ID:}
+  refresh:
+    # Spring Cron 형식(6자리): 초 분 시 일 월 요일
+    # 기본값을 "매 1시간"으로 변경 (예: 매 시 정각)
+    cron: ${INSTAGRAM_REFRESH_CRON:0 0 * * * *}
+
+notification:
+  daily:
+    cron: ${NOTIFICATION_DAILY_CRON:0 0 9 * * *}
+
+firebase:
+  admin:
+    json: ${FIREBASE_ADMIN_JSON:}
+    json-base64: ${FIREBASE_ADMIN_JSON_BASE64:}
+
+app:
+  deeplink:
+    scheme: ${APP_DEEPLINK_SCHEME:dorandoran://chat}
+    universal-base: ${APP_DEEPLINK_UNIVERSAL_BASE:https://www.doran-chat.com/chat}
 
 # SpringDoc OpenAPI 설정
 springdoc:

@@ -17,6 +17,9 @@ public record AdminSupportSummaryResponse(
     LocalDateTime createdAt,
     Boolean replyRequested,
     UUID chatroomId,
-    UUID messageId
+    UUID messageId,
+    String status,
+    String answeredBy,
+    LocalDateTime answeredAt
 ) {
 }

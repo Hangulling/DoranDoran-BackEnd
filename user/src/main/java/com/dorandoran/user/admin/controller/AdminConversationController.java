@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
 
@@ -58,7 +59,8 @@ public class AdminConversationController {
                 if ("archive".equalsIgnoreCase(dataSource)) {
                     archiveUserEmail = userEmail;
                 } else {
-                    User user = userRepository.findByEmail(userEmail)
+                    User user = userRepository.findByEmailIgnoreCase(
+                            userEmail.trim().toLowerCase(Locale.ROOT))
                         .orElse(null);
                     if (user == null) {
                         return ResponseEntity.ok(Map.of(

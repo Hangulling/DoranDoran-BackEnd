@@ -6,11 +6,13 @@ import com.dorandoran.common.response.ApiResponse;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.validation.BindException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import java.util.stream.Collectors;
 
@@ -49,6 +51,22 @@ public class GlobalExceptionHandler {
         return ResponseEntity
             .badRequest()
             .body(ApiResponse.error(message, ErrorCode.VALIDATION_ERROR.getCode()));
+    }
+
+    @ExceptionHandler(NoResourceFoundException.class)
+    public ResponseEntity<ApiResponse<Void>> handleNoResourceFound(NoResourceFoundException ex) {
+        log.debug("리소스 없음: {}", ex.getResourcePath());
+        return ResponseEntity
+            .status(HttpStatus.NOT_FOUND)
+            .body(ApiResponse.error("요청한 경로를 찾을 수 없습니다.", ErrorCode.INVALID_REQUEST.getCode()));
+    }
+
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<ApiResponse<Void>> handleHttpMessageNotReadable(HttpMessageNotReadableException ex) {
+        log.warn("요청 본문 파싱 실패: {}", ex.getMessage());
+        return ResponseEntity
+            .badRequest()
+            .body(ApiResponse.error("요청 본문 형식이 올바르지 않습니다.", ErrorCode.INVALID_REQUEST.getCode()));
     }
 
     @ExceptionHandler(BindException.class)

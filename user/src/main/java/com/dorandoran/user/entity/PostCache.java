@@ -9,6 +9,8 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.time.LocalDateTime;
 
@@ -51,7 +53,8 @@ public class PostCache {
     private String coverImageUrl;
 
     /** [{ "type": "IMAGE"|"VIDEO", "url": "...", "thumbnailUrl": "..." }] */
-    @Column(name = "assets", columnDefinition = "JSONB")
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "assets", columnDefinition = "jsonb")
     private String assets;
 
     @CreationTimestamp

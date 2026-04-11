@@ -22,6 +22,10 @@ public class HmacAuthInterceptor implements HandlerInterceptor {
     @Value("${gateway.jwt.skew-ms:60000}")
     private long skewMs;
 
+    /** gateway.auth.deeplink-public 과 함께 true로 설정 시에만 사용. 쿼리 userId 위조 가능성 있음. */
+    @Value("${app.deeplink-public:false}")
+    private boolean deeplinkPublic;
+
     @Override
     public boolean preHandle(@NonNull jakarta.servlet.http.HttpServletRequest request, @NonNull jakarta.servlet.http.HttpServletResponse response, @NonNull Object handler) throws Exception {
         // 공개 엔드포인트는 통과
@@ -75,6 +79,9 @@ public class HmacAuthInterceptor implements HandlerInterceptor {
      * - Chat 헬스체크: 서비스 상태 확인
      */
     private boolean isExcludedPath(String path) {
+        if (deeplinkPublic && path.startsWith("/api/deeplink/chatroom")) {
+            return true;
+        }
         return path.startsWith("/actuator") || 
                path.equals("/") || 
                path.startsWith("/swagger-ui") || 

@@ -43,6 +43,11 @@ public class OnboardingSubmitRequest {
     @Size(max = 50)
     private String purposeKey;
 
+    /**
+     * 클라이언트(온보딩 UI)에서 보내는 복수 목적 키. 있으면 첫 값을 {@link #purposeKey}보다 우선해 DB 단일 컬럼에 저장.
+     */
+    private List<String> purposeKeys;
+
     /** 학습 목적 기타 (최대 80자) */
     @Size(max = 80)
     private String purposeOther;

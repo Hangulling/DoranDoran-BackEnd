@@ -165,6 +165,9 @@ gateway:
     hmac-secret: ${GATEWAY_JWT_HMAC_SECRET:}
     skew-ms: 3600000
 
+app:
+  deeplink-public: false
+
 # 프롬프트 파일 동기화 설정
 prompt:
   file:

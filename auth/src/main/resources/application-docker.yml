@@ -4,6 +4,10 @@ server:
 spring:
   application:
     name: auth-service
+  cloud:
+    openfeign:
+      okhttp:
+        enabled: true
   
   # Auth 서비스 공유 데이터베이스 설정
   datasource:
@@ -68,8 +72,8 @@ spring:
 email:
   verification:
     expiration-minutes: 5
-    frontend-url: ${FRONTEND_URL:http://localhost:5173}
     backend-url: ${BACKEND_URL:http://localhost:8081}
+    app-redirect-base: ${EMAIL_VERIFICATION_APP_REDIRECT:dorandoran://email-verified}
 
 # JWT 설정
 application:
@@ -131,7 +135,6 @@ google:
 
 # Firebase 설정 (환경변수로 주입)
 firebase:
-  admin-json-base64: ${FIREBASE_ADMIN_JSON_BASE64:}
   project-id: ${FIREBASE_PROJECT_ID:}
   client-email: ${FIREBASE_CLIENT_EMAIL:}
   private-key: ${FIREBASE_PRIVATE_KEY:}

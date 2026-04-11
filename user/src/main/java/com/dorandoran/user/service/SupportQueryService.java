@@ -1,7 +1,6 @@
 package com.dorandoran.user.service;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.dorandoran.common.exception.DoranDoranException;
 import com.dorandoran.common.exception.ErrorCode;
 import com.dorandoran.user.dto.SupportDetailResponse;
@@ -30,8 +29,6 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 @Slf4j
 public class SupportQueryService {
-
-    private static final ObjectMapper objectMapper = new ObjectMapper();
 
     private final SupportRequestRepository supportRequestRepository;
 
@@ -134,19 +131,10 @@ public class SupportQueryService {
                 request.getChatroomId(),
                 request.getMessageId(),
                 request.getMessageContent(),
-                toJsonNode(request.getAiResponseSnapshot()),
+                request.getAiResponseSnapshot(),
                 request.getRequesterEmail(),
                 request.getRequesterName()
         );
-    }
-
-    private static JsonNode toJsonNode(String s) {
-        if (s == null || s.isBlank()) return null;
-        try {
-            return objectMapper.readTree(s);
-        } catch (Exception e) {
-            return null;
-        }
     }
 
     private LocalDateTime parseDateTime(String dateStr) {

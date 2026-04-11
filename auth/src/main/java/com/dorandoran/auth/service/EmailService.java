@@ -1,6 +1,5 @@
 package com.dorandoran.auth.service;
 
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.mail.MailException;
@@ -26,7 +25,7 @@ public class EmailService {
     private String fromAddress;
 
     public void sendVerificationEmail(String toEmail, String verifyLink) {
-        String subject = "[Koach] 이메일 인증을 완료하세요";
+        String subject = "[Koach] Complete your email verification";
         String htmlBody = buildVerificationHtml(verifyLink);
 
         try {
@@ -57,7 +56,7 @@ public class EmailService {
      * 비밀번호 재설정 코드 발송
      */
     public void sendPasswordResetCode(String toEmail, String code) {
-        String subject = "[Koach] 비밀번호 재설정 인증 코드";
+        String subject = "[Koach] Password reset verification code";
         String htmlBody = buildPasswordResetCodeHtml(code);
 
         try {
@@ -85,7 +84,7 @@ public class EmailService {
 
     private String buildVerificationHtml(String link) {
         return "<!DOCTYPE html>\n" +
-                "<html lang=\"ko\">\n" +
+                "<html lang=\"en\">\n" +
                 "<head>\n" +
                 "    <meta charset=\"UTF-8\">\n" +
                 "    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n" +
@@ -96,12 +95,12 @@ public class EmailService {
                 "        <tr><td align=\"center\" style=\"padding:40px 20px;\">\n" +
                 "            <table class=\"card\" width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" style=\"max-width:600px;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 4px 24px rgba(108,81,240,0.12);\">\n" +
                 "                <tr><td class=\"accent-line\" style=\"height:4px;background:linear-gradient(90deg,#6C51F0,#8B7CF7);\"></td></tr>\n" +
-                "                <tr><td class=\"brand-bar\" style=\"background:#6C51F0;padding:20px;text-align:center;\"><div class=\"brand-name\" style=\"color:#fff;font-size:22px;font-weight:700;letter-spacing:-0.5px;\">Koach</div><div class=\"brand-sub\" style=\"color:rgba(255,255,255,0.9);font-size:12px;margin-top:4px;\">코치</div></td></tr>\n" +
+                "                <tr><td class=\"brand-bar\" style=\"background:#6C51F0;padding:20px;text-align:center;\"><div class=\"brand-name\" style=\"color:#fff;font-size:22px;font-weight:700;letter-spacing:-0.5px;\">Koach</div><div class=\"brand-sub\" style=\"color:rgba(255,255,255,0.9);font-size:12px;margin-top:4px;\">Coach</div></td></tr>\n" +
                 "                <tr><td align=\"center\" style=\"padding:40px 28px;\">\n" +
-                "                    <h1 style=\"margin:0 0 16px 0;font-size:20px;font-weight:600;color:#1f1f2e;\">이메일 인증을 완료하세요</h1>\n" +
-                "                    <p style=\"margin:0 0 32px 0;font-size:14px;line-height:1.6;color:#666;\">아래 버튼을 클릭하여 이메일 인증을 완료해 주세요.<br><span style=\"color:#6C51F0;font-weight:500;\">(5분 내 유효)</span></p>\n" +
+                "                    <h1 style=\"margin:0 0 16px 0;font-size:20px;font-weight:600;color:#1f1f2e;\">Complete your email verification</h1>\n" +
+                "                    <p style=\"margin:0 0 32px 0;font-size:14px;line-height:1.6;color:#666;\">Click the button below to verify your email address.<br><span style=\"color:#6C51F0;font-weight:500;\">(Valid for 5 minutes)</span></p>\n" +
                 "                    <table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\"><tr><td align=\"center\">\n" +
-                "                        <a href=\"" + link + "\" target=\"_self\" class=\"btn-primary\" style=\"display:inline-block;padding:14px 24px;background:#6C51F0;color:#fff;text-decoration:none;border-radius:8px;font-weight:600;font-size:14px;\"><span style=\"margin-right:8px;\">✓</span>이메일 인증하기</a>\n" +
+                "                        <a href=\"" + link + "\" target=\"_self\" class=\"btn-primary\" style=\"display:inline-block;padding:14px 24px;background:#6C51F0;color:#fff;text-decoration:none;border-radius:8px;font-weight:600;font-size:14px;\"><span style=\"margin-right:8px;\">✓</span>Verify email</a>\n" +
                 "                    </td></tr></table>\n" +
                 "                </td></tr>\n" +
                 "            </table>\n" +
@@ -113,7 +112,7 @@ public class EmailService {
     
     private String buildPasswordResetCodeHtml(String code) {
         return "<!DOCTYPE html>\n" +
-                "<html lang=\"ko\">\n" +
+                "<html lang=\"en\">\n" +
                 "<head>\n" +
                 "    <meta charset=\"UTF-8\">\n" +
                 "    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n" +
@@ -124,14 +123,14 @@ public class EmailService {
                 "        <tr><td align=\"center\" style=\"padding:40px 20px;\">\n" +
                 "            <table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" style=\"max-width:600px;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 4px 24px rgba(108,81,240,0.12);\">\n" +
                 "                <tr><td style=\"height:4px;background:linear-gradient(90deg,#6C51F0,#8B7CF7);\"></td></tr>\n" +
-                "                <tr><td class=\"brand-bar\" style=\"background:#6C51F0;padding:20px;text-align:center;\"><div class=\"brand-name\" style=\"color:#fff;font-size:22px;font-weight:700;letter-spacing:-0.5px;\">Koach</div><div style=\"color:rgba(255,255,255,0.9);font-size:12px;margin-top:4px;\">코치</div></td></tr>\n" +
+                "                <tr><td class=\"brand-bar\" style=\"background:#6C51F0;padding:20px;text-align:center;\"><div class=\"brand-name\" style=\"color:#fff;font-size:22px;font-weight:700;letter-spacing:-0.5px;\">Koach</div><div style=\"color:rgba(255,255,255,0.9);font-size:12px;margin-top:4px;\">Coach</div></td></tr>\n" +
                 "                <tr><td align=\"center\" style=\"padding:40px 28px;\">\n" +
-                "                    <h1 style=\"margin:0 0 16px 0;font-size:20px;font-weight:600;color:#1f1f2e;\">비밀번호 재설정 인증 코드</h1>\n" +
-                "                    <p style=\"margin:0 0 28px 0;font-size:14px;line-height:1.6;color:#666;\">아래 인증 코드를 앱에 입력하여 비밀번호를 재설정해 주세요.<br><span style=\"color:#6C51F0;font-weight:500;\">(5분 내 유효)</span></p>\n" +
+                "                    <h1 style=\"margin:0 0 16px 0;font-size:20px;font-weight:600;color:#1f1f2e;\">Password reset verification code</h1>\n" +
+                "                    <p style=\"margin:0 0 28px 0;font-size:14px;line-height:1.6;color:#666;\">Enter the code below in the app to reset your password.<br><span style=\"color:#6C51F0;font-weight:500;\">(Valid for 5 minutes)</span></p>\n" +
                 "                    <table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\"><tr><td align=\"center\" style=\"padding:0 0 28px 0;\">\n" +
                 "                        <div class=\"code-box\" style=\"display:inline-block;padding:20px 32px;background:#F5F3FF;border:2px solid #6C51F0;border-radius:10px;font-weight:700;font-size:32px;color:#6C51F0;letter-spacing:8px;\">" + code + "</div>\n" +
                 "                    </td></tr></table>\n" +
-                "                    <p style=\"margin:0;font-size:13px;color:#999;text-align:center;\">본인이 요청하지 않은 경우 이 메일을 무시하세요.</p>\n" +
+                "                    <p style=\"margin:0;font-size:13px;color:#999;text-align:center;\">If you didn't request this, you can ignore this email.</p>\n" +
                 "                </td></tr>\n" +
                 "            </table>\n" +
                 "        </td></tr>\n" +

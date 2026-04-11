@@ -4,6 +4,10 @@ server:
 spring:
   application:
     name: auth-service
+  cloud:
+    openfeign:
+      okhttp:
+        enabled: true
   
   # Flyway 설정
   flyway:
@@ -66,8 +70,9 @@ application:
 email:
   verification:
     expiration-minutes: 5
-    frontend-url: ${FRONTEND_URL:http://localhost:5173}
     backend-url: ${BACKEND_URL:http://localhost:8081}
+    # 인증 완료 후 무조건 앱으로 리디렉트 (앱 전용 기능)
+    app-redirect-base: ${EMAIL_VERIFICATION_APP_REDIRECT:dorandoran://email-verified}
 
 # 서비스 간 통신 설정
 user:
@@ -121,6 +126,14 @@ firebase:
   project-id: ${FIREBASE_PROJECT_ID:}
   client-email: ${FIREBASE_CLIENT_EMAIL:}
   private-key: ${FIREBASE_PRIVATE_KEY:}
+
+# Apple Sign In 설정
+# client-id: iOS 앱 Bundle ID 또는 Web용 Service ID (하나만 설정 시 사용)
+# client-ids: 여러 개일 경우 쉼표로 구분 (iOS Bundle ID, Web Service ID 등)
+apple:
+  oauth:
+    client-id: ${APPLE_OAUTH_CLIENT_ID:}
+    client-ids: ${APPLE_OAUTH_CLIENT_IDS:}
 
 # SpringDoc OpenAPI 설정
 springdoc:

@@ -4,7 +4,9 @@ import com.dorandoran.user.dto.PostAssetResponse;
 import com.dorandoran.user.dto.PostResponse;
 import com.dorandoran.user.dto.PostResponseV2;
 import com.dorandoran.user.entity.PostCache;
+import com.dorandoran.user.entity.SocialPostBackup;
 import com.dorandoran.user.repository.PostCacheRepository;
+import com.dorandoran.user.repository.SocialPostBackupRepository;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
@@ -17,11 +19,14 @@ import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponentsBuilder;
 
 import java.net.URI;
+import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 @Service
 @RequiredArgsConstructor
@@ -32,8 +37,14 @@ public class InstagramPostService {
     private static final String MEDIA_FIELDS = "id,caption,media_url,media_type,thumbnail_url,permalink,timestamp,children{media_type,media_url,thumbnail_url}";
     private static final String CHILDREN_FIELDS = "media_type,media_url,thumbnail_url";
 
+    // Instagram CDN signed URL query parameter: `oe` (hex string), which represents an expiry epoch seconds value.
+    // 만료 순간에 네트워크/캐시 지연이 생길 수 있어 약간의 버퍼를 두고 "임박"도 재발급 대상으로 처리한다.
+    private static final long SIGNED_URL_EXPIRE_SKEW_SECONDS = 60L * 5; // 5분
+    private static final Pattern OE_QUERY_PARAM_PATTERN = Pattern.compile("[?&]oe=([0-9a-fA-F]+)");
+
     private final RestTemplate restTemplate;
     private final PostCacheRepository postCacheRepository;
+    private final SocialPostBackupRepository socialPostBackupRepository;
     private final ObjectMapper objectMapper;
 
     @Value("${instagram.enabled:false}")
@@ -62,6 +73,11 @@ public class InstagramPostService {
     public Optional<PostResponse> getPostByExternalId(String externalId) {
         Optional<PostCache> cached = postCacheRepository.findById(externalId);
         if (cached.isPresent()) {
+            PostCache cache = cached.get();
+            if (isSignedUrlExpired(cache.getImageUrl())) {
+                Optional<PostCache> refreshed = fetchSingleFromInstagram(externalId);
+                return refreshed.map(this::mapToResponse).or(() -> cached.map(this::mapToResponse));
+            }
             return cached.map(this::mapToResponse);
         }
         if (!enabled || accessToken == null || accessToken.isBlank()) {
@@ -88,6 +104,11 @@ public class InstagramPostService {
     public Optional<PostResponseV2> getPostByExternalIdV2(String externalId) {
         Optional<PostCache> cached = postCacheRepository.findById(externalId);
         if (cached.isPresent()) {
+            PostCache cache = cached.get();
+            if (hasExpiredSignedUrl(cache)) {
+                Optional<PostCache> refreshed = fetchSingleFromInstagram(externalId);
+                return refreshed.map(this::mapToResponseV2).or(() -> cached.map(this::mapToResponseV2));
+            }
             return cached.map(this::mapToResponseV2);
         }
         if (!enabled || accessToken == null || accessToken.isBlank()) {
@@ -160,6 +181,62 @@ public class InstagramPostService {
             return;
         }
         fetchFromInstagram(6);
+        syncToBackup();
+    }
+
+    /**
+     * Instagram 피드를 social_posts_backup 테이블에 upsert. 반환값: 동기화된 건수.
+     */
+    @Transactional
+    @SuppressWarnings("unchecked")
+    public int syncToBackup() {
+        if (!enabled || accessToken == null || accessToken.isBlank()) {
+            log.info("Instagram 비활성화 또는 액세스 토큰 미설정. 백업 동기화 건너뜀.");
+            return 0;
+        }
+        try {
+            String target = (userId == null || userId.isBlank()) ? "me" : userId;
+            URI uri = UriComponentsBuilder.fromHttpUrl(GRAPH_API_BASE_URL + "/" + target + "/media")
+                .queryParam("fields", MEDIA_FIELDS)
+                .queryParam("access_token", accessToken)
+                .queryParam("limit", 50)
+                .build()
+                .encode()
+                .toUri();
+            Map<String, Object> response = restTemplate.getForObject(uri, Map.class);
+            if (response == null || !response.containsKey("data")) {
+                return 0;
+            }
+            List<Map<String, Object>> data = (List<Map<String, Object>>) response.get("data");
+            int count = 0;
+            for (Map<String, Object> item : data) {
+                String id = safeString(item.get("id"));
+                if (id == null || id.isBlank()) continue;
+
+                PostCache cache = buildPostCacheFromItem(id, item);
+                SocialPostBackup backup = socialPostBackupRepository
+                        .findBySourceDomainAndExternalId("INSTAGRAM", id)
+                        .orElse(SocialPostBackup.builder()
+                                .sourceDomain("INSTAGRAM")
+                                .externalId(id)
+                                .build());
+                backup.setTitle(cache.getTitle());
+                backup.setImageUrl(cache.getImageUrl());
+                backup.setDescription(cache.getDescription());
+                backup.setPermalink(cache.getPermalink());
+                backup.setPublishedAt(cache.getPublishedAt());
+                backup.setMediaType(cache.getMediaType());
+                backup.setCoverImageUrl(cache.getCoverImageUrl());
+                backup.setAssets(cache.getAssets());
+                socialPostBackupRepository.save(backup);
+                count++;
+            }
+            log.info("Instagram 백업 동기화 완료: {}건", count);
+            return count;
+        } catch (Exception e) {
+            log.error("Instagram 백업 동기화 실패: {}", e.getMessage(), e);
+            return 0;
+        }
     }
 
     private List<PostResponse> mapToResponses(List<PostCache> caches) {
@@ -365,6 +442,64 @@ public class InstagramPostService {
         try {
             return OffsetDateTime.parse(value).toLocalDateTime();
         } catch (Exception ex) {
+            return null;
+        }
+    }
+
+    private boolean hasExpiredSignedUrl(PostCache cache) {
+        if (cache == null) {
+            return false;
+        }
+        // 대표 이미지/커버 이미지
+        if (isSignedUrlExpired(cache.getImageUrl())) {
+            return true;
+        }
+        if (isSignedUrlExpired(cache.getCoverImageUrl())) {
+            return true;
+        }
+        // 캐러셀/비디오 assets에 포함된 모든 URL
+        for (PostAssetResponse asset : parseAssets(cache.getAssets())) {
+            if (isSignedUrlExpired(asset.url())) {
+                return true;
+            }
+            if (asset.thumbnailUrl() != null && isSignedUrlExpired(asset.thumbnailUrl())) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private boolean isSignedUrlExpired(String url) {
+        Long expiresAtEpochSeconds = extractOeEpochSeconds(url);
+        if (expiresAtEpochSeconds == null) {
+            // `oe`가 없는 URL이면 signed URL로 취급하지 않고 그대로 사용한다.
+            return false;
+        }
+
+        long nowEpochSeconds = Instant.now().getEpochSecond();
+        return expiresAtEpochSeconds <= (nowEpochSeconds + SIGNED_URL_EXPIRE_SKEW_SECONDS);
+    }
+
+    /**
+     * Instagram signed URL query param `oe` 값을 추출한다.
+     * - `oe`는 16진수(hex) 형태로 들어오며, 값 자체는 epoch seconds로 해석된다.
+     */
+    private Long extractOeEpochSeconds(String url) {
+        if (url == null || url.isBlank()) {
+            return null;
+        }
+
+        Matcher matcher = OE_QUERY_PARAM_PATTERN.matcher(url);
+        if (!matcher.find()) {
+            return null;
+        }
+
+        String oeHex = matcher.group(1);
+        try {
+            // `oe`는 hex로 들어온 epoch seconds 값
+            return Long.parseLong(oeHex, 16);
+        } catch (Exception e) {
+            log.debug("oe 파라미터 파싱 실패: oeHex={}, url={}", oeHex, url, e);
             return null;
         }
     }
