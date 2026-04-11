@@ -21,6 +21,10 @@ public record AdminSupportDetailResponse(
     UUID chatroomId,
     UUID messageId,
     String messageContent,
-    JsonNode aiResponseSnapshot
+    JsonNode aiResponseSnapshot,
+    String status,
+    String answerContent,
+    String answeredBy,
+    LocalDateTime answeredAt
 ) {
 }

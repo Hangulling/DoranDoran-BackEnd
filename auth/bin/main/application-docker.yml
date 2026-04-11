@@ -4,6 +4,10 @@ server:
 spring:
   application:
     name: auth-service
+  cloud:
+    openfeign:
+      okhttp:
+        enabled: true
   
   # Auth 서비스 공유 데이터베이스 설정
   datasource:
@@ -68,8 +72,8 @@ spring:
 email:
   verification:
     expiration-minutes: 5
-    frontend-url: ${FRONTEND_URL:http://localhost:5173}
     backend-url: ${BACKEND_URL:http://localhost:8081}
+    app-redirect-base: ${EMAIL_VERIFICATION_APP_REDIRECT:dorandoran://email-verified}
 
 # JWT 설정
 application:
@@ -119,16 +123,14 @@ logging:
 # Gateway HMAC 검증 설정
 gateway:
   jwt:
-    hmac-secret: 404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970
+    hmac-secret: ${GATEWAY_JWT_HMAC_SECRET:}
     skew-ms: 3600000
 
 # Google OAuth 2.0 설정 (환경변수로 주입)
 google:
   oauth:
-    # Web Client ID
     client-id: ${GOOGLE_OAUTH_CLIENT_ID:}
-    # Android Client IDs (쉼표로 구분)
-    android-client-ids: ${GOOGLE_OAUTH_ANDROID_CLIENT_IDS:7033117549-m863ru45qu4l8ham1796j357hi1jc3sp.apps.googleusercontent.com,7033117549-d7k7vr58pk5vhfjsatc1d09bfl2i5i12.apps.googleusercontent.com,29324186506-c971u3g05h8meusc6133888052r642r0.apps.googleusercontent.com}
+    android-client-ids: ${GOOGLE_OAUTH_ANDROID_CLIENT_IDS:}
     client-secret: ${GOOGLE_OAUTH_CLIENT_SECRET:}
 
 # Firebase 설정 (환경변수로 주입)

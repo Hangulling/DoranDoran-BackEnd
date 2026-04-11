@@ -17,6 +17,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -128,45 +129,44 @@ public class ChatService {
                                         String concept,
                                         Integer intimacyLevel,
                                         String topic) {
-        // User와 Chatbot 객체 조회
-        User user = userRepository.findById(userId)
-            .orElseThrow(() -> new RuntimeException("User not found: " + userId));
-        Chatbot chatbot = chatbotRepository.findById(chatbotId)
-            .orElseThrow(() -> new RuntimeException("Chatbot not found: " + chatbotId));
-
-        // UUID 충돌 방지: 기존 레코드와 겹치지 않을 때까지 생성
-        UUID roomId;
-        do {
-            roomId = UUID.randomUUID();
-        } while (chatRoomRepository.findById(roomId).isPresent());
-
-        // settings에 concept, topic 저장
-        ObjectNode settings = objectMapper.createObjectNode();
-        settings.put("concept", concept);
-        if (topic != null && !topic.isBlank()) {
-            settings.put("topic", topic);
-        }
-
-        ChatRoom room = ChatRoom.builder()
-            .id(roomId)
-            .user(user)
-            .chatbot(chatbot)
-            .name(name)
-            .settings(settings)
-            .isArchived(false)
-            .isDeleted(false)
-            .createdAt(LocalDateTime.now())
-            .updatedAt(LocalDateTime.now())
-            .build();
-
-        ChatRoom savedRoom = chatRoomRepository.save(room);
-
-        // intimacyLevel 이 지정된 경우에만 초기 IntimacyProgress 생성
+        ChatRoom savedRoom = createRoomInternal(userId, chatbotId, name, concept, topic, null);
         if (intimacyLevel != null) {
             initializeIntimacyProgress(savedRoom.getId(), userId, intimacyLevel);
         }
-
         return savedRoom;
+    }
+
+    /**
+     * 채팅방 진입 표준 로직:
+     * 기존 활성방이 있으면 아카이브 + 소프트삭제 후 신규 채팅방을 생성한다.
+     */
+    @Transactional
+    public ChatRoom recreateRoom(UUID userId,
+                                 UUID chatbotId,
+                                 String name,
+                                 String concept,
+                                 Integer intimacyLevel,
+                                 String topic,
+                                 String testModel) {
+        archiveAndSoftDeleteActiveRoom(userId, chatbotId);
+        try {
+            ChatRoom savedRoom = createRoomInternal(userId, chatbotId, name, concept, topic, testModel);
+            if (intimacyLevel != null) {
+                initializeIntimacyProgress(savedRoom.getId(), userId, intimacyLevel);
+            }
+            return savedRoom;
+        } catch (DataIntegrityViolationException e) {
+            if (!isDuplicateChatroomConstraint(e)) {
+                throw e;
+            }
+            log.warn("중복 채팅방 생성 충돌 감지, 재시도 수행: userId={}, chatbotId={}", userId, chatbotId);
+            archiveAndSoftDeleteActiveRoom(userId, chatbotId);
+            ChatRoom retryRoom = createRoomInternal(userId, chatbotId, name, concept, topic, testModel);
+            if (intimacyLevel != null) {
+                initializeIntimacyProgress(retryRoom.getId(), userId, intimacyLevel);
+            }
+            return retryRoom;
+        }
     }
 
     /**
@@ -585,6 +585,70 @@ public class ChatService {
         room.setSettings(settings);
         room.setUpdatedAt(LocalDateTime.now());
         chatRoomRepository.save(room);
+    }
+
+    private ChatRoom createRoomInternal(UUID userId,
+                                        UUID chatbotId,
+                                        String name,
+                                        String concept,
+                                        String topic,
+                                        String testModel) {
+        User user = userRepository.findById(userId)
+            .orElseThrow(() -> new RuntimeException("User not found: " + userId));
+        Chatbot chatbot = chatbotRepository.findById(chatbotId)
+            .orElseThrow(() -> new RuntimeException("Chatbot not found: " + chatbotId));
+
+        UUID roomId;
+        do {
+            roomId = UUID.randomUUID();
+        } while (chatRoomRepository.findById(roomId).isPresent());
+
+        ObjectNode settings = objectMapper.createObjectNode();
+        settings.put("concept", concept);
+        if (topic != null && !topic.isBlank()) {
+            settings.put("topic", topic);
+        }
+        if (testModel != null && !testModel.isBlank()) {
+            settings.put("testModel", testModel);
+        }
+
+        ChatRoom room = ChatRoom.builder()
+            .id(roomId)
+            .user(user)
+            .chatbot(chatbot)
+            .name(name)
+            .settings(settings)
+            .isArchived(false)
+            .isDeleted(false)
+            .createdAt(LocalDateTime.now())
+            .updatedAt(LocalDateTime.now())
+            .build();
+        return chatRoomRepository.save(room);
+    }
+
+    private void archiveAndSoftDeleteActiveRoom(UUID userId, UUID chatbotId) {
+        chatRoomRepository.findByUser_IdAndChatbot_IdAndIsDeletedFalse(userId, chatbotId)
+            .ifPresent(room -> {
+                room.setIsArchived(true);
+                room.setIsDeleted(true);
+                room.setUpdatedAt(LocalDateTime.now());
+                chatRoomRepository.save(room);
+                // partial unique index(user_id, chatbot_id where not is_deleted) 충돌 방지를 위해 즉시 반영
+                chatRoomRepository.flush();
+                log.info("기존 활성 채팅방 아카이브+삭제 처리: userId={}, chatbotId={}, roomId={}", userId, chatbotId, room.getId());
+            });
+    }
+
+    private boolean isDuplicateChatroomConstraint(DataIntegrityViolationException e) {
+        Throwable current = e;
+        while (current != null) {
+            String msg = current.getMessage();
+            if (msg != null && msg.contains("idx_chatrooms_user_chatbot")) {
+                return true;
+            }
+            current = current.getCause();
+        }
+        return false;
     }
 
     /**

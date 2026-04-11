@@ -7,6 +7,9 @@ import com.dorandoran.user.entity.SupportRequest;
 import com.dorandoran.user.entity.SupportRequest.SupportType;
 import com.dorandoran.user.repository.SupportRequestRepository;
 import com.dorandoran.user.repository.UserRepository;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -21,6 +24,7 @@ public class SupportService {
 
     private final SupportRequestRepository supportRequestRepository;
     private final UserRepository userRepository;
+    private final ObjectMapper objectMapper;
 
     @Transactional
     public SupportRequest createSupportRequest(UUID userId, String requesterEmail, String requesterName, SupportCreateRequest request) {
@@ -40,6 +44,7 @@ public class SupportService {
         String resolvedEmail = resolveEmail(userId, requesterEmail);
         String resolvedName = resolveName(userId, requesterName);
         boolean replyRequested = request.replyRequested() != null && request.replyRequested();
+        JsonNode aiResponseSnapshot = parseAiResponseSnapshot(request.aiResponseSnapshot());
 
         SupportRequest entity = SupportRequest.builder()
             .userId(userId)
@@ -53,7 +58,7 @@ public class SupportService {
             .chatroomId(request.chatroomId())
             .messageId(request.messageId())
             .messageContent(request.messageContent())
-            .aiResponseSnapshot(request.aiResponseSnapshot())
+            .aiResponseSnapshot(aiResponseSnapshot)
             .build();
 
         return supportRequestRepository.save(entity);
@@ -86,5 +91,16 @@ public class SupportService {
         return userRepository.findById(userId)
             .map(user -> user.getName())
             .orElse(null);
+    }
+
+    private JsonNode parseAiResponseSnapshot(String rawSnapshot) {
+        if (rawSnapshot == null || rawSnapshot.isBlank()) {
+            return null;
+        }
+        try {
+            return objectMapper.readTree(rawSnapshot);
+        } catch (JsonProcessingException ex) {
+            throw new DoranDoranException(ErrorCode.INVALID_REQUEST, "aiResponseSnapshot은 유효한 JSON 문자열이어야 합니다.");
+        }
     }
 }

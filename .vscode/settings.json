@@ -1,4 +1,9 @@
 {
     "java.configuration.updateBuildConfiguration": "interactive",
-    "java.compile.nullAnalysis.mode": "automatic"
+    "java.compile.nullAnalysis.mode": "automatic",
+    "editor.fontFamily": "Consolas, 'Courier New', monospace,  'Noto Sans KR', 'Malgun Gothic', 'Segoe UI'",
+    "files.autoGuessEncoding": true,
+    "java.project.encoding": "warning",
+    "files.autoSave": "afterDelay",
+    "files.autoSaveDelay": 1000
 }

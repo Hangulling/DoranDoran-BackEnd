@@ -1,0 +1,25 @@
+# Archive Only 모드 프로파일
+# 이 프로파일을 사용하면 ArchiveJob만 실행되고, 다른 작업들은 실행되지 않습니다.
+#
+# 사용법:
+#   java -jar batch.jar --spring.profiles.active=archive-only
+
+archive:
+  enabled: true
+  days-old: 90
+  limit: 100
+  job-name: "archive-only-job"
+
+# 다른 작업들은 명시적으로 false로 설정
+chatroom-cleanup:
+  enabled: false
+
+inactive-user:
+  enabled: false
+
+# BatchJobController 비활성화 (REST API를 통한 수동 실행 방지)
+batch:
+  controller:
+    enabled: false
+
+

@@ -85,12 +85,34 @@ spring:
           predicates:
             - Path=/api/notifications/**
           filters: []
+        - id: user-service-admin
+          uri: http://dorandoran-user:8082
+          predicates:
+            - Path=/api/admin/**
+          filters: []
+
+        # 딥링크: 채팅방 생성(Chat) — User의 /api/deeplink/route 보다 먼저 매칭되도록 상세 경로를 앞에 둠
+        - id: chat-service-deeplink-chatroom
+          uri: http://dorandoran-chat:8083
+          predicates:
+            - Path=/api/deeplink/chatroom/**
+          filters: []
+        - id: user-service-deeplink-route
+          uri: http://dorandoran-user:8082
+          predicates:
+            - Path=/api/deeplink/route
+          filters: []
         
         # Chat 서비스 라우팅
         - id: chat-service
           uri: http://dorandoran-chat:8083
           predicates:
             - Path=/api/chat/**
+          filters: []
+        - id: chat-service-ws
+          uri: http://dorandoran-chat:8083
+          predicates:
+            - Path=/ws/chat/**
           filters: []
 
         # Store 서비스 라우팅
@@ -155,6 +177,8 @@ gateway:
   auth:
     base-url: http://dorandoran-auth:8081
     validate-path: /api/auth/validate
+    # true 시 /api/deeplink/chatroom/** JWT 생략. Chat app.deeplink-public 과 함께 사용. 기본 비권장(쿼리 userId 위조 가능).
+    deeplink-public: false
     exclusions:
       - /actuator
       - /

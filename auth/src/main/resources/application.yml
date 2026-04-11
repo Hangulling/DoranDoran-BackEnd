@@ -110,10 +110,10 @@ logging:
 
 gateway:
   jwt:
-    hmac-secret: 404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970
+    hmac-secret: ${GATEWAY_JWT_HMAC_SECRET:}
     skew-ms: 3600000
 
-# Google OAuth 2.0 설정 (실제 값은 환경 변수 또는 로컬 전용 설정으로 주입)
+# Google OAuth 2.0 설정 (실제 값은 환경변수·도커 env로 주입)
 google:
   oauth:
     client-id: ${GOOGLE_OAUTH_CLIENT_ID:}
@@ -122,6 +122,7 @@ google:
 
 # Firebase 설정 (로컬 개발용, 프로덕션은 환경변수 사용)
 firebase:
+  admin-json-base64: ${FIREBASE_ADMIN_JSON_BASE64:}
   project-id: ${FIREBASE_PROJECT_ID:}
   client-email: ${FIREBASE_CLIENT_EMAIL:}
   private-key: ${FIREBASE_PRIVATE_KEY:}

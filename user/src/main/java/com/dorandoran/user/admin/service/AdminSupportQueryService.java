@@ -1,7 +1,6 @@
 package com.dorandoran.user.admin.service;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.dorandoran.common.exception.DoranDoranException;
 import com.dorandoran.common.exception.ErrorCode;
 import com.dorandoran.user.admin.dto.response.AdminSupportDetailResponse;
@@ -31,8 +30,6 @@ import java.util.stream.Collectors;
 @Slf4j
 public class AdminSupportQueryService {
 
-    private static final ObjectMapper objectMapper = new ObjectMapper();
-
     private final SupportRequestRepository supportRequestRepository;
 
     @Transactional(readOnly = true)
@@ -41,6 +38,7 @@ public class AdminSupportQueryService {
             UUID userId,
             String category,
             Boolean replyRequested,
+            String status,
             String from,
             String to,
             int page,
@@ -53,7 +51,8 @@ public class AdminSupportQueryService {
 
         Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
 
-        Specification<SupportRequest> spec = Specification.where(null);
+        Specification<SupportRequest> spec = Specification.where(
+                (root, query, cb) -> cb.isNull(root.get("deletedAt")));
 
         // type 필터
         if (type != null && !type.isBlank()) {
@@ -78,6 +77,15 @@ public class AdminSupportQueryService {
         // replyRequested 필터
         if (replyRequested != null) {
             spec = spec.and((root, query, cb) -> cb.equal(root.get("replyRequested"), replyRequested));
+        }
+
+        // status 필터
+        if (status != null && !status.isBlank()) {
+            String upperStatus = status.trim().toUpperCase();
+            if (!upperStatus.equals("PENDING") && !upperStatus.equals("COMPLETED")) {
+                throw new DoranDoranException(ErrorCode.INVALID_REQUEST, "status는 PENDING 또는 COMPLETED 이어야 합니다.");
+            }
+            spec = spec.and((root, query, cb) -> cb.equal(root.get("status"), upperStatus));
         }
 
         // 날짜 필터
@@ -132,7 +140,10 @@ public class AdminSupportQueryService {
                 request.getCreatedAt(),
                 request.isReplyRequested(),
                 request.getChatroomId(),
-                request.getMessageId()
+                request.getMessageId(),
+                request.getStatus(),
+                request.getAnsweredBy(),
+                request.getAnsweredAt()
         );
     }
 
@@ -151,17 +162,12 @@ public class AdminSupportQueryService {
                 request.getChatroomId(),
                 request.getMessageId(),
                 request.getMessageContent(),
-                toJsonNode(request.getAiResponseSnapshot())
+                request.getAiResponseSnapshot(),
+                request.getStatus(),
+                request.getAnswerContent(),
+                request.getAnsweredBy(),
+                request.getAnsweredAt()
         );
-    }
-
-    private static JsonNode toJsonNode(String s) {
-        if (s == null || s.isBlank()) return null;
-        try {
-            return objectMapper.readTree(s);
-        } catch (Exception e) {
-            return null;
-        }
     }
 
     private LocalDateTime parseDateTime(String dateStr) {

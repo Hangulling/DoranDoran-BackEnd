@@ -4,7 +4,9 @@ import com.dorandoran.user.dto.PostAssetResponse;
 import com.dorandoran.user.dto.PostResponse;
 import com.dorandoran.user.dto.PostResponseV2;
 import com.dorandoran.user.entity.PostCache;
+import com.dorandoran.user.entity.SocialPostBackup;
 import com.dorandoran.user.repository.PostCacheRepository;
+import com.dorandoran.user.repository.SocialPostBackupRepository;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
@@ -42,6 +44,7 @@ public class InstagramPostService {
 
     private final RestTemplate restTemplate;
     private final PostCacheRepository postCacheRepository;
+    private final SocialPostBackupRepository socialPostBackupRepository;
     private final ObjectMapper objectMapper;
 
     @Value("${instagram.enabled:false}")
@@ -178,6 +181,62 @@ public class InstagramPostService {
             return;
         }
         fetchFromInstagram(6);
+        syncToBackup();
+    }
+
+    /**
+     * Instagram 피드를 social_posts_backup 테이블에 upsert. 반환값: 동기화된 건수.
+     */
+    @Transactional
+    @SuppressWarnings("unchecked")
+    public int syncToBackup() {
+        if (!enabled || accessToken == null || accessToken.isBlank()) {
+            log.info("Instagram 비활성화 또는 액세스 토큰 미설정. 백업 동기화 건너뜀.");
+            return 0;
+        }
+        try {
+            String target = (userId == null || userId.isBlank()) ? "me" : userId;
+            URI uri = UriComponentsBuilder.fromHttpUrl(GRAPH_API_BASE_URL + "/" + target + "/media")
+                .queryParam("fields", MEDIA_FIELDS)
+                .queryParam("access_token", accessToken)
+                .queryParam("limit", 50)
+                .build()
+                .encode()
+                .toUri();
+            Map<String, Object> response = restTemplate.getForObject(uri, Map.class);
+            if (response == null || !response.containsKey("data")) {
+                return 0;
+            }
+            List<Map<String, Object>> data = (List<Map<String, Object>>) response.get("data");
+            int count = 0;
+            for (Map<String, Object> item : data) {
+                String id = safeString(item.get("id"));
+                if (id == null || id.isBlank()) continue;
+
+                PostCache cache = buildPostCacheFromItem(id, item);
+                SocialPostBackup backup = socialPostBackupRepository
+                        .findBySourceDomainAndExternalId("INSTAGRAM", id)
+                        .orElse(SocialPostBackup.builder()
+                                .sourceDomain("INSTAGRAM")
+                                .externalId(id)
+                                .build());
+                backup.setTitle(cache.getTitle());
+                backup.setImageUrl(cache.getImageUrl());
+                backup.setDescription(cache.getDescription());
+                backup.setPermalink(cache.getPermalink());
+                backup.setPublishedAt(cache.getPublishedAt());
+                backup.setMediaType(cache.getMediaType());
+                backup.setCoverImageUrl(cache.getCoverImageUrl());
+                backup.setAssets(cache.getAssets());
+                socialPostBackupRepository.save(backup);
+                count++;
+            }
+            log.info("Instagram 백업 동기화 완료: {}건", count);
+            return count;
+        } catch (Exception e) {
+            log.error("Instagram 백업 동기화 실패: {}", e.getMessage(), e);
+            return 0;
+        }
     }
 
     private List<PostResponse> mapToResponses(List<PostCache> caches) {

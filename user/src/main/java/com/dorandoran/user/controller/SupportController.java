@@ -52,8 +52,15 @@ public class SupportController {
         }
         UUID userId;
         try {
-            userId = UUID.fromString(userIdHeader);
+            userId = UUID.fromString(userIdHeader.trim());
         } catch (IllegalArgumentException ex) {
+            String h = userIdHeader.trim();
+            log.warn(
+                "문의 API X-User-Id UUID 파싱 실패: len={}, commaSeparated={}, preview={}",
+                h.length(),
+                h.contains(","),
+                h.length() > 16 ? h.substring(0, 16) + "…" : h
+            );
             return ResponseEntity.badRequest().body(ApiResponse.error("사용자 ID 형식이 올바르지 않습니다."));
         }
 
