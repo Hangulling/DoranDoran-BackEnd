@@ -142,7 +142,7 @@ public class ChatLogService {
     Long messageCount = item.get("lastSequenceNumber") instanceof Number
         ? ((Number) item.get("lastSequenceNumber")).longValue() : null;
 
-    return new ChatLogListResponse(chatroomId, roomKey, null, intimacyLevel, lastMessageAt, messageCount, null);
+    return new ChatLogListResponse(chatroomId, null, roomKey, intimacyLevel, lastMessageAt, messageCount, null);
   }
 
   /**
